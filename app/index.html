@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Biometric Grid</title>
+<meta name="theme-color" content="#000a10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  html, body { margin: 0; height: 100%; background: #000a10; overflow: hidden; }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #000a10; }
+  #splash { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    background: radial-gradient(ellipse at 50% 38%, #062a3a 0, #000a10 60%); color: #c8fcff; z-index: 2; transition: opacity .4s;
+    font-family: "Courier New", Consolas, monospace; letter-spacing: 4px; text-shadow: 0 0 8px #00f0ff, 0 0 18px #00f0ff; }
+  #splash img { width: 96px; height: 96px; border-radius: 22px; box-shadow: 0 0 24px #00f0ff88; animation: pulse 1.6s ease-in-out infinite; }
+  #splash small { font-size: 11px; letter-spacing: 2px; color: #5f7f99; text-shadow: none; max-width: 260px; text-align: center; line-height: 1.6; }
+  @keyframes pulse { 50% { transform: scale(1.06); box-shadow: 0 0 40px #00f0ff; } }
+</style>
+</head>
+<body>
+<div id="splash"><img src="icon-192.png" alt=""><div>BIOMETRIC GRID</div><small id="msg">ENTERING THE GRID…</small></div>
+<iframe id="app" title="Biometric Grid" allow="clipboard-write"></iframe>
+<script>
+  // The app itself runs on Google Apps Script. This page shows it full screen, with its own icon and no browser bars.
+  var APP = 'https://script.google.com/macros/s/AKfycbzkB6BQSwbg0Zx0q7zFXK_UX1czTi0k2y4I6IMcTR3RhnZ7FkyplW8DZfKVkJAAEQ/exec';
+  var frame = document.getElementById('app'), splash = document.getElementById('splash');
+  function page() { return (location.hash || '#home').slice(1) || 'home'; }
+  function open(p) { splash.style.opacity = 1; splash.style.display = 'flex'; frame.src = APP + '?p=' + encodeURIComponent(p) + '&embed=1'; }
+  frame.addEventListener('load', function () { splash.style.opacity = 0; setTimeout(function () { splash.style.display = 'none'; }, 400); });
+  // The app's tab bar asks this page to switch pages, so you never leave the full-screen view.
+  window.addEventListener('message', function (e) {
+    var d = e.data || {};
+    if (d.bgNav && /^[a-z]+$/.test(d.bgNav)) { if (location.hash !== '#' + d.bgNav) history.pushState(null, '', '#' + d.bgNav); open(d.bgNav); }
+  });
+  window.addEventListener('popstate', function () { open(page()); });
+  setTimeout(function () { document.getElementById('msg').textContent = 'STILL LOADING… GOOGLE CAN TAKE A FEW SECONDS TO WAKE THE APP'; }, 7000);
+  open(page());
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>

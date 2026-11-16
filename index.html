@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Biometric Grid</title>
+<meta name="description" content="Evidence-based daily readiness, training load and performance for hybrid athletes, built on your intervals.icu data.">
+<meta name="theme-color" content="#000a10">
+<link rel="icon" href="favicon.png">
+<style>
+  :root { --cyan: #00f0ff; --dim: #8fc3d1; --panel: rgba(3,18,26,.88); color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #000a10; color: #e6fbff; font-family: "Segoe UI", Helvetica, Arial, sans-serif; font-size: 17px; line-height: 1.55; }
+  .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: radial-gradient(ellipse at 50% 30%, #062a3a 0, #000a10 60%); }
+  .floor { position: absolute; left: -60%; right: -60%; top: 48%; bottom: -30%;
+    background-image: linear-gradient(#00f0ff55 2px, transparent 2px), linear-gradient(90deg, #00f0ff44 2px, transparent 2px);
+    background-size: 46px 46px; transform: perspective(260px) rotateX(62deg); transform-origin: top; animation: rush 1.8s linear infinite;
+    -webkit-mask-image: linear-gradient(transparent, #000 30%); mask-image: linear-gradient(transparent, #000 30%); }
+  @keyframes rush { to { background-position: 0 46px; } }
+  main { max-width: 760px; margin: 0 auto; padding: 0 16px 60px; }
+  .mono { font-family: "Courier New", Consolas, monospace; letter-spacing: 3px; }
+  .hero { text-align: center; padding: 64px 0 40px; }
+  .hero img { width: 112px; height: 112px; border-radius: 26px; box-shadow: 0 0 30px #00f0ff88; }
+  h1 { font-family: "Courier New", Consolas, monospace; font-size: clamp(30px, 8vw, 52px); letter-spacing: 6px; margin: 22px 0 6px; color: #c8fcff;
+    text-shadow: 0 0 8px var(--cyan), 0 0 22px var(--cyan); }
+  .tag { color: var(--dim); font-size: 19px; max-width: 520px; margin: 0 auto; }
+  .btn { display: inline-block; margin-top: 28px; padding: 15px 28px; border: 2px solid var(--cyan); border-radius: 12px; color: var(--cyan); background: #001a22;
+    text-decoration: none; font-family: "Courier New", monospace; font-weight: 700; letter-spacing: 3px; box-shadow: 0 0 18px #00f0ff88; }
+  .btn:hover { box-shadow: 0 0 30px var(--cyan); }
+  .hint { font-size: 14px; color: #5f7f99; margin-top: 12px; }
+  h2 { font-family: "Courier New", monospace; font-size: 15px; letter-spacing: 4px; color: var(--cyan); margin: 48px 0 14px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1.5px solid #00f0ff66; border-radius: 16px; padding: 18px; box-shadow: 0 0 14px #00f0ff22; }
+  .card b { display: block; font-size: 18px; margin: 6px 0 4px; }
+  .card span { font-size: 28px; }
+  .card p { margin: 0; color: var(--dim); font-size: 15px; }
+  ul.ev { padding-left: 20px; color: var(--dim); font-size: 15px; }
+  ul.ev li { margin: 6px 0; }
+  .soon { text-align: center; border: 1.5px dashed #ff6a00; border-radius: 16px; padding: 22px; color: #ffd0b0; background: #1a0a0088; }
+  footer { text-align: center; color: #4f7d8c; font-size: 13px; padding: 30px 16px 40px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="bg"><div class="floor"></div></div>
+<main>
+  <section class="hero">
+    <img src="app/icon-192.png" alt="Biometric Grid icon">
+    <h1>BIOMETRIC GRID</h1>
+    <p class="tag">Know when to push and when to back off. Daily readiness, training load and performance for athletes who mix strength and endurance.</p>
+    <a class="btn" href="app/">▶ OPEN THE APP</a>
+    <div class="hint">On Android: open the app in Chrome, then ⋮ menu › Add to Home screen.</div>
+  </section>
+
+  <h2>◢ WHAT IT DOES</h2>
+  <div class="cards">
+    <div class="card"><span>🚦</span><b>Daily status</b><p>Go, OK, Caution or Go easy, from how you feel, your HRV trend and your sleep, each compared with your own normal.</p></div>
+    <div class="card"><span>📈</span><b>Training load</b><p>Fitness, fatigue and form per sport, planned vs actual load, and a countdown to your next test.</p></div>
+    <div class="card"><span>⚡</span><b>Performance</b><p>Power curve, FTP and VO2 tests, aerobic efficiency, decoupling and durability after 1500 kJ.</p></div>
+  </div>
+
+  <h2>◢ BUILT ON EVIDENCE</h2>
+  <ul class="ev">
+    <li>HRV-guided training with a 7-day rolling average against a personal baseline (Plews et al. 2013).</li>
+    <li>How you feel is weighted most: self-reported wellness tracks training stress better than objective markers (Saw et al. 2016).</li>
+    <li>Durability: how much power you keep late in a long ride (Maunder et al. 2021).</li>
+  </ul>
+
+  <h2>◢ COMING SOON</h2>
+  <div class="soon">Biometric Grid is in private testing. Sign-ups for early access will open here.</div>
+</main>
+<footer>Works with intervals.icu. Training guidance, not medical advice.</footer>
+</body>
+</html>
