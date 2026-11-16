@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Aevigor Beta</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#000a10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="/app/icon-192.png">
+<link rel="apple-touch-icon" href="/app/icon-192.png">
+<style>
+  :root { --bg: #000a10; --panel: #021722; --line: #0b3b4f; --cyan: #00f0ff; --text: #d6f6ff; --muted: #7d9cb0;
+    --good: #39ff9a; --ok: #00f0ff; --warn: #ffcc00; --bad: #ff3d3d; --orange: #ff6a00; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { min-height: 100vh; padding: env(safe-area-inset-top) 0 calc(76px + env(safe-area-inset-bottom)); }
+  .mono, h1, h2, .tag, button, .tabs a { font-family: "Courier New", Consolas, monospace; letter-spacing: 1px; }
+  header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 16px; background: rgba(0,10,16,.94); border-bottom: 1px solid var(--line); }
+  header .brand { font-weight: 700; letter-spacing: 4px; color: #c8fcff; text-shadow: 0 0 8px var(--cyan); }
+  header .brand small { font-size: 11px; color: var(--warn); text-shadow: none; letter-spacing: 1px; margin-left: 6px; }
+  main { max-width: 560px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 8px 0 12px; color: #c8fcff; text-shadow: 0 0 8px var(--cyan); }
+  h2 { font-size: 14px; margin: 0 0 8px; color: var(--cyan); }
+  p { margin: 0 0 12px; }
+  a { color: var(--cyan); }
+  .muted { color: var(--muted); font-size: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .status { text-align: center; border-width: 2px; }
+  .status .icon { font-size: 42px; line-height: 1; }
+  .status .head { font-size: 26px; font-weight: 700; margin: 6px 0 2px; }
+  .status .tag { font-size: 11px; color: var(--muted); }
+  .dl { display: grid; grid-template-columns: 74px 1fr; gap: 6px 10px; text-align: left; margin-top: 12px; font-size: 14px; }
+  .dl b { color: var(--muted); font-weight: 600; }
+  .line { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 15px; }
+  .line:first-of-type { border-top: 0; }
+  .line .v { text-align: right; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px; }
+  input, select, textarea { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: #000f17; color: var(--text); font: inherit; }
+  textarea { min-height: 80px; }
+  button { cursor: pointer; border-radius: 10px; border: 1px solid var(--cyan); background: transparent; color: var(--cyan); padding: 12px 16px; font-size: 14px; font-weight: 700; }
+  button.primary { background: var(--cyan); color: #00131c; width: 100%; margin-top: 14px; }
+  button.wide { width: 100%; margin-top: 10px; }
+  button.danger { border-color: var(--bad); color: var(--bad); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.sync { padding: 6px 12px; font-size: 12px; }
+  .google { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; background: #fff; color: #222; border-color: #fff; margin-top: 10px; }
+  .or { text-align: center; color: var(--muted); margin: 14px 0 0; font-size: 13px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > * { flex: 1; }
+  .opts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .opts.o3 { grid-template-columns: repeat(3, 1fr); }
+  .opts button { padding: 10px 4px; font-size: 12px; border-color: var(--line); color: var(--text); font-family: system-ui, sans-serif; letter-spacing: 0; font-weight: 500; }
+  .opts button.sel { border-color: var(--cyan); background: #003646; color: #fff; }
+  .q { margin-bottom: 14px; }
+  .q .lbl { font-size: 15px; margin-bottom: 6px; }
+  .msg { padding: 10px 12px; border-radius: 10px; margin: 10px 0; font-size: 14px; display: none; }
+  .msg.show { display: block; }
+  .msg.err { background: #3a0b0b; border: 1px solid var(--bad); }
+  .msg.ok { background: #062b1c; border: 1px solid var(--good); }
+  .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: grid; grid-template-columns: repeat(4, 1fr);
+    background: rgba(0,10,16,.97); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+  .tabs a { text-align: center; padding: 10px 4px 12px; text-decoration: none; color: var(--muted); font-size: 11px; }
+  .tabs a span { display: block; font-size: 20px; margin-bottom: 2px; font-family: system-ui; }
+  .tabs a.on { color: var(--cyan); text-shadow: 0 0 6px var(--cyan); }
+  .hidden { display: none !important; }
+  details { border-top: 1px solid var(--line); padding: 10px 0; }
+  details summary { cursor: pointer; font-weight: 600; }
+  ol li, ul li { margin-bottom: 6px; }
+  .check { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0; font-size: 15px; color: var(--text); }
+  .check input { width: 22px; height: 22px; flex: 0 0 22px; margin-top: 2px; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">AEVIGOR<small>BETA</small></div>
+  <button class="sync hidden" id="syncBtn" type="button">⟳ SYNC</button>
+</header>
+<main id="view" aria-live="polite"><p class="muted">Loading…</p></main>
+<nav class="tabs hidden" id="tabs">
+  <a href="#today" data-p="today"><span>🚦</span>TODAY</a>
+  <a href="#checkin" data-p="checkin"><span>📝</span>CHECK-IN</a>
+  <a href="#guide" data-p="guide"><span>📖</span>GUIDE</a>
+  <a href="#settings" data-p="settings"><span>⚙️</span>SETTINGS</a>
+</nav>
+<script src="config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

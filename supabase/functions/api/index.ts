@@ -1,0 +1,176 @@
+// Aevigor beta API (one Supabase edge function). Routes, all POST:
+//   /api/connect         save and test the person's intervals.icu API key, then sync
+//   /api/disconnect      forget the key
+//   /api/sync            the Sync button
+//   /api/checkin         save the daily check-in, copy it to intervals.icu, recompute today
+//   /api/delete-account  delete the account and every row of the person's data
+//   /api/cron            nightly sync of everyone (needs the x-cron-secret header)
+import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
+import { syncUser, todayIn } from '../_shared/sync.js';
+import { icu, athletePath, putWellness, IntervalsError } from '../_shared/intervals.js';
+import { encrypt, decrypt } from '../_shared/crypto.js';
+import { addDays } from '../_shared/rules.js';
+
+const ENC = Deno.env.get('BETA_ENCRYPTION_KEY') ?? '';
+const CRON_SECRET = Deno.env.get('BETA_CRON_SECRET') ?? '';
+const ORIGINS = (Deno.env.get('BETA_ALLOWED_ORIGINS') ?? 'https://aevigor.com,https://www.aevigor.com').split(',').map((s) => s.trim());
+const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+
+class HttpError extends Error { constructor(public status: number, msg: string) { super(msg); } }
+
+function cors(req: Request) {
+  const o = req.headers.get('origin') ?? '';
+  return {
+    'Access-Control-Allow-Origin': ORIGINS.includes(o) || /^http:\/\/localhost(:\d+)?$/.test(o) ? o : ORIGINS[0],
+    'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin'
+  };
+}
+
+const store = {
+  async checkins(userId: string, from: string) {
+    const { data, error } = await admin.from('checkins').select('*').eq('user_id', userId).gte('day', from);
+    if (error) throw error; return data ?? [];
+  },
+  async upsertWellness(rows: unknown[]) { const { error } = await admin.from('wellness').upsert(rows); if (error) throw error; },
+  async upsertStatus(rows: unknown[]) { const { error } = await admin.from('daily_status').upsert(rows); if (error) throw error; },
+  async updateProfile(userId: string, patch: Record<string, unknown>) { await admin.from('profiles').update(patch).eq('user_id', userId); }
+};
+
+async function currentUser(req: Request) {
+  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer /i, '');
+  if (!token) throw new HttpError(401, 'Please sign in again.');
+  const { data, error } = await admin.auth.getUser(token);
+  if (error || !data.user) throw new HttpError(401, 'Please sign in again.');
+  const { data: profile } = await admin.from('profiles').select('*').eq('user_id', data.user.id).single();
+  if (!profile) throw new HttpError(403, 'No profile found for this account.');
+  return { user: data.user, profile };
+}
+
+function needConsent(profile: { consent_at: string | null }) {
+  if (!profile.consent_at) throw new HttpError(403, 'Please review and accept the beta privacy notice first.');
+}
+
+async function keyFor(userId: string) {
+  const { data } = await admin.from('intervals_secrets').select('key_cipher').eq('user_id', userId).maybeSingle();
+  if (!data) throw new HttpError(409, 'Connect your intervals.icu account first (Settings).');
+  return await decrypt(data.key_cipher, ENC);
+}
+
+async function runSync(userId: string, profile: { intervals_athlete_id: string | null; time_zone: string }, key?: string) {
+  return await syncUser({
+    userId, key: key ?? await keyFor(userId), athleteId: profile.intervals_athlete_id ?? '0',
+    timeZone: profile.time_zone, store
+  });
+}
+
+function validTz(tz: unknown) {
+  if (typeof tz !== 'string' || tz.length > 64) return null;
+  try { new Intl.DateTimeFormat('en-CA', { timeZone: tz }); return tz; } catch { return null; }
+}
+
+const ANSWERS = ['sleep_quality', 'fatigue', 'soreness', 'stress', 'mood', 'motivation'] as const;
+
+const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
+  async connect(req, body) {
+    const { user, profile } = await currentUser(req); needConsent(profile);
+    const key = String(body.api_key ?? '').trim();
+    if (!/^[A-Za-z0-9]{10,100}$/.test(key)) throw new HttpError(400, 'That API key does not look right. Copy it again from intervals.icu.');
+    const wanted = String(body.athlete_id ?? '').trim() || '0';
+    const athlete = await icu(key, athletePath(wanted));          // proves the key works
+    const athleteId = String(athlete?.id ?? wanted);
+    await admin.from('intervals_secrets').upsert({ user_id: user.id, key_cipher: await encrypt(key, ENC), updated_at: new Date().toISOString() });
+    const tz = validTz(body.time_zone) ?? profile.time_zone;
+    const patch = { intervals_athlete_id: athleteId, intervals_connected_at: new Date().toISOString(), time_zone: tz };
+    await admin.from('profiles').update(patch).eq('user_id', user.id);
+    const sync = await runSync(user.id, { ...profile, ...patch }, key);
+    return { ok: true, athlete: { id: athleteId, name: athlete?.name ?? null }, sync };
+  },
+
+  async disconnect(req) {
+    const { user } = await currentUser(req);
+    await admin.from('intervals_secrets').delete().eq('user_id', user.id);
+    await admin.from('profiles').update({ intervals_athlete_id: null, intervals_connected_at: null }).eq('user_id', user.id);
+    return { ok: true };
+  },
+
+  async sync(req) {
+    const { user, profile } = await currentUser(req); needConsent(profile);
+    return await runSync(user.id, profile);
+  },
+
+  async checkin(req, body) {
+    const { user, profile } = await currentUser(req); needConsent(profile);
+    const today = todayIn(profile.time_zone);
+    const day = String(body.day ?? today);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > today || day < addDays(today, -2)) throw new HttpError(400, 'Check-ins can be saved for today or the two days before.');
+    const row: Record<string, unknown> = { user_id: user.id, day, updated_at: new Date().toISOString() };
+    for (const k of ANSWERS) {
+      const v = Number(body[k]);
+      row[k] = Number.isInteger(v) && v >= 1 && v <= 4 ? v : null;
+    }
+    row.sick = ['No', 'Mild', 'Yes'].includes(body.sick) ? body.sick : null;
+    row.notes = typeof body.notes === 'string' ? body.notes.slice(0, 2000) : null;
+    const { error } = await admin.from('checkins').upsert(row);
+    if (error) throw error;
+
+    // Copy to intervals.icu (not fatal if it fails: the check-in is already saved here)
+    let copied = false, sync = null;
+    try {
+      const key = await keyFor(user.id);
+      const icuBody: Record<string, unknown> = {};
+      const map = { sleep_quality: 'sleepQuality', fatigue: 'fatigue', soreness: 'soreness', stress: 'stress', mood: 'mood', motivation: 'motivation' } as const;
+      for (const k of ANSWERS) if (row[k] !== null) icuBody[map[k]] = row[k];
+      const sickNote = row.sick === 'Yes' ? 'Sick (below the neck)' : row.sick === 'Mild' ? 'Mild sickness (above the neck)' : '';
+      const comments = [sickNote, row.notes].filter(Boolean).join(' | ');
+      if (comments) icuBody.comments = comments;
+      await putWellness(key, profile.intervals_athlete_id ?? '0', day, icuBody);
+      copied = true;
+      sync = await runSync(user.id, profile, key);
+    } catch (e) {
+      if (!(e instanceof HttpError && e.status === 409)) console.warn('checkin follow-up failed', e);
+    }
+    return { ok: true, copied, sync };
+  },
+
+  async 'delete-account'(req, body) {
+    const { user } = await currentUser(req);
+    if (body.confirm !== 'DELETE') throw new HttpError(400, 'Type DELETE to confirm.');
+    // Every table references auth.users with ON DELETE CASCADE, so this removes all of the person's rows.
+    const { error } = await admin.auth.admin.deleteUser(user.id);
+    if (error) throw error;
+    return { ok: true };
+  },
+
+  async cron(req) {
+    if (!CRON_SECRET || req.headers.get('x-cron-secret') !== CRON_SECRET) throw new HttpError(401, 'Not allowed');
+    const { data: people } = await admin.from('profiles').select('*').not('intervals_connected_at', 'is', null).not('consent_at', 'is', null);
+    const results: Record<string, string> = {};
+    const queue = [...(people ?? [])];
+    await Promise.all(Array.from({ length: 4 }, async () => {
+      for (let p = queue.shift(); p; p = queue.shift()) {
+        try { const r = await runSync(p.user_id, p); results[p.user_id] = r.today?.status ?? 'no status yet'; }
+        catch (e) { results[p.user_id] = 'error: ' + String((e as Error).message).slice(0, 80); }
+      }
+    }));
+    return { ok: true, synced: Object.keys(results).length, results };
+  }
+};
+
+Deno.serve(async (req) => {
+  const headers = { ...cors(req), 'Content-Type': 'application/json' };
+  if (req.method === 'OPTIONS') return new Response('ok', { headers });
+  const name = new URL(req.url).pathname.split('/').filter(Boolean).pop() ?? '';
+  const route = routes[name];
+  if (req.method !== 'POST' || !route) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers });
+  try {
+    const body = await req.json().catch(() => ({}));
+    return new Response(JSON.stringify(await route(req, body)), { headers });
+  } catch (e) {
+    const status = e instanceof HttpError ? e.status : e instanceof IntervalsError ? (e.status === 401 || e.status === 403 ? 400 : 502) : 500;
+    if (status === 500) console.error(e);
+    const msg = status === 500 ? 'Something went wrong on our side. Please try again.' : (e as Error).message;
+    return new Response(JSON.stringify({ error: msg }), { status, headers });
+  }
+});
