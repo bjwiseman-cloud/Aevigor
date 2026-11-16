@@ -360,6 +360,7 @@ async function renderCheckin() {
   view.querySelectorAll('.opts button').forEach((b) => b.onclick = () => {
     vals[b.dataset.k] = b.dataset.k === 'sick' ? b.dataset.v : Number(b.dataset.v);
     b.parentNode.querySelectorAll('button').forEach((x) => x.classList.toggle('sel', x === b));
+    document.getElementById('m').className = 'msg';
   });
   document.getElementById('go').onclick = async (e) => {
     const answered = QUESTIONS.filter((q) => vals[q.key]).length;

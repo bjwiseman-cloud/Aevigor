@@ -1,0 +1,27 @@
+# Runs the beta's tests on every pull request and push. No secrets needed.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Status rules and sync
+        run: node tests/rules.test.mjs && node tests/sync.test.mjs
+      - name: App script parses
+        run: node --check beta/app.js
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: v2.x }
+      - name: Type-check the edge function
+        run: cd supabase/functions && deno check api/index.ts
+      - name: Database setup runs on Postgres
+        run: |
+          sudo systemctl start postgresql
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -q -f tests/supabase-stub.sql -f supabase/migrations/20261116000000_beta.sql -f tests/rls.test.sql
