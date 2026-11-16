@@ -61,3 +61,5 @@
   .toc { columns: 2; column-gap: 24px; padding-left: 20px; }
   @media (max-width: 560px) { .toc { columns: 1; } }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  ul.lib { padding-left: 20px; }
+  ul.lib li, .page ol li { font-size: 14px; margin: 6px 0; color: #cfe9f0; overflow-wrap: anywhere; }
