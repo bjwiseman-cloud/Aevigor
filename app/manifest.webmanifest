@@ -1,6 +1,6 @@
 {
-  "name": "Biometric Grid",
-  "short_name": "Grid",
+  "name": "Aevigor",
+  "short_name": "Aevigor",
   "description": "Daily readiness, training load and performance from your intervals.icu data.",
   "start_url": "./",
   "scope": "./",
