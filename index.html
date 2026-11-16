@@ -13,35 +13,7 @@
 <meta property="og:title" content="Aevigor · Train for decades, not seasons">
 <meta property="og:description" content="Evidence-based training, recovery and health tracking for longevity and performance.">
 <meta property="og:image" content="https://aevigor.com/app/icon-512.png">
-<style>
-  :root { --cyan: #00f0ff; --dim: #8fc3d1; --panel: rgba(3,18,26,.88); color-scheme: dark; }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: #000a10; color: #e6fbff; font-family: "Segoe UI", Helvetica, Arial, sans-serif; font-size: 17px; line-height: 1.55; }
-  .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: radial-gradient(ellipse at 50% 30%, #062a3a 0, #000a10 60%); }
-  #grid { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  main { max-width: 760px; margin: 0 auto; padding: 0 16px 60px; }
-  .mono { font-family: "Courier New", Consolas, monospace; letter-spacing: 3px; }
-  .hero { text-align: center; padding: 64px 0 40px; }
-  .hero img { width: 112px; height: 112px; border-radius: 26px; box-shadow: 0 0 30px #00f0ff88; }
-  h1 { font-family: "Courier New", Consolas, monospace; font-size: clamp(30px, 8vw, 52px); letter-spacing: 6px; margin: 22px 0 6px; color: #c8fcff;
-    text-shadow: 0 0 8px var(--cyan), 0 0 22px var(--cyan); }
-  .tag { color: var(--dim); font-size: 19px; max-width: 520px; margin: 0 auto; }
-  .btn { display: inline-block; margin-top: 28px; padding: 15px 28px; border: 2px solid var(--cyan); border-radius: 12px; color: var(--cyan); background: #001a22;
-    text-decoration: none; font-family: "Courier New", monospace; font-weight: 700; letter-spacing: 3px; box-shadow: 0 0 18px #00f0ff88; }
-  .btn:hover { box-shadow: 0 0 30px var(--cyan); }
-  .hint { font-size: 14px; color: #5f7f99; margin-top: 12px; }
-  h2 { font-family: "Courier New", monospace; font-size: 15px; letter-spacing: 4px; color: var(--cyan); margin: 48px 0 14px; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
-  .card { background: var(--panel); border: 1.5px solid #00f0ff66; border-radius: 16px; padding: 18px; box-shadow: 0 0 14px #00f0ff22; }
-  .card b { display: block; font-size: 18px; margin: 6px 0 4px; }
-  .card span { font-size: 28px; }
-  .card p { margin: 0; color: var(--dim); font-size: 15px; }
-  ul.ev { padding-left: 20px; color: var(--dim); font-size: 15px; }
-  ul.ev li { margin: 6px 0; }
-  .soon { text-align: center; border: 1.5px dashed #ff6a00; border-radius: 16px; padding: 22px; color: #ffd0b0; background: #1a0a0088; }
-  footer { text-align: center; color: #4f7d8c; font-size: 13px; padding: 30px 16px 40px; }
-  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
-</style>
+<link rel="stylesheet" href="site.css">
 </head>
 <body>
 <div class="bg"><canvas id="grid"></canvas></div>
@@ -55,51 +27,74 @@
     <div class="hint">On your phone: open the app, then Chrome menu › Add to Home screen.</div>
   </section>
 
-  <h2>◢ WHAT IT DOES</h2>
+    <h2>◢ WHAT IT DOES</h2>
   <div class="cards">
     <div class="card"><span>🚦</span><b>Daily status</b><p>Go, OK, Caution or Go easy, from how you feel, your HRV trend and your sleep, each compared with your own normal.</p></div>
-    <div class="card"><span>📈</span><b>Training load</b><p>Fitness, fatigue and form per sport, planned vs actual load, and a countdown to your next test.</p></div>
-    <div class="card"><span>🏋️</span><b>Longevity training</b><p>Cycling, strength and powerlifting, and racket sports: chosen to build fitness that lasts, with less impact.</p></div>
-    <div class="card"><span>⚡</span><b>Performance</b><p>Power curve, FTP and VO2 tests, aerobic efficiency, decoupling and durability after 1500 kJ.</p></div>
+    <div class="card"><span>📈</span><b>Training load</b><p>Monitor, track and analyse your load: fitness, fatigue and form per sport, planned vs actual load, and a countdown to your next test, race or event.</p></div>
+    <div class="card"><span>🌱</span><b>Built for longevity</b><p>Everything in Aevigor is designed around healthspan: training that keeps you strong, fit and moving well for decades. Cycling, running, strength training and racket sports, balanced to build fitness that lasts.</p></div>
+    <div class="card"><span>⚡</span><b>Performance</b><p>Monitor, track and analyse performance in every sport you train:</p>
+      <ul>
+        <li><b style="display:inline;font-size:15px">Cycling:</b> power curve, FTP and VO2 tests, aerobic efficiency, decoupling and durability after 1500 kJ.</li>
+        <li><b style="display:inline;font-size:15px">Running:</b> pace, threshold pace, heart rate vs pace efficiency and decoupling.</li>
+        <li><b style="display:inline;font-size:15px">Strength:</b> estimated 1-rep maxes for powerlifting, volume load (sets × reps × weight) for bodybuilding, and reps in reserve.</li>
+        <li><b style="display:inline;font-size:15px">Badminton:</b> session load (effort × minutes), time on court and heart rate during play.</li>
+      </ul></div>
+    <div class="card"><span class="pill">COMING SOON</span><span>💊</span><b>Supplements &amp; medication</b><p>Log what you take, the dose and when, and set reminders in the app. See trends alongside your training and recovery to understand how they may affect your performance.</p></div>
+    <div class="card"><span class="pill">COMING SOON</span><span>🩺</span><b>Medical information</b><p>Record, review and analyse your medical results, such as bloodwork and tests. Get reminders for upcoming appointments, procedures and tests.</p></div>
   </div>
 
+  <section class="narrow">
   <h2>◢ BUILT ON EVIDENCE</h2>
+  <p class="lead">All metrics and recommendations are based on peer-reviewed scientific literature. Where research doesn't exist yet, we use established coaching best practice, and we say so.</p>
   <ul class="ev">
-    <li>HRV-guided training with a 7-day rolling average against a personal baseline (Plews et al. 2013).</li>
-    <li>How you feel is weighted most: self-reported wellness tracks training stress better than objective markers (Saw et al. 2016).</li>
-    <li>Durability: how much power you keep late in a long ride (Maunder et al. 2021).</li>
+    <li><b>Readiness:</b> how you feel is weighted most, because self-reported wellness tracks training stress better than objective markers. HRV and resting heart rate are compared with your own 60-day normal using a 7-day trend.</li>
+    <li><b>Recovery:</b> sleep, sickness and overreaching signals follow sports-science consensus.</li>
+    <li><b>Training load:</b> fitness, fatigue and form use the impulse-response model, with session effort for lifting and racket sports.</li>
+    <li><b>Performance:</b> power profiling, aerobic efficiency, cardiovascular drift and durability research in cycling, plus reps in reserve and volume research in strength training.</li>
+    <li><b>Longevity:</b> the link between fitness, strength, cycling and racket sports and a longer, healthier life.</li>
   </ul>
+  <a class="more" href="research.html">▶ SEE EVERY FEATURE AND ITS SOURCES</a>
+  </section>
 
+  <section class="narrow">
   <h2>◢ COMING SOON</h2>
-  <div class="soon">Aevigor is in private testing. Sign-ups for early access will open here.</div>
+  <div class="soon">
+    Aevigor is in private testing. Join the waitlist for early access.
+    <form class="wait" id="wait" novalidate>
+      <div><label for="wn">Name</label><input type="text" id="wn" name="name" autocomplete="name" maxlength="80" required></div>
+      <div><label for="we">Email</label><input type="email" id="we" name="email" autocomplete="email" maxlength="120" required></div>
+      <div class="hp" aria-hidden="true"><label for="wc">Company</label><input type="text" id="wc" name="company" tabindex="-1" autocomplete="off"></div>
+      <label class="chk"><input type="checkbox" id="wk" name="consent" value="yes" required><span>Yes, Aevigor may email me about early access and updates. I can unsubscribe at any time. See the <a href="legal/privacy.html">privacy policy</a>.</span></label>
+      <button type="submit" id="wb">JOIN THE WAITLIST</button>
+      <div class="msg" id="wm" role="status"></div>
+    </form>
+  </div>
+  </section>
 </main>
-<footer>Works with intervals.icu. Training guidance, not medical advice.</footer>
+<footer>
+  <p><b>Disclaimer.</b> Aevigor provides general fitness information and training tools for education only. It is not medical advice and does not diagnose, treat, cure or prevent any disease or condition. Talk to a qualified health professional before you start or change exercise, supplements or medication. In an emergency, call 911. You use Aevigor at your own risk.</p>
+  <nav><a href="research.html">Research</a> · <a href="legal/medical.html">Medical disclaimer</a> · <a href="legal/terms.html">Terms of use</a> · <a href="legal/privacy.html">Privacy policy</a></nav>
+  <p class="copy">© 2026 Aevigor · Alberta, Canada · Works with intervals.icu. Not affiliated with intervals.icu, Garmin or Google.</p>
+</footer>
+<script src="bg.js"></script>
 <script>
-// Tron floor grid drawn on a canvas, one smooth frame at a time (lighter on phones than a CSS 3D layer).
+// Waitlist: sends name + email to the Aevigor waitlist sheet.
 (function () {
-  var c = document.getElementById('grid'), x = c.getContext('2d'), w, h, dpr, t0 = performance.now();
-  var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function size() { dpr = Math.min(window.devicePixelRatio || 1, 2); w = c.clientWidth; h = c.clientHeight; c.width = w * dpr; c.height = h * dpr; x.setTransform(dpr, 0, 0, dpr, 0, 0); }
-  function frame(now) {
-    var hz = h * 0.48, cx = w / 2, depth = h - hz, speed = 0.3, phase = still ? 0 : ((now - t0) / 1000 * speed) % 1;
-    x.clearRect(0, 0, w, h);
-    x.lineWidth = 1.5;
-    // Lines running toward the horizon
-    for (var i = -14; i <= 14; i++) {
-      var a = Math.abs(i) / 14;
-      x.strokeStyle = 'rgba(0,240,255,' + (0.38 - a * 0.18) + ')';
-      x.beginPath(); x.moveTo(cx + i * 6, hz); x.lineTo(cx + i * w * 0.16, h); x.stroke();
-    }
-    // Cross lines: evenly spaced in depth, so they speed up as they come toward you
-    for (var k = 0; k < 14; k++) {
-      var z = (k + 1 - phase) / 14, y = hz + depth * Math.pow(z, 1.8);
-      var alpha = Math.min(1, z * 1.6) * 0.5;
-      x.strokeStyle = 'rgba(0,240,255,' + alpha + ')';
-      x.beginPath(); x.moveTo(0, y); x.lineTo(w, y); x.stroke();
-    }
-    if (!still) requestAnimationFrame(frame);
-  }
-  size(); window.addEventListener('resize', size); requestAnimationFrame(frame);
+  var URL = ''; // Apps Script web app URL, set after deploy
+  var f = document.getElementById('wait'), m = document.getElementById('wm'), b = document.getElementById('wb');
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var n = f.name.value.trim(), em = f.email.value.trim();
+    if (!n) { m.textContent = 'Please add your name.'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { m.textContent = 'Please check your email address.'; return; }
+    if (!f.consent.checked) { m.textContent = 'Please tick the box so we can email you.'; return; }
+    if (!URL) { m.textContent = 'Sign-ups open very soon. Please check back.'; return; }
+    b.disabled = true; m.textContent = 'Sending…';
+    var body = new URLSearchParams({ name: n, email: em, consent: 'yes', company: f.company.value, page: location.pathname });
+    fetch(URL, { method: 'POST', mode: 'no-cors', body: body }).then(function () {
+      f.innerHTML = '<div class="msg">✓ You\'re on the list, ' + n.replace(/[<>&"]/g, '') + '. We\'ll email you when early access opens.</div>';
+    }).catch(function () { b.disabled = false; m.textContent = 'That didn\'t go through. Please try again.'; });
+  });
 })();
 </script>
 </body>
