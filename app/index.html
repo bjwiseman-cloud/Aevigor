@@ -29,13 +29,24 @@
   // The app itself runs on Google Apps Script. This page shows it full screen, with its own icon and no browser bars.
   var APP = 'https://script.google.com/macros/s/AKfycbzkB6BQSwbg0Zx0q7zFXK_UX1czTi0k2y4I6IMcTR3RhnZ7FkyplW8DZfKVkJAAEQ/exec';
   var frame = document.getElementById('app'), splash = document.getElementById('splash');
+  // The hash holds the page plus any settings, e.g. #trends&r=84
   function page() { return (location.hash || '#home').slice(1) || 'home'; }
-  function open(p) { splash.style.opacity = 1; splash.style.display = 'flex'; frame.src = APP + '?p=' + encodeURIComponent(p) + '&embed=1'; }
+  function open(h) {
+    var m = /^([a-z]+)((?:&[a-z0-9_]+=[A-Za-z0-9_.-]*)*)$/.exec(h) || [0, 'home', ''];
+    splash.style.opacity = 1; splash.style.display = 'flex';
+    var url = APP + '?p=' + m[1] + m[2] + '&embed=1';
+    // replace() keeps the frame out of the back-button history, so Back steps through pages once each
+    if (frame.src) { try { frame.contentWindow.location.replace(url); return; } catch (e) {} }
+    frame.src = url;
+  }
   frame.addEventListener('load', function () { splash.style.opacity = 0; setTimeout(function () { splash.style.display = 'none'; }, 400); });
   // The app's tab bar asks this page to switch pages, so you never leave the full-screen view.
   window.addEventListener('message', function (e) {
     var d = e.data || {};
-    if (d.bgNav && /^[a-z]+$/.test(d.bgNav)) { if (location.hash !== '#' + d.bgNav) history.pushState(null, '', '#' + d.bgNav); open(d.bgNav); }
+    if (!d.bgNav || !/^[a-z]+$/.test(d.bgNav)) return;
+    var h = d.bgNav + (/^(&[a-z0-9_]+=[A-Za-z0-9_.-]*)*$/.test(d.extra || '') ? d.extra || '' : '');
+    if (location.hash !== '#' + h) history.pushState(null, '', '#' + h);
+    open(h);
   });
   window.addEventListener('popstate', function () { open(page()); });
   setTimeout(function () { document.getElementById('msg').textContent = 'STILL LOADING… GOOGLE CAN TAKE A FEW SECONDS TO WAKE THE APP'; }, 7000);
