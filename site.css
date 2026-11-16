@@ -18,6 +18,8 @@
   .cards { display: grid; grid-template-columns: 1fr; gap: 14px; }
   @media (min-width: 620px) { .cards { grid-template-columns: repeat(2, 1fr); } }
   @media (min-width: 940px) { .cards { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 620px) and (max-width: 939px) { .cards > .card:last-child:nth-child(odd) { grid-column: 1 / -1; } }
+  @media (min-width: 940px) { .cards > .card:last-child:nth-child(3n+1) { grid-column: 1 / -1; } }
   .card { background: var(--panel); border: 1.5px solid #00f0ff66; border-radius: 16px; padding: 18px; box-shadow: 0 0 14px #00f0ff22; }
   .card b { display: block; font-size: 18px; margin: 6px 0 4px; }
   .card span { font-size: 28px; }
