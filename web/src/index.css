@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* shadcn/ui theme tokens: Aevigor's dark grid colours */
+@layer base {
+  :root {
+    --background: 200 100% 3%;
+    --foreground: 193 100% 92%;
+    --card: 199 89% 7%;
+    --card-foreground: 193 100% 92%;
+    --popover: 199 89% 7%;
+    --popover-foreground: 193 100% 92%;
+    --primary: 184 100% 50%;
+    --primary-foreground: 198 100% 6%;
+    --secondary: 196 100% 14%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 197 60% 11%;
+    --muted-foreground: 203 22% 59%;
+    --accent: 196 100% 14%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 100% 62%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 197 76% 18%;
+    --input: 197 76% 18%;
+    --ring: 184 100% 50%;
+    --radius: 0.75rem;
+  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground antialiased; }
+}

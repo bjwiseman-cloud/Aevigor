@@ -76,12 +76,13 @@ From Supabase › **Project Settings** › **API** (or **API Keys**), send in th
 - the **Project URL** (`https://….supabase.co`)
 - the **anon** / **publishable** key
 
-These are meant to be public: they only allow what the database's privacy rules allow. Claude puts them in `beta/config.js`.
+These are meant to be public: they only allow what the database's privacy rules allow. Claude puts them in `web/.env.production`.
 
 ## 9. Go live
 
-1. Merge the pull request. GitHub Pages publishes aevigor.com/beta and the "Beta server" workflow deploys the server code.
-2. GitHub › **Actions** › **Beta server** › check the run is green. If you added the secrets after merging, press **Run workflow** once.
+1. GitHub › `biometric-grid` › **Settings** › **Pages** › **Build and deployment** › Source: **GitHub Actions**. (The site is now built by a workflow, because the beta app needs a build step. The website itself doesn't change.)
+2. Merge the pull request. GitHub Pages publishes aevigor.com/beta and the "Beta server" workflow deploys the server code.
+3. GitHub › **Actions** › check that **Website** and **Beta server** are green. If you added the secrets after merging, press **Run workflow** once.
 
 ## 10. Invite people
 
