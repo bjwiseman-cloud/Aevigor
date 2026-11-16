@@ -40,6 +40,23 @@ export function Guide() {
               <AccordionTrigger>📈 Load vs plan</AccordionTrigger>
               <AccordionContent>If you plan workouts in intervals.icu, Aevigor compares the last 7 days of actual load with the plan. More than 20% above plan is flagged. Only sports you planned are counted.</AccordionContent>
             </AccordionItem>
+            <AccordionItem value="loadpage">
+              <AccordionTrigger>🏋️ Load page</AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <p><b>Fitness</b> (42-day weighted load), <b>Fatigue</b> (7-day) and <b>Form</b> (yesterday's Fitness minus Fatigue) are worked out the same way as intervals.icu, per sport (Cycling by default). After today they follow your planned workouts.</p>
+                <p><b>Form zones</b> match intervals.icu: below −30 high risk, −30 to −10 optimal, −10 to +5 grey zone, +5 to +20 fresh, above +20 transition. VO2 and FTP tests go best at Form +5 to +15.</p>
+                <p><b>Ramp rate</b>: Fitness change over 7 days. 3-7 a week is ideal, over 8 is too fast.</p>
+                <p><b>Tests</b> are found by name in your intervals.icu calendar: "FTP test", "VO2 test" (or "5 min test") and "Durability test".</p>
+                <p className="text-muted-foreground">Based on: <Pm q="Banister 1975 systems model training athletic performance">Banister 1975</Pm> · <Pm q="Gabbett 2016 training injury prevention paradox">Gabbett 2016</Pm> · <Pm q="Foster 2001 new approach monitoring exercise training session RPE">Foster 2001</Pm> (session RPE)</p>
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="trendspage">
+              <AccordionTrigger>📊 Trends page</AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <p>Six charts in order of weight: Feel, HRV, Sleep, Resting HR, Daily RPE and Training load. Each shows daily values, a bold 7-day line and your normal range. Drag the slider to read one morning's values next to the day before's effort and load.</p>
+                <p>These are patterns in your own data, not proof of cause.</p>
+              </AccordionContent>
+            </AccordionItem>
             <AccordionItem value="start">
               <AccordionTrigger>⏳ Getting started</AccordionTrigger>
               <AccordionContent className="space-y-2">

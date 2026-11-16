@@ -35,6 +35,16 @@ const store = {
   },
   async upsertWellness(rows: unknown[]) { const { error } = await admin.from('wellness').upsert(rows); if (error) throw error; },
   async upsertStatus(rows: unknown[]) { const { error } = await admin.from('daily_status').upsert(rows); if (error) throw error; },
+  async replaceLoad(userId: string, from: string, to: string, rows: unknown[]) {
+    const del = await admin.from('daily_load').delete().eq('user_id', userId).gte('day', from).lte('day', to);
+    if (del.error) throw del.error;
+    if (rows.length) { const { error } = await admin.from('daily_load').insert(rows); if (error) throw error; }
+  },
+  async replaceTests(userId: string, rows: unknown[]) {
+    const del = await admin.from('planned_tests').delete().eq('user_id', userId);
+    if (del.error) throw del.error;
+    if (rows.length) { const { error } = await admin.from('planned_tests').insert(rows); if (error) throw error; }
+  },
   async updateProfile(userId: string, patch: Record<string, unknown>) { await admin.from('profiles').update(patch).eq('user_id', userId); }
 };
 

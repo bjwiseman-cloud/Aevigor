@@ -17,7 +17,12 @@ globalThis.fetch = async (url, opts) => {
   if (u.pathname.endsWith('/wellness')) {
     for (let d = oldest; d <= day; d = addDays(d, 1)) body.push({ id: d, hrv: 65 + (d.charCodeAt(9) % 5), restingHR: 50, sleepSecs: 7.5 * 3600, fatigue: 2, soreness: 2, sleepQuality: 2, stress: 2, mood: 2 });
   } else if (u.pathname.endsWith('/activities')) body = [{ start_date_local: addDays(day, -2) + 'T08:00:00', type: 'Ride', icu_training_load: 300 }];
-  else if (u.pathname.endsWith('/events')) body = [{ start_date_local: addDays(day, -2) + 'T00:00:00', type: 'Ride', category: 'WORKOUT', icu_training_load: 100 }];
+  else if (u.pathname.endsWith('/events')) body = [
+    { start_date_local: addDays(day, -2) + 'T00:00:00', type: 'Ride', category: 'WORKOUT', icu_training_load: 100 },
+    { start_date_local: addDays(day, 9) + 'T00:00:00', type: 'VirtualRide', category: 'WORKOUT', name: 'FTP test 20 min', icu_training_load: 90 },
+    { start_date_local: addDays(day, 9) + 'T00:00:00', type: 'VirtualRide', category: 'WORKOUT', name: 'FTP test (copy)', icu_training_load: 0 },
+    { start_date_local: addDays(day, 3) + 'T00:00:00', type: 'Run', category: 'WORKOUT', icu_training_load: 40 },
+    { start_date_local: addDays(day, 4) + 'T00:00:00', category: 'NOTE', name: 'vo2 note not a workout' }];
   return new Response(JSON.stringify(body), { status: 200 });
 };
 
@@ -26,7 +31,9 @@ const store = {
   checkins: async () => [{ day, fatigue: 4, soreness: 2, sleep_quality: 2, stress: 2, mood: 2, sick: 'Mild' }],
   upsertWellness: async (rows) => { db.wellness.push(...rows); },
   upsertStatus: async (rows) => { db.status.push(...rows); },
-  updateProfile: async (_id, p) => Object.assign(db.profile, p)
+  updateProfile: async (_id, p) => Object.assign(db.profile, p),
+  replaceLoad: async (_id, from, to, rows) => { db.load = { from, to, rows }; },
+  replaceTests: async (_id, rows) => { db.tests = rows; }
 };
 const res = await syncUser({ userId: 'u1', key: 'abc123', athleteId: '0', timeZone: 'America/Edmonton', store, now });
 assert.ok(res.ok);
@@ -37,6 +44,14 @@ assert.equal(res.today.load.alert, true, '300 vs 100 planned -> load alert');
 assert.ok(calls.every((c) => c.auth === 'Basic ' + btoa('API_KEY:abc123')));
 assert.ok(calls.every((c) => c.url.includes('/athlete/0/')));
 assert.equal(db.profile.last_sync_error, null);
+// Load page data
+const ride2 = db.load.rows.find((r) => r.day === addDays(day, -2) && r.sport === 'ride');
+assert.deepEqual([ride2.actual, ride2.planned, ride2.sessions], [300, 100, 1]);
+assert.equal(db.load.rows.find((r) => r.day === addDays(day, 9)).planned, 90);
+assert.equal(db.load.rows.find((r) => r.day === addDays(day, 3)).sport, 'run');
+assert.ok(db.load.rows.every((r) => r.user_id === 'u1' && r.day >= db.load.from && r.day <= db.load.to));
+assert.deepEqual(db.tests.map((t) => [t.day, t.kind]), [[addDays(day, 9), 'FTP test']], 'one FTP test, notes ignored');
+assert.ok(calls.some((c) => c.url.includes('/events?oldest=' + addDays(day, -180) + '&newest=' + addDays(day, 42))));
 
 // mergeDays keeps intervals.icu answers when no check-in exists
 const m = mergeDays([{ day: '2026-11-01', hrv: 60, fatigue: 3 }], []);

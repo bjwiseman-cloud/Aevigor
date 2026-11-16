@@ -15,7 +15,7 @@ You never need to send Claude a password or secret key. The only two values to s
 ## 2. Create the database tables (5 min)
 
 1. In the project, open **SQL Editor** › **New query**.
-2. Open [the setup SQL file](../supabase/migrations/20261116000000_beta.sql), copy all of it, paste it in, and press **Run**. It should say "Success".
+2. Open [the first setup SQL file](../supabase/migrations/20261116000000_beta.sql), copy all of it, paste it in, and press **Run**. It should say "Success". Then do the same with [the second SQL file](../supabase/migrations/20261117000000_load.sql) (it adds the Load page tables).
 
 ## 3. Turn on invite-only sign-up (2 min)
 

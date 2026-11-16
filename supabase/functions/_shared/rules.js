@@ -178,3 +178,37 @@ export function loadVsPlan(day, acts, events) {
   });
   return { act, plan };
 }
+
+// ---------- Daily load per sport, for the Load and Trends pages ----------
+export const TEST_RE = { ftp: /ftp|20.?min.*(test|tt)/i, vo2: /vo2|5.?min.*test/i, dur: /durab/i };
+
+// Rows of { day, sport, actual, planned, rpe, sessions } for every day/sport with anything in it.
+export function dailyLoadRows(acts, events) {
+  const out = {};
+  const row = (day, sport) => out[day + '|' + sport] || (out[day + '|' + sport] = { day, sport, actual: 0, planned: 0, rpe: null, sessions: 0 });
+  (acts || []).forEach((a) => {
+    const day = String(a.start_date_local || '').slice(0, 10);
+    if (!day) return;
+    const r = row(day, sportOf(a.type));
+    r.actual += loadOf(a); r.sessions++;
+    const rpe = num(a.icu_rpe) || num(a.perceived_exertion);
+    if (rpe !== null && (r.rpe === null || rpe > r.rpe)) r.rpe = rpe;
+  });
+  (events || []).forEach((e) => {
+    if (e.category && e.category !== 'WORKOUT') return;
+    const day = String(e.start_date_local || '').slice(0, 10);
+    if (!day) return;
+    row(day, sportOf(e.type || 'Ride')).planned += num(e.icu_training_load) || num(e.load_target) || 0;
+  });
+  return Object.values(out).map((r) => ({ ...r, actual: Math.round(r.actual), planned: Math.round(r.planned) }));
+}
+
+// Planned tests found by name in the intervals.icu calendar, from `from` onwards
+export function plannedTests(events, from) {
+  return (events || []).filter((e) => !e.category || e.category === 'WORKOUT').map((e) => {
+    const name = String(e.name || ''), day = String(e.start_date_local || '').slice(0, 10);
+    const kind = TEST_RE.ftp.test(name) ? 'FTP test' : TEST_RE.vo2.test(name) ? 'VO2 test' : TEST_RE.dur.test(name) ? 'Durability test' : '';
+    return kind && day >= from ? { day, kind, name: name.slice(0, 120) } : null;
+  }).filter(Boolean).filter((t, i, all) => all.findIndex((x) => x.day === t.day && x.kind === t.kind) === i)
+    .sort((a, b) => (a.day < b.day ? -1 : 1));
+}

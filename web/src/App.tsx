@@ -11,6 +11,8 @@ import { Connect } from '@/screens/Connect';
 import { Today } from '@/screens/Today';
 import { CheckinPage } from '@/screens/Checkin';
 import { Guide } from '@/screens/Guide';
+import { Load } from '@/screens/Load';
+import { Trends } from '@/screens/Trends';
 import { Settings } from '@/screens/Settings';
 import { Message } from '@/screens/Message';
 import { Button } from '@/components/ui/button';
@@ -41,6 +43,8 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/today" element={connected ? <Today /> : <Navigate to="/connect" replace />} />
         <Route path="/checkin" element={connected ? <CheckinPage /> : <Navigate to="/connect" replace />} />
+        <Route path="/load" element={connected ? <Load /> : <Navigate to="/connect" replace />} />
+        <Route path="/trends" element={connected ? <Trends /> : <Navigate to="/connect" replace />} />
         <Route path="/guide" element={<Guide />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
