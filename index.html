@@ -12,11 +12,14 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: #000a10; color: #e6fbff; font-family: "Segoe UI", Helvetica, Arial, sans-serif; font-size: 17px; line-height: 1.55; }
   .bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: radial-gradient(ellipse at 50% 30%, #062a3a 0, #000a10 60%); }
-  .floor { position: absolute; left: -60%; right: -60%; top: 48%; bottom: -30%;
-    background-image: linear-gradient(#00f0ff55 2px, transparent 2px), linear-gradient(90deg, #00f0ff44 2px, transparent 2px);
-    background-size: 46px 46px; transform: perspective(260px) rotateX(62deg); transform-origin: top; animation: rush 1.8s linear infinite;
+  .floor { position: absolute; left: -60%; right: -60%; top: 48%; bottom: -30%; overflow: hidden;
+    transform: perspective(260px) rotateX(62deg); transform-origin: top;
     -webkit-mask-image: linear-gradient(transparent, #000 30%); mask-image: linear-gradient(transparent, #000 30%); }
-  @keyframes rush { to { background-position: 0 46px; } }
+  /* The grid moves with transform only (GPU), so it stays smooth on phones */
+  .floor i { position: absolute; left: 0; right: 0; top: -46px; bottom: 0; will-change: transform;
+    background-image: linear-gradient(#00f0ff55 2px, transparent 2px), linear-gradient(90deg, #00f0ff44 2px, transparent 2px);
+    background-size: 46px 46px; animation: rush 1.8s linear infinite; }
+  @keyframes rush { from { transform: translate3d(0,0,0); } to { transform: translate3d(0,46px,0); } }
   main { max-width: 760px; margin: 0 auto; padding: 0 16px 60px; }
   .mono { font-family: "Courier New", Consolas, monospace; letter-spacing: 3px; }
   .hero { text-align: center; padding: 64px 0 40px; }
@@ -42,7 +45,7 @@
 </style>
 </head>
 <body>
-<div class="bg"><div class="floor"></div></div>
+<div class="bg"><div class="floor"><i></i></div></div>
 <main>
   <section class="hero">
     <img src="app/icon-192.png" alt="Aevigor icon">
