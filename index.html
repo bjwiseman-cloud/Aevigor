@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aevigor · Train for decades, not seasons</title>
 <meta name="description" content="Aevigor: lifelong vigour. Evidence-based training, recovery and health tracking for longevity and performance.">
-<meta name="theme-color" content="#000a10">
+<meta name="theme-color" content="#f3eee3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171513" media="(prefers-color-scheme: dark)">
+<script>try{var t=localStorage.getItem("aev-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
 <link rel="icon" href="favicon.png">
 <link rel="canonical" href="https://aevigor.com/">
 <meta property="og:type" content="website">
@@ -16,41 +20,40 @@
 <link rel="stylesheet" href="site.css">
 </head>
 <body>
-<div class="bg"><canvas id="grid"></canvas></div>
 <main>
   <section class="hero">
-    <img src="app/icon-192.png" alt="Aevigor icon">
+    <div class="seal" role="img" aria-label="Aevigor longevity seal"><svg viewBox="0 0 512 512" aria-hidden="true"><g transform="translate(256 256) scale(0.58974) translate(-440 -425)" fill="none" stroke="currentColor" stroke-width="34" stroke-linejoin="miter" stroke-linecap="butt"><path d="M165.0 185 A365 365 0 0 1 715.0 185 M255 200 A469 469 0 0 1 625 200 M440 62 V200 M113.4 262 A365 365 0 0 0 75.5 445 L160 445 Q178 360 200 286 H680 Q702 360 720 445 L804.5 445 A365 365 0 0 0 766.6 262 M255 362 H418 M462 362 H625 M255 442 H625 M405 788.3 A365 365 0 0 1 95.3 545 H784.7 A365 365 0 0 1 475 788.3 M440 600 V812 M410 714 Q280 700 215 620 H678 L598 656 Q540 684 470 714"/></g></svg></div>
     <h1>AEVIGOR</h1>
-    <div class="mono" style="color:#8fc3d1;font-size:13px;margin-bottom:14px">AEVUM + VIGOR · LIFELONG VIGOUR</div>
+    <div class="mono">AEVUM + VIGOR · LIFELONG VIGOUR</div>
     <p class="tag">Train for decades, not seasons. Know when to push, maintain, go easy or rest, with evidence-based tracking for longevity and performance.</p>
-    <a class="btn" href="app/">▶ OPEN THE APP</a>
+    <a class="btn" href="app/">OPEN THE APP</a>
     <div class="hint">Private testing: sign-in required. Want early access? <a href="#wait">Join the waitlist</a>.</div>
   </section>
 
-    <h2>◢ WHAT IT DOES</h2>
+    <h2>WHAT IT DOES</h2>
   <div class="cards">
-    <div class="card"><span>🚦</span><b>Daily status</b><p>Go, OK, Caution or Go easy, from how you feel, your HRV trend and your sleep, each compared with your own normal.</p></div>
-    <div class="card"><span>📈</span><b>Training load</b><p>Monitor, track and analyse your load: fitness, fatigue and form per sport, planned vs actual load, and a countdown to your next test, race or event.</p></div>
-    <div class="card"><span>🌱</span><b>Built for longevity</b><p>Everything in Aevigor is designed around healthspan: training that keeps you strong, fit and moving well for decades. Cycling, running, strength training and racket sports, balanced to build fitness that lasts.</p></div>
-    <div class="card"><span>⚡</span><b>Performance</b><p>Monitor, track and analyse performance in every sport you train:</p>
+    <div class="card"><b>Daily status</b><p>Go, OK, Caution or Go easy, from how you feel, your HRV trend and your sleep, each compared with your own normal.</p></div>
+    <div class="card"><b>Training load</b><p>Monitor, track and analyse your load: fitness, fatigue and form per sport, planned vs actual load, and a countdown to your next test, race or event.</p></div>
+    <div class="card"><b>Built for longevity</b><p>Everything in Aevigor is designed around healthspan: training that keeps you strong, fit and moving well for decades. Cycling, running, strength training and racket sports, balanced to build fitness that lasts.</p></div>
+    <div class="card"><b>Performance</b><p>Monitor, track and analyse performance in every sport you train:</p>
       <ul>
-        <li><b style="display:inline;font-size:15px">Cycling:</b> power curve, FTP and VO2 tests, aerobic efficiency, decoupling and durability after 1500 kJ.</li>
-        <li><b style="display:inline;font-size:15px">Running:</b> pace, threshold pace, heart rate vs pace efficiency and decoupling.</li>
-        <li><b style="display:inline;font-size:15px">Strength:</b> estimated 1-rep maxes for powerlifting, volume load (sets × reps × weight) for bodybuilding, and reps in reserve.</li>
-        <li><b style="display:inline;font-size:15px">Badminton:</b> session load (effort × minutes), time on court and heart rate during play.</li>
+        <li><b style="display:inline;font-size:15px;font-weight:700">Cycling:</b> power curve, FTP and VO2 tests, aerobic efficiency, decoupling and durability after 1500 kJ.</li>
+        <li><b style="display:inline;font-size:15px;font-weight:700">Running:</b> pace, threshold pace, heart rate vs pace efficiency and decoupling.</li>
+        <li><b style="display:inline;font-size:15px;font-weight:700">Strength:</b> estimated 1-rep maxes for powerlifting, volume load (sets × reps × weight) for bodybuilding, and reps in reserve.</li>
+        <li><b style="display:inline;font-size:15px;font-weight:700">Badminton:</b> session load (effort × minutes), time on court and heart rate during play.</li>
       </ul></div>
-    <div class="card"><span class="pill">COMING SOON</span><span>🗓️</span><b>Training plans</b><p>Training plans built on Aevigor's evidence-based methods, for every sport you train:</p>
+    <div class="card"><span class="pill">COMING SOON</span><b>Training plans</b><p>Training plans built on Aevigor's evidence-based methods, for every sport you train:</p>
       <ul>
-        <li><b style="display:inline;font-size:15px">Strength:</b> powerlifting, bodybuilding, powerbuilding and general strength, run through Liftosaur, with your lifting recorded and analysed in Aevigor.</li>
-        <li><b style="display:inline;font-size:15px">Endurance:</b> cycling and running plans that sync to your intervals.icu calendar.</li>
-        <li><b style="display:inline;font-size:15px">Racket sports:</b> badminton and other racket sports.</li>
+        <li><b style="display:inline;font-size:15px;font-weight:700">Strength:</b> powerlifting, bodybuilding, powerbuilding and general strength, run through Liftosaur, with your lifting recorded and analysed in Aevigor.</li>
+        <li><b style="display:inline;font-size:15px;font-weight:700">Endurance:</b> cycling and running plans that sync to your intervals.icu calendar.</li>
+        <li><b style="display:inline;font-size:15px;font-weight:700">Racket sports:</b> badminton and other racket sports.</li>
       </ul></div>
-    <div class="card"><span class="pill">COMING SOON</span><span>💊</span><b>Medication &amp; supplement log</b><p>Log what you take, the dose and when, and set reminders. See your entries on a timeline next to your own training, sleep and HRV trends.</p><p class="hint" style="margin-top:8px">Aevigor doesn't recommend products, doses or changes. Not medical advice.</p></div>
-    <div class="card"><span class="pill">COMING SOON</span><span>🗂️</span><b>Health records log</b><p>Keep your own test results, such as bloodwork, in one place and see them on a timeline next to your training. Set reminders for appointments and tests.</p><p class="hint" style="margin-top:8px">Aevigor stores and charts what you enter. It doesn't interpret results. Not medical advice.</p></div>
+    <div class="card"><span class="pill">COMING SOON</span><b>Medication &amp; supplement log</b><p>Log what you take, the dose and when, and set reminders. See your entries on a timeline next to your own training, sleep and HRV trends.</p><p class="hint" style="margin-top:8px">Aevigor doesn't recommend products, doses or changes. Not medical advice.</p></div>
+    <div class="card"><span class="pill">COMING SOON</span><b>Health records log</b><p>Keep your own test results, such as bloodwork, in one place and see them on a timeline next to your training. Set reminders for appointments and tests.</p><p class="hint" style="margin-top:8px">Aevigor stores and charts what you enter. It doesn't interpret results. Not medical advice.</p></div>
   </div>
 
   <section class="narrow">
-  <h2>◢ BUILT ON EVIDENCE</h2>
+  <h2>BUILT ON EVIDENCE</h2>
   <p class="lead">All metrics and recommendations are based on peer-reviewed scientific literature. Where research doesn't exist yet, we use established coaching best practice, and we say so.</p>
   <ul class="ev">
     <li><b>Readiness:</b> how you feel is weighted most, because self-reported wellness tracks training stress better than objective markers. HRV and resting heart rate are compared with your own 60-day normal using a 7-day trend.</li>
@@ -59,11 +62,11 @@
     <li><b>Performance:</b> power profiling, aerobic efficiency, cardiovascular drift and durability research in cycling, plus reps in reserve and volume research in strength training.</li>
     <li><b>Longevity:</b> research linking fitness, strength, cycling and racket sports with a longer, healthier life. These studies show links, not proof that any app or plan will extend your life.</li>
   </ul>
-  <a class="more" href="research.html">▶ SEE EVERY FEATURE AND ITS SOURCES</a>
+  <a class="more" href="research.html">SEE EVERY FEATURE AND ITS SOURCES</a>
   </section>
 
   <section class="narrow">
-  <h2>◢ COMING SOON</h2>
+  <h2>COMING SOON</h2>
   <div class="soon">
     Aevigor is in private testing. Join the waitlist for early access.
     <form class="wait" id="wait" novalidate>
@@ -82,7 +85,7 @@
   <nav><a href="research.html">Research</a> · <a href="legal/medical.html">Medical disclaimer</a> · <a href="legal/terms.html">Terms of use</a> · <a href="legal/privacy.html">Privacy policy</a></nav>
   <p class="copy">© 2026 Aevigor · Alberta, Canada · Works with intervals.icu. Not affiliated with intervals.icu, Garmin or Google.</p>
 </footer>
-<script src="bg.js"></script>
+<script src="theme.js"></script>
 <script>
 // Waitlist: sends name + email to the Aevigor waitlist sheet.
 (function () {
