@@ -55,7 +55,7 @@ export function Consent() {
             <Label htmlFor="c2" className="leading-snug">I understand Aevigor gives training guidance, not medical advice, and this is an early test version that may have mistakes.</Label>
           </div>
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-          <Button className="w-full font-mono" onClick={agree} disabled={busy}>I agree</Button>
+          <Button className="w-full" onClick={agree} disabled={busy}>I agree</Button>
           <Button variant="outline" className="w-full" onClick={() => supabase.auth.signOut()}>Not now, sign out</Button>
         </CardContent>
       </Card>

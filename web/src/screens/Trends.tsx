@@ -68,7 +68,7 @@ export function Trends() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-mono text-xl text-primary">Trends</h1>
+        <h1 className="font-serif text-xl font-bold tracking-wide">Trends</h1>
         <ToggleGroup type="single" variant="outline" size="sm" value={weeks} onValueChange={(v) => v && setWeeks(v)}>
           <ToggleGroupItem value="4">4 wk</ToggleGroupItem>
           <ToggleGroupItem value="8">8 wk</ToggleGroupItem>

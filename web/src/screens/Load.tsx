@@ -9,6 +9,7 @@ import { C, HowToRead, Legend, axis, shortDay, tooltipStyle } from '@/components
 import { useDailyLoad, usePlannedTests, useProfile, LOAD_BACK, PLAN_AHEAD } from '@/hooks/data';
 import { FORM_ZONES, RAMP_ZONES, TEST_READY, formZone, pmc, rampZone, weekly, type Sport } from '@/lib/metrics';
 import { todayIn, fmt } from '@/lib/time';
+import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 const SHOW_BACK = 84, SHOW_AHEAD = 28;
 
@@ -31,7 +32,7 @@ function ZoneBar({ label, value, zones, unit = '' }: {
           <XAxis type="number" domain={[0, max - min]} hide />
           <YAxis type="category" hide />
           {zones.map((z) => <Bar key={z.name} dataKey={z.name} stackId="z" fill={z.color} fillOpacity={0.35} isAnimationActive={false} />)}
-          {clamped !== null && <ReferenceLine x={clamped - min} stroke="#ffffff" strokeWidth={3} />}
+          {clamped !== null && <ReferenceLine x={clamped - min} stroke={C.text} strokeWidth={3} />}
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -67,8 +68,9 @@ export function Load() {
 
   return (
     <div className="space-y-4">
+      <SubTabs tabs={TRAINING_TABS} />
       <div className="flex items-center justify-between">
-        <h1 className="font-mono text-xl text-primary">Load</h1>
+        <h1 className="font-serif text-xl font-bold tracking-wide">Load</h1>
         <ToggleGroup type="single" variant="outline" size="sm" value={sport} onValueChange={(v) => v && setSport(v as Sport)}>
           <ToggleGroupItem value="ride">Cycling</ToggleGroupItem>
           <ToggleGroupItem value="run">Running</ToggleGroupItem>
@@ -172,11 +174,11 @@ export function Load() {
       <Card>
         <CardHeader className="pb-1"><CardTitle className="text-base">Form</CardTitle></CardHeader>
         <CardContent>
-          <Legend items={[...FORM_ZONES.map((z) => ({ label: z.name, color: z.color, area: true })), { label: 'Test-ready', color: '#ffffff', area: true, dashed: true }]} />
+          <Legend items={[...FORM_ZONES.map((z) => ({ label: z.name, color: z.color, area: true })), { label: 'Test-ready', color: C.text, area: true, dashed: true }]} />
           <ResponsiveContainer width="100%" height={210}>
             <ComposedChart data={shown} margin={{ top: 8, right: 4, bottom: 0, left: -18 }}>
               {FORM_ZONES.map((z) => <ReferenceArea key={z.name} y1={z.from} y2={z.to} fill={z.color} fillOpacity={0.1} stroke="none" ifOverflow="hidden" />)}
-              <ReferenceArea y1={TEST_READY.from} y2={TEST_READY.to} fill="#ffffff" fillOpacity={0.06} stroke="#ffffff" strokeDasharray="3 3" strokeOpacity={0.4} ifOverflow="hidden" />
+              <ReferenceArea y1={TEST_READY.from} y2={TEST_READY.to} fill={C.text} fillOpacity={0.06} stroke={C.text} strokeDasharray="3 3" strokeOpacity={0.4} ifOverflow="hidden" />
               <CartesianGrid stroke={C.grid} vertical={false} strokeOpacity={0.5} />
               <XAxis dataKey="day" {...axis} tickFormatter={shortDay} minTickGap={28} />
               <YAxis {...axis} domain={[-40, 30]} ticks={[-30, -10, 5, 20]} allowDataOverflow />

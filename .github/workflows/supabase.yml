@@ -2,6 +2,8 @@
 # Only one repository secret is needed (Settings > Secrets and variables > Actions):
 #   SUPABASE_ACCESS_TOKEN  access token from supabase.com/dashboard/account/tokens
 # The encryption key and the sync password come from the project's own service-role key (see supabase/functions/api).
+# New files in supabase/migrations are run on the database first (each once, in name order, recorded in
+# public.schema_migrations), then the function is deployed.
 name: Beta server
 
 env:
@@ -10,7 +12,7 @@ env:
 on:
   push:
     branches: [main]
-    paths: ['supabase/functions/**', '.github/workflows/supabase.yml']
+    paths: ['supabase/functions/**', 'supabase/migrations/**', '.github/workflows/supabase.yml']
   workflow_dispatch:
   schedule:
     - cron: '0 14 * * *'   # 7:00 am Alberta (MST)
@@ -25,6 +27,30 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: node tests/rules.test.mjs && node tests/sync.test.mjs
+      - name: Run new database migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          q() {  # run SQL through the Supabase Management API; fails the job on any SQL error
+            jq -n --arg q "$1" '{query: $q}' > /tmp/body.json
+            code=$(curl -sS -o /tmp/out.json -w '%{http_code}' -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H 'content-type: application/json' --data @/tmp/body.json)
+            if [ "${code:0:1}" != "2" ]; then echo "SQL failed ($code):"; head -c 800 /tmp/out.json; echo; exit 1; fi
+          }
+          # The first three migrations were run by hand during setup, so they start as already applied.
+          q "create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz not null default now());
+             alter table public.schema_migrations enable row level security;
+             insert into public.schema_migrations (name) values ('20261116000000_beta.sql'), ('20261117000000_load.sql'), ('20261118000000_admin.sql') on conflict do nothing;"
+          q "select coalesce(json_agg(name), '[]'::json) as names from public.schema_migrations"
+          applied=$(jq -r '.[0].names[]' /tmp/out.json)
+          for f in $(ls supabase/migrations/*.sql | sort); do
+            name=$(basename "$f")
+            if grep -qxF "$name" <<< "$applied"; then continue; fi
+            echo "Applying $name"
+            q "$(cat "$f")"
+            q "insert into public.schema_migrations (name) values ('$name')"
+          done
       - uses: supabase/setup-cli@v1
         with: { version: latest }
       - name: Set function settings

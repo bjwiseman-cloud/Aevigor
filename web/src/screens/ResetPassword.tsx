@@ -29,7 +29,7 @@ export function ResetPassword() {
             <FormField control={form.control} name="password" render={({ field }) => (
               <FormItem><FormLabel>New password</FormLabel><FormControl><Input type="password" autoComplete="new-password" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <Button type="submit" className="w-full font-mono" disabled={form.formState.isSubmitting}>Save password</Button>
+            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>Save password</Button>
           </form>
         </Form>
       </CardContent></Card>

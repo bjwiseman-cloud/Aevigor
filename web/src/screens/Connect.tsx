@@ -60,7 +60,7 @@ export function Connect() {
               <FormField control={form.control} name="time_zone" render={({ field }) => (
                 <FormItem><FormLabel>Your time zone</FormLabel><TimeZoneSelect value={field.value} onChange={field.onChange} /><FormMessage /></FormItem>
               )} />
-              <Button type="submit" className="w-full font-mono" disabled={form.formState.isSubmitting}>
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? 'Connecting… (up to 30 s)' : 'Connect'}
               </Button>
             </form>

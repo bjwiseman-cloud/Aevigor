@@ -10,6 +10,7 @@ export type Profile = {
   last_sync: string | null;
   last_sync_error: string | null;
   is_admin?: boolean;
+  health_consent_at?: string | null;
 };
 
 export type Signals = {

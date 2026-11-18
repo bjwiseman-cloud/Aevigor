@@ -21,6 +21,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { TimeZoneSelect } from './TimeZoneSelect';
 import { InviteTesters } from './InviteTesters';
+import { useHealthOn } from '@/hooks/plan';
+import { PhoneAlerts } from '@/components/PhoneAlerts';
+import { ThemeChips } from '@/components/ThemeButton';
 
 const accountSchema = z.object({ display_name: z.string().trim().max(80), time_zone: z.string().min(1) });
 const passwordSchema = z.object({ password: z.string().min(8, 'At least 8 characters.') });
@@ -31,6 +34,7 @@ export function Settings() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [confirmText, setConfirmText] = useState('');
+  const healthOn = useHealthOn(profile);
   const providers: string[] = session?.user.app_metadata?.providers ?? [session?.user.app_metadata?.provider].filter(Boolean);
 
   const account = useForm<z.infer<typeof accountSchema>>({
@@ -57,6 +61,26 @@ export function Settings() {
     catch (e) { toast.error((e as Error).message); }
   }
 
+  // Files first (storage API), then every health row; consent is cleared too.
+  async function deleteHealth() {
+    try {
+      const { data: recs, error: e1 } = await supabase.from('records').select('files');
+      if (e1) throw e1;
+      const files = (recs ?? []).flatMap((r: { files: string[] }) => r.files);
+      for (let i = 0; i < files.length; i += 100) {
+        const { error } = await supabase.storage.from('records').remove(files.slice(i, i + 100));
+        if (error) throw error;
+      }
+      const { error } = await supabase.rpc('delete_my_health_data');
+      if (error) throw error;
+      const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
+      await (await reg?.pushManager.getSubscription())?.unsubscribe();
+      await supabase.rpc('delete_my_push_data');
+      await qc.invalidateQueries();
+      toast.success('Your health data has been deleted.');
+    } catch (e) { toast.error((e as Error).message); }
+  }
+
   async function deleteAccount() {
     try {
       await callApi('delete-account', { confirm: 'DELETE' });
@@ -68,7 +92,15 @@ export function Settings() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-mono text-xl text-primary">Settings</h1>
+      <h1 className="font-serif text-xl font-bold tracking-wide">Settings</h1>
+
+      <Card>
+        <CardHeader className="pb-3"><CardTitle>Appearance</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <ThemeChips />
+          <p className="text-muted-foreground">Auto matches your phone or computer. Light is rice paper and ink; Dark is charcoal and gold. Same choice as aevigor.com.</p>
+        </CardContent>
+      </Card>
 
       {profile.is_admin && <InviteTesters />}
 
@@ -126,6 +158,29 @@ export function Settings() {
               <p className="text-muted-foreground">Not connected.</p>
               <Button variant="outline" className="w-full" onClick={() => navigate('/connect')}>Connect</Button>
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3"><CardTitle>Health log</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <p className="text-muted-foreground">{healthOn ? 'On. My log, Schedule and Records keep what you enter, only for you.' : 'Off. Turn it on from Plan.'}</p>
+          {healthOn && <PhoneAlerts />}
+          {healthOn && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild><Button variant="outline" className="w-full border-destructive text-destructive">Delete my health data</Button></AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete all health data?</AlertDialogTitle>
+                  <AlertDialogDescription>This permanently deletes My log, reminders, appointments, records, uploaded files, lab results and blood pressure readings, and turns the health log off. It cannot be undone. Your training data stays.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={deleteHealth}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </CardContent>
       </Card>
