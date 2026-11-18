@@ -49,7 +49,7 @@ const COND_INFO: Record<string, [string, string, string, string]> = {
 };
 const TEST_RE = /ftp|20.?min.*(test|tt)|vo2|5.?min.*test|durab|race|crit|\btt\b|time trial|fondo/i;
 const isLift = (a: Activity) => a.type === 'WeightTraining';
-const icon = (a: Activity) => (isRide(a) ? '🚴' : isLift(a) ? '🏋️' : isRun(a) ? '🏃' : '🏸');
+const icon = (a: Activity) => (isRide(a) ? '🚴' : isLift(a) ? '🏋️' : isRun(a) ? '🏃' : /badminton/i.test(a.type + (a.name ?? '')) ? '🏸' : /walk/i.test(a.type) ? '🚶' : '•');
 const median = (a: (number | null | undefined)[]) => { const v = a.filter((x): x is number => typeof x === 'number' && isFinite(x)).sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : null; };
 const hourOf = (a: Activity) => Number(String(a.start_local ?? '').slice(11, 13)) || null;
 
