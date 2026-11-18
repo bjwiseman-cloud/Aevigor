@@ -186,3 +186,7 @@ begin
 end $$;
 revoke execute on function public.delete_my_health_data() from public, anon;
 grant execute on function public.delete_my_health_data() to authenticated;
+
+-- Explicit server access (the project has no automatic table grants); RLS still applies to app users.
+grant all on public.log_groups, public.log_items, public.log_doses, public.events, public.records,
+  public.lab_values, public.bp_readings, public.ui_layout to service_role;
