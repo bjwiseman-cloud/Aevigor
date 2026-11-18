@@ -1,6 +1,6 @@
 // Minimal service worker: caches the app shell so the icon opens instantly.
 // Your data always comes live from the app, never from this cache.
-const CACHE = 'grid-shell-v4';
+const CACHE = 'grid-shell-v5';
 const SHELL = ['./', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
