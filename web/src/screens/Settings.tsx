@@ -163,7 +163,7 @@ export function Settings() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-3"><CardTitle>Health log</CardTitle></CardHeader>
+        <CardHeader className="pb-3"><CardTitle help="health-log">Health log</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p className="text-muted-foreground">{healthOn ? 'On. My log, Schedule and Records keep what you enter, only for you.' : 'Off. Turn it on from Plan.'}</p>
           {healthOn && <PhoneAlerts />}

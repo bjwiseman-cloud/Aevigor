@@ -26,10 +26,12 @@ jobs:
       - name: Build the beta app
         working-directory: web
         run: npm ci && npm run build
+      - name: Build the Learn pages
+        run: node scripts/build-learn.mjs
       - name: Put the site together
         run: |
           mkdir _site
-          rsync -a --exclude '.git*' --exclude web --exclude supabase --exclude tests --exclude docs --exclude _site ./ _site/
+          rsync -a --exclude '.git*' --exclude web --exclude supabase --exclude tests --exclude docs --exclude scripts --exclude _site ./ _site/
           mkdir -p _site/beta && cp -r web/dist/. _site/beta/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

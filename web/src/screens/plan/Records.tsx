@@ -46,7 +46,7 @@ function BpCard({ tz }: { tz: string }) {
   };
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle>Blood pressure</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="blood-pressure">Blood pressure</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="rounded-md bg-muted p-2"><div className="text-xs text-muted-foreground">Latest</div><b className="text-lg">{latest ? `${latest.systolic}/${latest.diastolic}` : '–'}</b>{latest && <div className="text-xs text-muted-foreground">{shortDate(latest.taken_at.slice(0, 10))}</div>}</div>
@@ -231,7 +231,7 @@ export function Records() {
         { id: 'bp', label: 'Blood pressure', node: <BpCard tz={profile.time_zone} /> },
         { id: 'labs', label: 'Labs and diagnostics', node: (
       <Card>
-        <CardHeader className="pb-2"><CardTitle>Labs and diagnostics</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="labs">Labs and diagnostics</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <Chips><Chip on={filter === 'all'} onClick={() => setFilter('all')}>All</Chip>{KINDS.map((k) => <Chip key={k.id} on={filter === k.id} onClick={() => setFilter(k.id)}>{k.icon} {k.label}</Chip>)}</Chips>
           <div className="divide-y rounded-md border">
@@ -255,7 +255,7 @@ export function Records() {
         ) },
         { id: 'timeline', label: 'One result over time', node: markers.length ? (
         <Card>
-          <CardHeader className="pb-2"><CardTitle>One result over time</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle help="labs">One result over time</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <Chips>{markers.map((m) => <Chip key={m} on={marker === m} onClick={() => setMarker(m)}>{m}</Chip>)}</Chips>
             {marker ? <MarkerTimeline marker={marker} labs={labs.data ?? []} records={records.data ?? []} /> : <p className="text-sm text-muted-foreground">Pick a result to see each date it was tested.</p>}

@@ -5,6 +5,7 @@ import { fmt, niceDay, todayIn } from '@/lib/time';
 import type { Profile, Signals } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { HelpButton } from '@/components/Help';
 import { cn } from '@/lib/utils';
 
 export function SyncLine({ profile }: { profile: Profile }) {
@@ -71,7 +72,8 @@ export function Today() {
         {niceDay(r.day)}{r.day !== day && <> · <b className="text-status-caution">latest available</b></>}
       </p>
 
-      <Card className={cn('border-2 text-center', st.cls.split(' ').filter((c) => c.startsWith('border-')).join(' '))}>
+      <Card className={cn('relative border-2 text-center', st.cls.split(' ').filter((c) => c.startsWith('border-')).join(' '))}>
+        <div className="absolute right-4 top-4"><HelpButton topic="daily-status" /></div>
         <CardContent className="pt-5">
           <div className="text-4xl leading-none">{st.icon}</div>
           <div className={cn('mt-2 font-serif text-2xl font-bold', st.cls.split(' ')[0])}>{st.head}</div>
@@ -85,7 +87,7 @@ export function Today() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle>Why</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="daily-status">Why</CardTitle></CardHeader>
         <CardContent>
           <ul className="list-disc space-y-1 pl-5">
             {(r.reasons.length ? r.reasons : ['All signals normal']).map((x) => <li key={x}>{x}</li>)}
@@ -94,7 +96,7 @@ export function Today() {
       </Card>
 
       <Card className={wk.cls.split(' ')[1]}>
-        <CardHeader className="pb-2"><CardTitle>Weekly check</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="weekly-check">Weekly check</CardTitle></CardHeader>
         <CardContent>
           <p><b className={wk.cls.split(' ')[0]}>{wk.icon} {r.weekly}</b>{r.weekly_why && <span className="text-muted-foreground"> · {r.weekly_why}</span>}</p>
           <p className="mt-1 text-sm text-muted-foreground">{wk.text}</p>
@@ -102,7 +104,7 @@ export function Today() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle>Signals</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="signals">Signals</CardTitle></CardHeader>
         <CardContent className="divide-y">
           {lines.map((l) => (
             <div key={l.k} className="flex justify-between gap-3 py-2.5">

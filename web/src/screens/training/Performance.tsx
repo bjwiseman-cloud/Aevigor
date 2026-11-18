@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
-import { Area, AreaChart, Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Bar, CartesianGrid, ComposedChart, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { addDays } from '@rules';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Chip, Chips } from '@/components/chips';
 import { Arrange } from '@/components/Arrange';
 import { C, HowToRead, Legend, axis, shortDay, tooltipStyle } from '@/components/charts';
 import { usePlannedTests, useProfile } from '@/hooks/data';
-import { useActivities, useCurves } from '@/hooks/perf';
-import { BEST_SECS, MEDALS, bestEfforts, curveFromEfforts, isRide, latestWeight, n, secsLabel, testResults, type Activity, type Curve } from '@/lib/perf';
+import { useActivities, useCurves, usePaceCurves } from '@/hooks/perf';
+import { BEST_SECS, MEDALS, bestEfforts, curveFromEfforts, isRide, isRun, latestWeight, mmss, n, pace, paceRows, secsLabel, testResults, type Activity, type Curve, type PaceCurve } from '@/lib/perf';
 import { todayIn } from '@/lib/time';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
@@ -29,7 +29,7 @@ function PowerCurve({ rides, curves, today, weight }: { rides: Activity[]; curve
   const table = local ? efforts : api ? [5, 60, 300, 1200, 3600].map((s) => { const i = api.secs.indexOf(s); return i < 0 ? null : { secs: s, rank: [{ id: '', day: '', name: null, watts: api.watts[i], wkg: api.wkg?.[i] ?? (weight ? +(api.watts[i] / weight).toFixed(2) : null) }] }; }).filter(Boolean) as ReturnType<typeof bestEfforts> : [];
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle>Power curve</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="power-curve">Power curve</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <Chips>{RANGES.map((r) => <Chip key={r.id} on={range === r.id} onClick={() => setRange(r.id)}>{r.label}</Chip>)}</Chips>
         <Chips><Chip on={!wkg} onClick={() => setWkg(false)}>Watts</Chip><Chip on={wkg} onClick={() => setWkg(true)}>W/kg</Chip></Chips>
@@ -66,11 +66,11 @@ function PowerCurve({ rides, curves, today, weight }: { rides: Activity[]; curve
 
 function Tests({ results }: { results: ReturnType<typeof testResults> }) {
   const [pick, setPick] = useState<Record<string, number>>({});
-  if (!results.length) return <Card><CardHeader className="pb-2"><CardTitle>Test results</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">Tests appear here after a planned FTP, VO2 or durability test day in your intervals.icu calendar has a ride with power.</CardContent></Card>;
+  if (!results.length) return <Card><CardHeader className="pb-2"><CardTitle help="tests">Test results</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">Tests appear here after a planned FTP, VO2 or durability test day in your intervals.icu calendar has a ride with power.</CardContent></Card>;
   const kinds = [...new Set(results.map((r) => r.kind))];
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle>Test results</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="tests">Test results</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         {kinds.map((k) => {
           const list = results.filter((r) => r.kind === k), latest = list[0], prev = list[pick[k] ?? 1];
@@ -97,7 +97,7 @@ function Fitness({ rides, weight }: { rides: Activity[]; weight: number | null }
   const best5 = Math.max(0, ...rides.map((r) => r.best?.[300] ?? 0));
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle>eFTP and 5-min max power</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="eftp">eFTP and 5-min max power</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <div className="rounded-md bg-muted p-2 text-sm"><div className="text-xs text-muted-foreground">5-min max power (≈ VO2max power, MAP), last 6 months</div><b className="text-lg">{best5 ? `${best5} W` : '–'}</b>{best5 && weight ? <span className="text-muted-foreground"> · {(best5 / weight).toFixed(2)} W/kg</span> : null}</div>
         {has ? (
@@ -125,7 +125,7 @@ function EfDecoupling({ rides }: { rides: Activity[] }) {
   const pts = [...rides].reverse().filter((r) => (r.moving_time ?? 0) >= 3600).map((r) => ({ day: r.day, ef: n(r, 'icu_efficiency_factor'), dec: n(r, 'decoupling') }));
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle>Efficiency and decoupling</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="ef-decoupling">Efficiency and decoupling</CardTitle></CardHeader>
       <CardContent className="space-y-2">
         {pts.some((p) => p.ef != null || p.dec != null) ? (
           <div className="h-44">
@@ -149,9 +149,56 @@ function EfDecoupling({ rides }: { rides: Activity[] }) {
   );
 }
 
+const PACE_RANGES = [{ id: '84d', label: '84 d' }, { id: '1y', label: 'Year' }, { id: 'all', label: 'All-time' }];
+
+function PaceCurveCard({ curves, acts }: { curves: PaceCurve[]; acts: Activity[] }) {
+  const [range, setRange] = useState('84d');
+  const c = curves.find((x) => x.curve === range);
+  const rows = paceRows(c);
+  const dayOf = (id: string | null) => acts.find((a) => a.id === id)?.day;
+  const cs = c?.critical_speed ?? null;
+  return (
+    <Card>
+      <CardHeader className="pb-2"><CardTitle help="pace-curve">Pace curve</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <Chips>{PACE_RANGES.map((r) => <Chip key={r.id} on={range === r.id} onClick={() => setRange(r.id)}>{r.label}</Chip>)}</Chips>
+        {rows.length ? (
+          <div className="h-52">
+            <ResponsiveContainer>
+              <LineChart data={rows} margin={{ top: 5, right: 8, left: -6, bottom: 0 }}>
+                <CartesianGrid stroke={C.grid} vertical={false} />
+                <XAxis dataKey="label" {...axis} interval="preserveStartEnd" minTickGap={8} />
+                <YAxis {...axis} reversed domain={['dataMin - 10', 'dataMax + 10']} tickFormatter={(v) => mmss(Number(v))} width={46} />
+                <Tooltip {...tooltipStyle} formatter={(v) => [`${mmss(Number(v))} /km`, 'Best pace']} />
+                {cs && <ReferenceLine y={Math.round(1000 / cs)} stroke={C.orange} strokeDasharray="4 3" />}
+                <Line type="monotone" dataKey="paceSec" stroke={C.cyan} strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : <p className="text-sm text-muted-foreground">{curves.length ? 'No runs at these distances in this range.' : 'Fills in after the next sync, once you have runs in intervals.icu.'}</p>}
+        {cs && <p className="text-sm">Critical speed pace <b className="font-mono">{pace(cs)}</b> <span className="text-muted-foreground">(dashed line)</span></p>}
+        {!!rows.length && (
+          <table className="w-full text-sm">
+            <thead className="text-xs text-muted-foreground"><tr><th className="text-left">Best efforts</th><th>Time</th><th>Pace /km</th><th>Date</th></tr></thead>
+            <tbody>{rows.map((r) => (
+              <tr key={r.meters} className="border-t">
+                <td className="py-1">{r.label}</td>
+                <td className="text-center font-mono">{mmss(r.secs)}</td>
+                <td className="text-center font-mono">{mmss(r.paceSec)}</td>
+                <td className="text-center text-xs text-muted-foreground">{dayOf(r.activity) ? shortDay(dayOf(r.activity)!) : '–'}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        )}
+        <HowToRead>Your fastest time for each distance, from any run (it can be part of a longer run). Faster pace is higher on the chart. Critical speed is intervals.icu's estimate, from your curve, of the fastest pace that is still steady for your body; most runners can hold it for roughly 20 to 40 minutes. Real pace, not adjusted for hills.</HowToRead>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function Performance() {
   const p = useProfile().data!;
-  const acts = useActivities(p), curves = useCurves(p), tests = usePlannedTests(p);
+  const acts = useActivities(p), curves = useCurves(p), tests = usePlannedTests(p), paceCurves = usePaceCurves(p);
   const today = todayIn(p.time_zone);
   const rides = useMemo(() => (acts.data ?? []).filter(isRide), [acts.data]);
   const weight = latestWeight(rides);
@@ -160,12 +207,12 @@ export function Performance() {
   return (
     <div className="space-y-4">
       <SubTabs tabs={TRAINING_TABS} />
-      <p className="text-xs text-muted-foreground">Cycling. Running power and pace curves come next.</p>
       <Arrange page="performance" cards={[
         { id: 'curve', label: 'Power curve', node: <PowerCurve rides={rides} curves={curves.data ?? []} today={today} weight={weight} /> },
         { id: 'tests', label: 'Test results', node: <Tests results={results} /> },
         { id: 'fitness', label: 'eFTP and 5-min max power', node: <Fitness rides={rides} weight={weight} /> },
-        { id: 'ef', label: 'Efficiency and decoupling', node: <EfDecoupling rides={rides} /> }
+        { id: 'ef', label: 'Efficiency and decoupling', node: <EfDecoupling rides={rides} /> },
+        { id: 'pace', label: 'Pace curve (running)', node: <PaceCurveCard curves={paceCurves.data ?? []} acts={(acts.data ?? []).filter(isRun)} /> }
       ]} />
     </div>
   );

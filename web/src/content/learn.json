@@ -1,0 +1,587 @@
+{
+  "fields": [
+    {
+      "id": "readiness",
+      "title": "Readiness",
+      "intro": "How the app decides each morning whether you are ready for the planned session."
+    },
+    {
+      "id": "load",
+      "title": "Training load",
+      "intro": "How much training you do, how it adds up, and how it compares with your plan."
+    },
+    {
+      "id": "cycling",
+      "title": "Cycling performance",
+      "intro": "Power, tests and how well you hold power over a long ride."
+    },
+    {
+      "id": "running",
+      "title": "Running performance",
+      "intro": "Pace and heart rate on your runs."
+    },
+    {
+      "id": "strength",
+      "title": "Strength",
+      "intro": "Lifting numbers the app tracks."
+    },
+    {
+      "id": "plan",
+      "title": "Plan and log",
+      "intro": "Your schedule, your own log and reminders."
+    },
+    {
+      "id": "health",
+      "title": "Health log",
+      "intro": "A private log of what you take and your own records. Aevigor only stores and charts what you enter. It is not medical advice."
+    }
+  ],
+  "topics": [
+    {
+      "id": "daily-status",
+      "field": "readiness",
+      "title": "Daily status",
+      "short": "One call each morning: Ready to train, Train with care, or Go easy today. It compares how you feel, your HRV trend and your sleep with your own normal.",
+      "why": "One clear answer saves you reading five charts before a session, and it is based on your own history, not population averages.",
+      "calc": [
+        "The app checks four things in order. Feel from your check-in counts most. Then the 7-day HRV trend against your 60-day normal. A night under 6 hours of sleep lowers the call one step. Feeling sick overrides everything: below the neck means Go easy today, mild symptoms above the neck lower the call one step.",
+        "Ready to train needs Feel at or above your normal, 7 or more hours of sleep, HRV inside its band and no flags. Resting heart rate never sets the call on its own; it only confirms a low HRV and soft Feel.",
+        "Lifting does not change the status. The status only covers endurance training."
+      ],
+      "refs": [
+        "r1",
+        "r2",
+        "r3",
+        "r4",
+        "r7",
+        "r8"
+      ],
+      "coach": [
+        "A"
+      ]
+    },
+    {
+      "id": "signals",
+      "field": "readiness",
+      "title": "Signals",
+      "short": "The numbers behind today's call, each next to your normal: Feel, 7-day HRV, sleep, resting heart rate and, when you have a plan, load vs plan.",
+      "why": "So you can see which signal moved the call, and decide for yourself.",
+      "calc": [
+        "Green dot: inside your normal range. Amber: a little outside. Red: well outside. Grey: no reading today. Missing data never counts as a drop.",
+        "Your normal is learned from your own last 60 days (HRV and resting heart rate) and last 4 weeks (Feel)."
+      ],
+      "refs": [
+        "r1",
+        "r4"
+      ],
+      "coach": [
+        "A"
+      ]
+    },
+    {
+      "id": "feel",
+      "field": "readiness",
+      "title": "Feel score",
+      "short": "Your check-in answers (fatigue, soreness, sleep quality, stress, mood) turned into one score out of 25.",
+      "why": "How you feel predicts how training is going better than most watch numbers, so it carries the most weight.",
+      "calc": [
+        "Each answer goes from 1 (best, 5 points) to 4 (worst, 1 point). The score is the average of the answers you gave, times 5. At least 3 answers are needed.",
+        "The score is compared with your average over the last 4 weeks. A little below your normal means Train with care. Well below your normal (more than one standard deviation, never less than 1.5 points), or any answer at the worst level, means Go easy today."
+      ],
+      "refs": [
+        "r1"
+      ],
+      "coach": []
+    },
+    {
+      "id": "hrv",
+      "field": "readiness",
+      "title": "HRV 7-day trend",
+      "short": "Heart rate variability from your watch overnight, as a 7-day average compared with your 60-day normal.",
+      "why": "A single morning's HRV jumps around a lot. The weekly trend is much more reliable for spotting real change.",
+      "calc": [
+        "The app takes the natural log of each night's HRV (ln HRV, so big and small numbers count fairly), averages the last 7 days, and compares it with the average and spread (standard deviation, SD) of the last 60 days.",
+        "Below the normal by more than 0.5 SD, or above it by more than 1 SD, means Train with care. Unusually high HRV can also be a sign of heavy fatigue, so it is flagged too.",
+        "On the Trends chart the shaded band is your normal range and the line is the 7-day average."
+      ],
+      "refs": [
+        "r2",
+        "r3",
+        "r5",
+        "r6",
+        "r10"
+      ],
+      "coach": []
+    },
+    {
+      "id": "sleep",
+      "field": "readiness",
+      "title": "Sleep",
+      "short": "Last night's sleep from your watch, with bands: 7 to 9 hours target, 6 to 7 borderline, under 6 short.",
+      "why": "Short sleep lowers performance and makes hard sessions feel harder.",
+      "calc": [
+        "A night under 6 hours lowers the call one step. Two short nights in a row turn the weekly check to Watch.",
+        "The sleep bands match intervals.icu so both apps agree."
+      ],
+      "refs": [
+        "r7",
+        "r8"
+      ],
+      "coach": [
+        "B"
+      ]
+    },
+    {
+      "id": "rhr",
+      "field": "readiness",
+      "title": "Resting heart rate",
+      "short": "Your overnight resting heart rate as a 7-day average, compared with your 60-day normal.",
+      "why": "A raised resting heart rate supports other warning signs, but on its own it is a weaker marker, so it only confirms.",
+      "calc": [
+        "High means the 7-day average is more than 0.5 SD above your 60-day normal.",
+        "Low HRV plus high resting heart rate plus a soft Feel score together set Go easy today."
+      ],
+      "refs": [
+        "r4"
+      ],
+      "coach": []
+    },
+    {
+      "id": "sickness",
+      "field": "readiness",
+      "title": "Sickness check",
+      "short": "The check-in asks if you feel sick. Below the neck (chest, fever, body aches) sets Go easy today. Mild symptoms above the neck lower the call one step.",
+      "why": "Hard exercise while ill, especially with fever or chest symptoms, is discouraged. This check only adjusts training; it is not a medical check.",
+      "calc": [
+        "Yes (below the neck) = Go easy today. Mild (above the neck) = one step lower, and at least Train with care.",
+        "The above or below the neck rule is a common sports-medicine rule of thumb, not a tested cut-off. See a health professional if you are unwell."
+      ],
+      "refs": [
+        "r9"
+      ],
+      "coach": []
+    },
+    {
+      "id": "weekly-check",
+      "field": "readiness",
+      "title": "Weekly check",
+      "short": "Looks at the last few days, not just today, to tell you if you need an easier week.",
+      "why": "Overreaching shows up as a pattern over days. One bad morning is not a reason to change the plan.",
+      "calc": [
+        "7-day HRV below its band 3 or more days in a row = Deload. With resting heart rate also high for 3 or more days = Deload, strong.",
+        "1 or 2 low HRV days, resting heart rate high on its own, or two short nights in a row = Watch."
+      ],
+      "refs": [
+        "r2",
+        "r3",
+        "r10",
+        "r11",
+        "r12"
+      ],
+      "coach": []
+    },
+    {
+      "id": "trends",
+      "field": "readiness",
+      "title": "Trends",
+      "short": "Charts of Feel, HRV, sleep, resting heart rate, daily effort and load over time, each with a 7-day line and your normal range.",
+      "why": "Trends show slow changes that one day cannot.",
+      "calc": [
+        "Shaded bands are your normal range from your own history: your 4-week Feel normal, your 60-day HRV and resting heart rate normal, and the 7 to 9 hour sleep target.",
+        "Drag the slider to change how many weeks are shown."
+      ],
+      "refs": [
+        "r3"
+      ],
+      "coach": [
+        "B"
+      ]
+    },
+    {
+      "id": "fitness-fatigue-form",
+      "field": "load",
+      "title": "Fitness, Fatigue and Form",
+      "short": "Fitness is your training over the last 6 weeks. Fatigue is the last week. Form is Fitness minus Fatigue: how fresh you are.",
+      "why": "It shows whether you are building, holding or tapering, and whether you will be fresh for a test or race.",
+      "calc": [
+        "Each day's load is added to two rolling averages: a 42-day one (Fitness, also called CTL) and a 7-day one (Fatigue, ATL). Form (TSB) = yesterday's Fitness minus yesterday's Fatigue.",
+        "The numbers come from intervals.icu so both apps agree."
+      ],
+      "refs": [
+        "r13",
+        "r14",
+        "r15"
+      ],
+      "coach": [
+        "A"
+      ]
+    },
+    {
+      "id": "form-zones",
+      "field": "load",
+      "title": "Form zones",
+      "short": "Bands on the Form chart: below -30 high risk, -30 to -10 optimal training, -10 to +5 grey zone, +5 to about +20 fresh, above +20 transition.",
+      "why": "So you can see at a glance if you are training productively, too deep, or getting stale.",
+      "calc": [
+        "For a test or race, aim for Form around +5 to +15 so you arrive fresh. A short taper improves performance.",
+        "The bands match intervals.icu."
+      ],
+      "refs": [
+        "r19",
+        "r20"
+      ],
+      "coach": [
+        "A",
+        "B",
+        "D"
+      ]
+    },
+    {
+      "id": "load-vs-plan",
+      "field": "load",
+      "title": "Weekly load vs plan",
+      "short": "Bars of the load you did each week next to the load your plan asked for.",
+      "why": "The plan sets the load. The app only warns you when you do a lot more than planned.",
+      "calc": [
+        "Load per session: power-based (TSS) for rides, pace-based for runs, and session RPE (effort 1 to 10 times minutes, divided by 10) for lifting, badminton and anything without power or pace.",
+        "Only sports that have planned workouts are compared, so like is compared with like. The alert shows when the last 7 days are more than 20% above plan.",
+        "The acute:chronic workload ratio is not used, because of known flaws."
+      ],
+      "refs": [
+        "r12",
+        "r16",
+        "r17",
+        "r18"
+      ],
+      "coach": [
+        "A",
+        "C"
+      ]
+    },
+    {
+      "id": "next-test",
+      "field": "load",
+      "title": "Next test",
+      "short": "A countdown to your next planned test, race or event, with your expected Form on the day.",
+      "why": "So you can ease off in time to arrive fresh.",
+      "calc": [
+        "Tests are found by the name of the planned workout in your intervals.icu calendar: \"FTP test\", \"VO2 test\" (or \"5 min test\") and \"Durability test\"."
+      ],
+      "refs": [
+        "r19"
+      ],
+      "coach": [
+        "D"
+      ]
+    },
+    {
+      "id": "power-curve",
+      "field": "cycling",
+      "title": "Power curve",
+      "short": "Your best average power for each duration, from 1 second to 3 hours. Medals mark your top three efforts.",
+      "why": "It shows your strengths (sprint, short climbs, long steady power) and whether they are improving.",
+      "calc": [
+        "For each duration the app finds the highest average power you held for that long in any ride. Lines compare this season, the last year and all time.",
+        "W/kg divides power by your latest body weight from intervals.icu."
+      ],
+      "refs": [
+        "r21",
+        "r22"
+      ],
+      "coach": []
+    },
+    {
+      "id": "tests",
+      "field": "cycling",
+      "title": "Test results",
+      "short": "A table of your test rides: 5-minute max (VO2), 20-minute time trial (FTP) and durability.",
+      "why": "Doing the same test the same way, every block, is the fairest way to track yourself.",
+      "calc": [
+        "FTP = 95% of your 20-minute average power. It is good for tracking but may not match a lab threshold, so the app only compares you with yourself.",
+        "Tests are found by the name of the planned workout in your intervals.icu calendar: \"FTP test\", \"VO2 test\" (or \"5 min test\") and \"Durability test\". The ride with power on that day is used."
+      ],
+      "refs": [
+        "r23",
+        "r24",
+        "r25",
+        "r26"
+      ],
+      "coach": [
+        "A",
+        "D"
+      ]
+    },
+    {
+      "id": "eftp",
+      "field": "cycling",
+      "title": "eFTP and 5-minute max power",
+      "short": "Your estimated FTP (eFTP) from intervals.icu over time, next to your best 5-minute power.",
+      "why": "eFTP updates from normal hard rides, so you can see progress between tests.",
+      "calc": [
+        "eFTP is estimated by intervals.icu from your power curve. The 5-minute line is your best 5-minute power in each ride."
+      ],
+      "refs": [
+        "r22",
+        "r26"
+      ],
+      "coach": []
+    },
+    {
+      "id": "ef-decoupling",
+      "field": "cycling",
+      "title": "Efficiency and decoupling",
+      "short": "Efficiency factor (EF) is power divided by heart rate on long steady rides. Decoupling is how much that drops from the first half of the ride to the second.",
+      "why": "A rising EF means more power for the same heartbeat. Low decoupling means good aerobic endurance.",
+      "calc": [
+        "Rides of 60 minutes or more are shown. EF = normalized power ÷ average heart rate. Decoupling = the % drop in power per heartbeat from the first half to the second half. Both numbers come from intervals.icu.",
+        "Compare steady zone 2 rides with each other. Under 5% decoupling is a common target.",
+        "Heat, dehydration and fatigue raise heart rate at the same power, so a hot or tired day can look worse than it is."
+      ],
+      "refs": [
+        "r27",
+        "r28",
+        "r29",
+        "r30",
+        "r31"
+      ],
+      "coach": [
+        "A",
+        "D"
+      ]
+    },
+    {
+      "id": "durability",
+      "field": "cycling",
+      "title": "Durability",
+      "short": "How much of your fresh 5-minute power you can still hold after a long ride. Tested as a 5-minute max after about 1500 kJ of zone 2 riding.",
+      "why": "Races are decided late, when you are tired. Durability is a separate part of fitness from your fresh numbers.",
+      "calc": [
+        "Drop = (fresh 5-minute best minus tired 5-minute max) ÷ fresh 5-minute best, as a %. The target line is 5% or less.",
+        "The 1500 kJ marker and the 5% target are coaching choices for a non-pro rider."
+      ],
+      "refs": [
+        "r33",
+        "r34",
+        "r35",
+        "r36",
+        "r37",
+        "r38"
+      ],
+      "coach": []
+    },
+    {
+      "id": "w-prime",
+      "field": "cycling",
+      "title": "W′ battery",
+      "short": "Shows your energy above threshold (W′, \"W prime\") draining and refilling during a ride, in kJ and %.",
+      "why": "It shows how deep you went on each effort and how much you recovered between them.",
+      "calc": [
+        "Above FTP (used as critical power) the battery drains by the watts above FTP each second. Below FTP it refills, faster when it is emptier and when you ride easier.",
+        "This is the differential W′ balance model of Skiba and colleagues. It uses your FTP and W′ from intervals.icu, so it is only as accurate as those numbers."
+      ],
+      "refs": [],
+      "extra": [
+        {
+          "text": "Skiba PF, Fulford J, Clarke DC, Vanhatalo A, Jones AM. Intramuscular determinants of the ability to recover work capacity above critical power. Eur J Appl Physiol. 2015;115(4):703-713.",
+          "url": "https://doi.org/10.1007/s00421-014-3050-z"
+        },
+        {
+          "text": "Skiba PF, Chidnok W, Vanhatalo A, Jones AM. Modeling the expenditure and reconstitution of work capacity above critical power. Med Sci Sports Exerc. 2012;44(8):1526-1532.",
+          "url": "https://doi.org/10.1249/MSS.0b013e3182517a80"
+        }
+      ],
+      "coach": []
+    },
+    {
+      "id": "work-split",
+      "field": "cycling",
+      "title": "Work split",
+      "short": "A bar showing how much of the ride's total work (kJ) was done above FTP and how much below.",
+      "why": "Two rides with the same load can feel very different. This shows how hard the hard parts were.",
+      "calc": [
+        "Total work = the sum of power each second ÷ 1000 (kJ). Work above FTP = the sum of the watts above FTP each second ÷ 1000."
+      ],
+      "refs": [],
+      "coach": [
+        "A"
+      ]
+    },
+    {
+      "id": "sessions",
+      "field": "cycling",
+      "title": "Sessions",
+      "short": "Your rides and runs with their key numbers. Tap one for its charts, or pick 2 to 4 to compare side by side.",
+      "why": "Comparing similar sessions shows progress better than looking at one ride.",
+      "calc": [
+        "Numbers come from intervals.icu: load (TSS), average and normalized power, intensity (IF), variability (VI), heart rate, EF and decoupling. \"Similar\" picks up to 3 sessions of the same sport within 20% of the same length."
+      ],
+      "refs": [],
+      "coach": [
+        "A"
+      ]
+    },
+    {
+      "id": "running",
+      "field": "running",
+      "title": "Running performance",
+      "short": "Pace, threshold pace, and heart rate vs pace efficiency and decoupling on your runs.",
+      "why": "The same ideas as cycling, using pace instead of power.",
+      "calc": [
+        "Run load is pace-based from intervals.icu, with heart rate as backup. Decoupling uses the same cardiovascular drift idea as cycling. See the Pace curve for your best efforts."
+      ],
+      "refs": [
+        "r29",
+        "r30"
+      ],
+      "coach": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": "pace-curve",
+      "field": "running",
+      "title": "Pace curve",
+      "short": "Your fastest time and pace for each distance, from 400 m to the marathon, over the last 84 days, the last year or all time.",
+      "why": "It shows where you are strong (short and fast, or long and steady) and whether your running is improving.",
+      "calc": [
+        "intervals.icu finds the fastest stretch of each length in any run, so a 5 km best can be part of a longer run. Pace = time ÷ distance, shown per km. It is real pace, not adjusted for hills.",
+        "Critical speed is fitted by intervals.icu from your curve. It marks the fastest pace that is still steady for your body (the border between hard but sustainable and running out of steam). Most runners can hold it for roughly 20 to 40 minutes. It is only as good as your best efforts: if you have not run hard at several distances recently, it will read slow."
+      ],
+      "refs": [],
+      "extra": [
+        {
+          "text": "Jones AM, Vanhatalo A. The 'Critical Power' Concept: Applications to Sports Performance with a Focus on Intermittent High-Intensity Exercise. Sports Med. 2017;47(Suppl 1):65-78.",
+          "url": "https://doi.org/10.1007/s40279-017-0688-0"
+        }
+      ],
+      "coach": [
+        "C"
+      ]
+    },
+    {
+      "id": "strength",
+      "field": "strength",
+      "title": "Strength numbers",
+      "short": "Estimated 1-rep max (e1RM) from your top sets, volume load (sets × reps × weight), and reps in reserve (RIR).",
+      "why": "e1RM tracks strength without testing a true max. Volume load tracks how much work you did for muscle growth.",
+      "calc": [
+        "e1RM uses the Epley formula: weight × (1 + reps ÷ 30), from your best working set of 1 to 12 reps that day. A single counts as the weight itself. Warm-ups are left out.",
+        "Volume load = sets × reps × weight, added up per week (Monday to Sunday), warm-ups left out. Reps in reserve (RIR) is how many more reps you could have done; RPE 8 = 2 RIR.",
+        "Lifting counts toward load through session RPE in intervals.icu. It does not change the daily status."
+      ],
+      "refs": [
+        "r39",
+        "r40",
+        "r41",
+        "r45",
+        "r46",
+        "r47"
+      ],
+      "coach": [
+        "E"
+      ]
+    },
+    {
+      "id": "lifting-log",
+      "field": "strength",
+      "title": "Lifting log",
+      "short": "Log your sets (weight, reps, reps in reserve, warm-up) in the app, or import them from FitNotes, Strong, Hevy, Liftosaur or another app's CSV export.",
+      "why": "Your strength numbers sit next to your endurance training, so you can see both in one place.",
+      "calc": [
+        "Weights are saved in kg and shown in kg or lb, whichever you pick. \"Repeat\" copies the sets from the last time you did that exercise.",
+        "Import reads the column names in the file (date, exercise, reps, weight, unit, RPE or RIR, warm-up) so most apps' exports work. Sets you already have (same day, exercise, set number, reps and weight) are skipped, so importing the same file twice is safe."
+      ],
+      "refs": [
+        "r39"
+      ],
+      "coach": []
+    },
+    {
+      "id": "schedule",
+      "field": "plan",
+      "title": "Schedule",
+      "short": "Your planned workouts from intervals.icu, tests, and your own reminders, by day, week, month or the next 3 months.",
+      "why": "One place to see what is coming.",
+      "calc": [
+        "Planned workouts come from your intervals.icu calendar. Reminders and repeating items come from My log."
+      ],
+      "refs": [],
+      "coach": []
+    },
+    {
+      "id": "my-log",
+      "field": "plan",
+      "title": "My log",
+      "short": "Quick-add entries for things you want to track, with repeat chips (every day, weekdays, every 2 weeks and so on) and reminder groups.",
+      "why": "So your own habits sit next to your training.",
+      "calc": [
+        "Repeats use the standard calendar repeat rule (RRULE), the same one Google Calendar uses. Phone alerts can remind you at the set time."
+      ],
+      "refs": [],
+      "coach": []
+    },
+    {
+      "id": "phone-alerts",
+      "field": "plan",
+      "title": "Phone alerts",
+      "short": "Notifications on your phone for reminders and post-session check-ins.",
+      "why": "So you don't need to open the app to remember.",
+      "calc": [
+        "Turn them on in Settings. On an iPhone, first add Aevigor to your Home Screen (Share, then Add to Home Screen). Alerts are checked every 5 minutes."
+      ],
+      "refs": [],
+      "coach": []
+    },
+    {
+      "id": "health-log",
+      "field": "health",
+      "title": "Medication and supplement log",
+      "short": "A private log of what you take: name, dose and time, with your own reminders.",
+      "why": "So your own entries can sit on a timeline next to your training. Aevigor does not interpret it.",
+      "calc": [
+        "Aevigor only stores and shows what you enter. It does not give dose advice, missed-dose advice or interaction warnings, and it does not recommend products. Talk to a qualified health professional about medication and supplements.",
+        "The health log is a separate opt-in. You can delete all of it in Settings, Health log."
+      ],
+      "refs": [],
+      "coach": []
+    },
+    {
+      "id": "records",
+      "field": "health",
+      "title": "Records",
+      "short": "Your own health records: blood pressure readings and lab or test results, with photos or PDFs if you add them.",
+      "why": "So your records are in one place you control.",
+      "calc": [
+        "Lab flags (such as H or L) are copied exactly as printed on your report. Aevigor does not interpret results.",
+        "Charts show your entries over time with neutral colours only. This is not medical advice."
+      ],
+      "refs": [],
+      "coach": []
+    },
+    {
+      "id": "blood-pressure",
+      "field": "health",
+      "title": "Blood pressure",
+      "short": "A chart of the blood pressure readings you enter (top and bottom numbers, and pulse if you add it).",
+      "why": "So you can see your own readings over time and share them with your doctor.",
+      "calc": [
+        "The chart shows exactly what you enter. Aevigor does not label readings as good or bad and does not diagnose. This is not medical advice."
+      ],
+      "refs": [],
+      "coach": []
+    },
+    {
+      "id": "labs",
+      "field": "health",
+      "title": "Labs and diagnostics",
+      "short": "A list of your lab and test results, with \"One result over time\" to chart a single marker.",
+      "why": "So you can find a past result quickly.",
+      "calc": [
+        "Values, units, ranges and flags are shown as you entered them from your report. Aevigor does not interpret results. This is not medical advice."
+      ],
+      "refs": [],
+      "coach": []
+    }
+  ]
+}

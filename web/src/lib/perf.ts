@@ -31,8 +31,31 @@ export function duration(sec: number | null) {
 
 export function pace(mps: number | null) {
   if (!mps) return '–';
-  const s = 1000 / mps;
-  return `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')} /km`;
+  return `${mmss(1000 / mps)} /km`;
+}
+
+// 75 -> "1:15", 3725 -> "1:02:05"
+export function mmss(sec: number) {
+  const t = Math.round(sec), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// ---------- Running pace curves ----------
+export type PaceCurve = { curve: string; label: string | null; meters: number[]; secs: number[]; activity_ids: (string | null)[] | null; critical_speed: number | null; d_prime: number | null };
+export const RUN_DIST: { m: number; label: string }[] = [
+  { m: 400, label: '400 m' }, { m: 800, label: '800 m' }, { m: 1000, label: '1 km' }, { m: 1609, label: '1 mile' },
+  { m: 3000, label: '3 km' }, { m: 5000, label: '5 km' }, { m: 10000, label: '10 km' }, { m: 15000, label: '15 km' },
+  { m: 21097, label: 'Half' }, { m: 42195, label: 'Marathon' }
+];
+
+// Best time at each standard distance (within 0.5% of it), with pace in seconds per km.
+export function paceRows(c: PaceCurve | undefined) {
+  if (!c) return [];
+  return RUN_DIST.map((d) => {
+    const i = c.meters.findIndex((m) => Math.abs(Number(m) - d.m) <= d.m * 0.005);
+    if (i < 0 || !c.secs[i]) return null;
+    return { label: d.label, meters: d.m, secs: c.secs[i], paceSec: Math.round((c.secs[i] / d.m) * 1000), activity: c.activity_ids?.[i] ?? null };
+  }).filter((r): r is NonNullable<typeof r> => !!r);
 }
 
 // Weight for W/kg: the weight intervals.icu stored on the ride, else the latest known

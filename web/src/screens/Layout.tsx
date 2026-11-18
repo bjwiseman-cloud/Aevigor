@@ -43,7 +43,7 @@ export function SubTabs({ tabs }: { tabs: { to: string; label: string }[] }) {
     </div>
   );
 }
-export const TRAINING_TABS = [{ to: '/training/load', label: 'Load' }, { to: '/training/performance', label: 'Performance' }, { to: '/training/sessions', label: 'Sessions' }];
+export const TRAINING_TABS = [{ to: '/training/load', label: 'Load' }, { to: '/training/performance', label: 'Performance' }, { to: '/training/sessions', label: 'Sessions' }, { to: '/training/lifting', label: 'Lifting' }];
 export const PLAN_TABS = [{ to: '/plan/schedule', label: 'Schedule' }, { to: '/plan/log', label: 'My log' }, { to: '/plan/records', label: 'Records' }];
 
 function lastSyncText(iso: string | null | undefined) {

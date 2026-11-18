@@ -75,6 +75,10 @@ const store = {
   async replaceCurves(userId: string, rows: unknown[]) {
     await admin.from('power_curves').delete().eq('user_id', userId);
     const { error } = await admin.from('power_curves').insert(rows); if (error) throw error;
+  },
+  async replacePaceCurves(userId: string, rows: unknown[]) {
+    await admin.from('pace_curves').delete().eq('user_id', userId);
+    const { error } = await admin.from('pace_curves').insert(rows); if (error) throw error;
   }
 };
 

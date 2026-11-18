@@ -12,10 +12,10 @@ import { fmt, todayIn } from '@/lib/time';
 const H = 150;
 const margin = { top: 6, right: 4, bottom: 0, left: -22 };
 
-function TrendCard({ title, legend, children, how }: { title: string; legend: ReactNode; children: ReactNode; how: ReactNode }) {
+function TrendCard({ title, legend, children, how, help }: { title: string; legend: ReactNode; children: ReactNode; how: ReactNode; help?: string }) {
   return (
     <Card>
-      <CardHeader className="pb-1"><CardTitle className="text-base">{title}</CardTitle></CardHeader>
+      <CardHeader className="pb-1"><CardTitle className="text-base" help={help}>{title}</CardTitle></CardHeader>
       <CardContent>
         {legend}
         {children}
@@ -92,7 +92,7 @@ export function Trends() {
       )}
 
       <TrendCard
-        title="1. How you feel"
+        title="1. How you feel" help="feel"
         legend={<Legend items={[{ label: 'Daily', color: C.cyan }, { label: '7-day', color: C.green }, { label: 'Your normal', color: C.band, area: true }]} />}
         how={<>
           <p>Feel adds up your check-in answers (fatigue, soreness, sleep quality, stress, mood) out of 25. Higher is better. The band is your own 4-week normal (average ± 1 SD). Days you logged sickness are marked in the strip below.</p>
@@ -126,7 +126,7 @@ export function Trends() {
       </TrendCard>
 
       <TrendCard
-        title="2. HRV 7-day trend"
+        title="2. HRV 7-day trend" help="hrv"
         legend={<Legend items={[{ label: 'Daily HRV', color: C.cyan }, { label: '7-day', color: C.green }, { label: '60-day normal', color: C.band, area: true }]} />}
         how={<>
           <p>Overnight HRV (rMSSD, ms) from your watch via intervals.icu. The bold line is the 7-day average, which is what the status uses; single days bounce around a lot.</p>
@@ -147,7 +147,7 @@ export function Trends() {
       </TrendCard>
 
       <TrendCard
-        title="3. Sleep"
+        title="3. Sleep" help="sleep"
         legend={<Legend items={[{ label: 'Nightly', color: C.cyan }, { label: '7-night average', color: C.green }, { label: 'Target 7-9 h', color: C.green, area: true }, { label: 'Borderline 6-7 h', color: C.yellow, area: true }]} />}
         how={<p>Hours of sleep from your watch. The bands match intervals.icu: 7 to 9 h target, 6 to 7 h borderline, under 6 h short. A night under 6 h lowers the status one step (<a className="text-primary underline" href="https://pubmed.ncbi.nlm.nih.gov/25315456/" target="_blank" rel="noopener">Fullagar 2015</a>).</p>}
       >
@@ -166,7 +166,7 @@ export function Trends() {
       </TrendCard>
 
       <TrendCard
-        title="4. Resting heart rate"
+        title="4. Resting heart rate" help="rhr"
         legend={<Legend items={[{ label: 'Daily', color: C.magenta }, { label: '7-day', color: C.green }, { label: '60-day normal', color: C.band, area: true }]} />}
         how={<p>Overnight resting HR. Lower is usually better. The band is your 60-day average ± 0.5 SD, as in intervals.icu. Resting HR only confirms the other signals; on its own it never changes the status.</p>}
       >
@@ -184,7 +184,7 @@ export function Trends() {
       </TrendCard>
 
       <TrendCard
-        title="5. Daily RPE"
+        title="5. Daily RPE" help="load-vs-plan"
         legend={<Legend items={[{ label: 'Hardest session that day', color: C.orange }, { label: '7-day average', color: C.green }]} />}
         how={<p>How hard your hardest session felt (RPE 1-10), from the effort you enter for each activity in intervals.icu. The readout above pairs each morning with the day before, so you can see how yesterday's effort lines up with how you feel today.</p>}
       >
@@ -201,7 +201,7 @@ export function Trends() {
       </TrendCard>
 
       <TrendCard
-        title="6. Training load"
+        title="6. Training load" help="fitness-fatigue-form"
         legend={<Legend items={[{ label: 'Daily load', color: C.cyan }, { label: '7-day weighted (Fatigue)', color: C.magenta, area: true }]} />}
         how={<p>Daily training stress across all sports (power for rides, pace for runs, RPE × minutes for lifting and badminton). The shaded line is the 7-day weighted load, the same as Fatigue on the Load page.</p>}
       >
