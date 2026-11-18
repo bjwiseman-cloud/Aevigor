@@ -3,6 +3,7 @@
 //   /api/disconnect      forget the key
 //   /api/sync            the Sync button
 //   /api/checkin         save the daily check-in, copy it to intervals.icu, recompute today
+//   /api/streams         one activity's second-by-second data (Sessions, W′ battery)
 //   /api/delete-account  delete the account and every row of the person's data
 //   /api/cron            nightly sync of everyone (needs the x-cron-secret header)
 //   /api/invites, /api/invite, /api/uninvite   admins only: list, add and remove testers
@@ -11,6 +12,7 @@ import { syncUser, todayIn } from '../_shared/sync.js';
 import { icu, athletePath, putWellness, IntervalsError } from '../_shared/intervals.js';
 import { encrypt, decrypt } from '../_shared/crypto.js';
 import { addDays } from '../_shared/rules.js';
+import { fetchStreams } from '../_shared/performance.js';
 
 // The encryption key and the cron password default to values derived from the project's own service-role key,
 // which Supabase gives every function automatically, so no hand-made secrets are needed. Setting
@@ -50,7 +52,28 @@ const store = {
     if (del.error) throw del.error;
     if (rows.length) { const { error } = await admin.from('planned_tests').insert(rows); if (error) throw error; }
   },
-  async updateProfile(userId: string, patch: Record<string, unknown>) { await admin.from('profiles').update(patch).eq('user_id', userId); }
+  async updateProfile(userId: string, patch: Record<string, unknown>) { await admin.from('profiles').update(patch).eq('user_id', userId); },
+  async knownBests(userId: string, ids: string[]) {
+    const { data, error } = await admin.from('activities').select('id').eq('user_id', userId).in('id', ids.length ? ids : ['-']).not('best', 'is', null);
+    if (error) throw error; return new Set((data ?? []).map((r) => r.id as string));
+  },
+  async upsertActivities(rows: Record<string, unknown>[]) {
+    // Rows without new bests must not wipe the stored ones, so they are upserted without that column
+    const withBest = rows.filter((r) => r.best), rest = rows.filter((r) => !r.best);
+    for (const part of [withBest, rest]) {
+      for (let i = 0; i < part.length; i += 200) { const { error } = await admin.from('activities').upsert(part.slice(i, i + 200)); if (error) throw error; }
+    }
+  },
+  async pruneActivities(userId: string, from: string, to: string, keep: string[]) {
+    // Activities deleted in intervals.icu disappear here too (only inside the window just fetched)
+    const { data } = await admin.from('activities').select('id').eq('user_id', userId).gte('day', from).lte('day', to);
+    const gone = (data ?? []).map((r) => r.id as string).filter((id) => !keep.includes(id));
+    if (gone.length) await admin.from('activities').delete().eq('user_id', userId).in('id', gone);
+  },
+  async replaceCurves(userId: string, rows: unknown[]) {
+    await admin.from('power_curves').delete().eq('user_id', userId);
+    const { error } = await admin.from('power_curves').insert(rows); if (error) throw error;
+  }
 };
 
 async function currentUser(req: Request) {
@@ -153,6 +176,15 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
       if (!(e instanceof HttpError && e.status === 409)) console.warn('checkin follow-up failed', e);
     }
     return { ok: true, copied, sync };
+  },
+
+  // Second-by-second data for one activity (Sessions detail, W′ battery). Only the person's own activities.
+  async streams(req, body) {
+    const { user, profile } = await currentUser(req); needConsent(profile);
+    const id = String(body.id ?? '');
+    const { data } = await admin.from('activities').select('id').eq('user_id', user.id).eq('id', id).maybeSingle();
+    if (!data) throw new HttpError(404, 'That activity was not found. Try syncing first.');
+    return { streams: await fetchStreams(await keyFor(user.id), id) };
   },
 
   async 'delete-account'(req, body) {

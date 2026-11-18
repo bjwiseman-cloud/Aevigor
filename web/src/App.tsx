@@ -20,7 +20,8 @@ import { MyLog } from '@/screens/plan/MyLog';
 import { Records } from '@/screens/plan/Records';
 import { Inbox } from '@/screens/Inbox';
 import { Menu } from '@/screens/Menu';
-import { TrainingPlaceholder } from '@/screens/training/Placeholder';
+import { Performance } from '@/screens/training/Performance';
+import { Sessions } from '@/screens/training/Sessions';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 
@@ -50,8 +51,8 @@ export default function App() {
         <Route path="/today" element={connected ? <Today /> : <Navigate to="/connect" replace />} />
         <Route path="/checkin" element={connected ? <CheckinPage /> : <Navigate to="/connect" replace />} />
         <Route path="/training/load" element={connected ? <Load /> : <Navigate to="/connect" replace />} />
-        <Route path="/training/performance" element={<TrainingPlaceholder page="performance" />} />
-        <Route path="/training/sessions" element={<TrainingPlaceholder page="sessions" />} />
+        <Route path="/training/performance" element={connected ? <Performance /> : <Navigate to="/connect" replace />} />
+        <Route path="/training/sessions" element={connected ? <Sessions /> : <Navigate to="/connect" replace />} />
         <Route path="/training" element={<Navigate to="/training/load" replace />} />
         <Route path="/load" element={<Navigate to="/training/load" replace />} />
         <Route path="/plan/schedule" element={<Schedule />} />

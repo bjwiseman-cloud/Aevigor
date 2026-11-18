@@ -40,4 +40,15 @@ do $$ begin
   if (select health_consent_at from public.profiles where email = 'h1@x.com') is not null then raise exception 'opt-in not cleared'; end if;
   if (select health_consent_at from public.profiles where email = 'h2@x.com') is null then raise exception 'cleared someone else''s opt-in'; end if;
 end $$;
+-- Performance rows: server-written, read own only
+insert into public.activities (user_id, id, day, type) values ('44444444-4444-4444-4444-444444444444', 'i1', '2026-11-10', 'Ride'), ('55555555-5555-5555-5555-555555555555', 'i2', '2026-11-10', 'Ride');
+insert into public.power_curves (user_id, sport, curve, secs, watts) values ('55555555-5555-5555-5555-555555555555', 'ride', 'all', '{5}', '{900}');
+set role authenticated;
+set request.jwt.sub = '44444444-4444-4444-4444-444444444444';
+do $$ begin
+  if (select count(*) from public.activities) <> 1 or (select count(*) from public.power_curves) <> 0 then raise exception 'sees someone else''s activities or curves'; end if;
+end $$;
+select pg_temp.expect_fail($q$insert into public.activities (user_id, id, day) values ('44444444-4444-4444-4444-444444444444', 'x', '2026-11-11')$q$);
+select pg_temp.expect_fail($q$update public.activities set name = 'x'$q$);
+reset role;
 select 'health walls ok';
