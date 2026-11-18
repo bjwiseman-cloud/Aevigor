@@ -427,7 +427,7 @@
       "short": "Pace, threshold pace, and heart rate vs pace efficiency and decoupling on your runs.",
       "why": "The same ideas as cycling, using pace instead of power.",
       "calc": [
-        "Run load is pace-based from intervals.icu, with heart rate as backup. Decoupling uses the same cardiovascular drift idea as cycling. A running pace curve is coming next."
+        "Run load is pace-based from intervals.icu, with heart rate as backup. Decoupling uses the same cardiovascular drift idea as cycling. See the Pace curve for your best efforts."
       ],
       "refs": [
         "r29",
@@ -436,6 +436,27 @@
       "coach": [
         "C",
         "D"
+      ]
+    },
+    {
+      "id": "pace-curve",
+      "field": "running",
+      "title": "Pace curve",
+      "short": "Your fastest time and pace for each distance, from 400 m to the marathon, over the last 84 days, the last year or all time.",
+      "why": "It shows where you are strong (short and fast, or long and steady) and whether your running is improving.",
+      "calc": [
+        "intervals.icu finds the fastest stretch of each length in any run, so a 5 km best can be part of a longer run. Pace = time ÷ distance, shown per km. It is real pace, not adjusted for hills.",
+        "Critical speed is fitted by intervals.icu from your curve. It marks the fastest pace that is still steady for your body (the border between hard but sustainable and running out of steam). Most runners can hold it for roughly 20 to 40 minutes. It is only as good as your best efforts: if you have not run hard at several distances recently, it will read slow."
+      ],
+      "refs": [],
+      "extra": [
+        {
+          "text": "Jones AM, Vanhatalo A. The 'Critical Power' Concept: Applications to Sports Performance with a Focus on Intermittent High-Intensity Exercise. Sports Med. 2017;47(Suppl 1):65-78.",
+          "url": "https://doi.org/10.1007/s40279-017-0688-0"
+        }
+      ],
+      "coach": [
+        "C"
       ]
     },
     {

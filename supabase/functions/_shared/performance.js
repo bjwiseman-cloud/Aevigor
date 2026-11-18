@@ -61,9 +61,28 @@ export async function fetchAthleteCurves(key, athleteId, userId) {
   })).filter((c) => c.curve);
 }
 
+// Running pace curves: best time for each distance (intervals.icu pace-curves, real pace, not grade-adjusted).
+export const RUN_CURVE_IDS = ['84d', '1y', 'all'];
+export async function fetchPaceCurves(key, athleteId, userId) {
+  const r = await icu(key, athletePath(athleteId) + '/pace-curves?type=Run&gap=false&pmType=CS&curves=' + RUN_CURVE_IDS.join(','));
+  const list = Array.isArray(r?.list) ? r.list : Array.isArray(r) ? r : [];
+  return list.filter((c) => Array.isArray(c?.distance) && Array.isArray(c?.values) && c.distance.length).map((c) => {
+    const cs = (Array.isArray(c.paceModels) ? c.paceModels : []).find((m) => m?.type === 'CS') ?? {};
+    return {
+      user_id: userId, curve: String(c.id ?? '').replace(/-f\d+$/, ''),
+      label: c.label ? String(c.label).slice(0, 60) : null,
+      meters: c.distance.map((x) => Math.round((Number(x) || 0) * 10) / 10),
+      secs: c.values.map((x) => Math.round(Number(x) || 0)),
+      activity_ids: Array.isArray(c.activity_id) ? c.activity_id.map((x) => (x == null ? null : String(x))) : null,
+      critical_speed: num(cs.criticalSpeed), d_prime: num(cs.dPrime),
+      synced_at: new Date().toISOString()
+    };
+  }).filter((c) => c.curve);
+}
+
 /**
  * Saves the activity rows, fills in best powers for rides that don't have them yet, and refreshes the curves.
- * store: { knownBests(userId, ids) -> Set of ids that already have bests, upsertActivities(rows), pruneActivities(userId, from, to, keepIds), replaceCurves(userId, rows) }
+ * store: { knownBests(userId, ids) -> Set of ids that already have bests, upsertActivities(rows), pruneActivities(userId, from, to, keepIds), replaceCurves(userId, rows), replacePaceCurves?(userId, rows) }
  */
 export async function syncPerformance({ userId, key, athleteId, acts, from, to, store }) {
   if (!store.upsertActivities) return { activities: 0 };
@@ -78,7 +97,12 @@ export async function syncPerformance({ userId, key, athleteId, acts, from, to, 
   await store.pruneActivities(userId, from, to, rows.map((r) => r.id));
   const curves = await fetchAthleteCurves(key, athleteId, userId).catch(() => []);
   if (curves.length) await store.replaceCurves(userId, curves);
-  return { activities: rows.length, bests: need.filter((r) => r.best).length, curves: curves.length };
+  let pace = [];
+  if (store.replacePaceCurves) {
+    pace = await fetchPaceCurves(key, athleteId, userId).catch(() => []);
+    if (pace.length) await store.replacePaceCurves(userId, pace);
+  }
+  return { activities: rows.length, bests: need.filter((r) => r.best).length, curves: curves.length, paceCurves: pace.length };
 }
 
 // Streams for one activity (Sessions detail and the W′ card), fetched on demand.

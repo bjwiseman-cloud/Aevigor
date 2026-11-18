@@ -19,6 +19,7 @@ globalThis.fetch = async (url, opts) => {
   } else if (u.pathname.endsWith('/activities')) body = [{ id: 'i9', start_date_local: addDays(day, -2) + 'T08:00:00', type: 'Ride', icu_training_load: 300, icu_average_watts: 210, icu_efficiency_factor: 1.6, icu_power_hr: [1, 2] }];
   else if (u.pathname.endsWith('/activity/i9/power-curve')) body = { secs: [1, 5, 300, 301], watts: [950, 900, 320, 319] };
   else if (u.pathname.endsWith('/power-curves')) body = { list: [{ id: 'all', label: 'All time', secs: [5, 300], values: [1000, 350], watts_per_kg: [13.3, 4.67] }] };
+  else if (u.pathname.endsWith('/pace-curves')) body = { list: [{ id: '1y-f1', label: '1 year', distance: [400, 1000.4], values: [80, 230], activity_id: ['i7', 'i8'], paceModels: [{ type: 'CS', criticalSpeed: 3.9, dPrime: 210 }] }, { id: 'bad' }] };
   else if (u.pathname.endsWith('/events')) body = [
     { start_date_local: addDays(day, -2) + 'T00:00:00', type: 'Ride', category: 'WORKOUT', icu_training_load: 100 },
     { start_date_local: addDays(day, 9) + 'T00:00:00', type: 'VirtualRide', category: 'WORKOUT', name: 'FTP test 20 min', icu_training_load: 90 },
@@ -28,7 +29,7 @@ globalThis.fetch = async (url, opts) => {
   return new Response(JSON.stringify(body), { status: 200 });
 };
 
-const db = { wellness: [], status: [], profile: {}, acts: [], curves: [] };
+const db = { wellness: [], status: [], profile: {}, acts: [], curves: [], pace: [] };
 const store = {
   checkins: async () => [{ day, fatigue: 4, soreness: 2, sleep_quality: 2, stress: 2, mood: 2, sick: 'Mild' }],
   upsertWellness: async (rows) => { db.wellness.push(...rows); },
@@ -39,7 +40,8 @@ const store = {
   knownBests: async () => new Set(),
   upsertActivities: async (rows) => { db.acts = rows; },
   pruneActivities: async () => {},
-  replaceCurves: async (_id, rows) => { db.curves = rows; }
+  replaceCurves: async (_id, rows) => { db.curves = rows; },
+  replacePaceCurves: async (_id, rows) => { db.pace = rows; }
 };
 const res = await syncUser({ userId: 'u1', key: 'abc123', athleteId: '0', timeZone: 'America/Edmonton', store, now });
 assert.ok(res.ok);
@@ -66,6 +68,9 @@ assert.equal(db.acts[0].raw.icu_efficiency_factor, 1.6);
 assert.equal(db.acts[0].raw.icu_power_hr, undefined, 'arrays are not stored');
 assert.deepEqual([db.curves[0].curve, db.curves[0].watts, db.curves[0].wkg], ['all', [1000, 350], [13.3, 4.67]]);
 assert.equal(res.performance.bests, 1);
+assert.equal(db.pace.length, 1, 'curves without distances are dropped');
+assert.deepEqual([db.pace[0].curve, db.pace[0].meters, db.pace[0].secs, db.pace[0].critical_speed], ['1y', [400, 1000.4], [80, 230], 3.9]);
+assert.ok(calls.some((c) => c.url.includes('/pace-curves?type=Run&gap=false')));
 
 // mergeDays keeps intervals.icu answers when no check-in exists
 const m = mergeDays([{ day: '2026-11-01', hrv: 60, fatigue: 3 }], []);
