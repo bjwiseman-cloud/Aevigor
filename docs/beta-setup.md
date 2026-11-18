@@ -57,17 +57,12 @@ Supabase's own email only sends a few messages an hour, so testers' confirmation
    - Authorised redirect URIs: paste the Supabase Callback URL from step 1
 5. Copy the **Client ID** and **Client secret** into the Supabase Google page, switch Google on, and save.
 
-## 7. Let GitHub deploy the server code (10 min)
+## 7. Let GitHub deploy the server code (5 min)
 
-1. Supabase › your account menu › **Access Tokens** ([direct link](https://supabase.com/dashboard/account/tokens)) › **Generate new token** named `github`. Copy it.
-2. GitHub › `biometric-grid` › **Settings** › **Secrets and variables** › **Actions** › **New repository secret**. Add these 4:
+1. Supabase › your account menu › **Access Tokens** ([direct link](https://supabase.com/dashboard/account/tokens)) › **Generate new token** named `github`: Project access to `aevigor-beta`, expiry Never, a full-access permission preset. Copy it.
+2. GitHub › `biometric-grid` › **Settings** › **Secrets and variables** › **Actions** › **New repository secret**: name `SUPABASE_ACCESS_TOKEN`, value = the token. That is the only secret.
 
-| Name | Value |
-|---|---|
-| `SUPABASE_ACCESS_TOKEN` | the token from step 1 |
-| `SUPABASE_PROJECT_REF` | your project ID: the letters before `.supabase.co` in the project URL (Project Settings › General) |
-| `BETA_ENCRYPTION_KEY` | a new random password, 40+ characters, from your password manager. **Save it and never change it** (changing it means every tester has to reconnect intervals.icu) |
-| `BETA_CRON_SECRET` | another new random password, 40+ characters |
+The project ID is written in `.github/workflows/supabase.yml`, and the encryption key and sync password are derived from the project's own service-role key, so nothing else is needed. (If that key is ever rotated, testers reconnect intervals.icu once.)
 
 ## 8. Send Claude two public values
 
