@@ -69,7 +69,7 @@ function Detail({ a, onClose }: { a: Activity; onClose: () => void }) {
           )}
           {bal.length > 0 && split && (
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-base">W′ battery</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-base" help="w-prime">W′ battery</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <Battery pct={(bal[at] / wp) * 100} />
                 <Slider min={0} max={bal.length - 1} step={1} value={[at]} onValueChange={([v]) => setT(v)} aria-label="Time in the ride" />
@@ -107,7 +107,7 @@ export function Sessions() {
       <SubTabs tabs={TRAINING_TABS} />
       {cmp.length > 1 && (
         <Card>
-          <CardHeader className="pb-2"><CardTitle>Compare {cmp.length} sessions</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle help="sessions">Compare {cmp.length} sessions</CardTitle></CardHeader>
           <CardContent className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-xs text-muted-foreground"><tr><th className="text-left" />{cmp.map((a) => <th key={a.id} className="px-1 text-right">{shortDay(a.day)}<div className="max-w-[90px] truncate font-normal">{a.name}</div></th>)}</tr></thead>
@@ -118,7 +118,7 @@ export function Sessions() {
         </Card>
       )}
       <Card>
-        <CardHeader className="pb-2"><CardTitle>Sessions</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="sessions">Sessions</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <Chips>{FILTERS.map((f) => <Chip key={f.id} on={filter === f.id} onClick={() => setFilter(f.id)}>{f.label}</Chip>)}</Chips>
           <p className="text-xs text-muted-foreground">Tap a session for its analysis. Tick 2 to 4 to compare them side by side.</p>

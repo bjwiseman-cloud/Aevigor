@@ -144,7 +144,7 @@ export function Schedule() {
     <div className="space-y-4">
       <SubTabs tabs={PLAN_TABS} />
       <Card>
-        <CardHeader className="pb-2"><CardTitle>Schedule</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="schedule">Schedule</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <Chips>{(['day', 'week', 'month', 'quarter'] as View[]).map((v) => <Chip key={v} on={view === v} onClick={() => setView(v)}>{v[0].toUpperCase() + v.slice(1)}</Chip>)}</Chips>
           <Chips>{SHOW.map((s) => <Chip key={s.id} on={show.includes(s.id)} onClick={() => setShow(show.includes(s.id) ? show.filter((x) => x !== s.id) : [...show, s.id])}>{s.label}</Chip>)}</Chips>

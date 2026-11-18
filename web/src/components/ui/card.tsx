@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { HelpButton } from '@/components/Help';
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
   <div ref={ref} className={cn('rounded-lg border bg-card text-card-foreground shadow-sm', className)} {...props} />
@@ -11,8 +12,11 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 ));
 CardHeader.displayName = 'CardHeader';
 
-const CardTitle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn('font-serif text-base font-bold tracking-wide text-foreground', className)} {...props} />
+// help: a Learn topic id (web/src/content/learn.json). Adds the "?" button at the right of the title.
+const CardTitle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & { help?: string }>(({ className, help, children, ...props }, ref) => (
+  <div ref={ref} className={cn('font-serif text-base font-bold tracking-wide text-foreground', help && 'flex items-center justify-between gap-2', className)} {...props}>
+    {help ? <><span className="min-w-0">{children}</span><HelpButton topic={help} /></> : children}
+  </div>
 ));
 CardTitle.displayName = 'CardTitle';
 

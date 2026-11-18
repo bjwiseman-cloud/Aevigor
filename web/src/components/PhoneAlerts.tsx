@@ -1,5 +1,6 @@
 // Turns phone alerts (Web Push) on or off for this device. iPhone needs the app added to the Home Screen first (iOS 16.4+).
 import { useEffect, useState } from 'react';
+import { HelpButton } from '@/components/Help';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { callApi } from '@/lib/api';
@@ -51,7 +52,7 @@ export function PhoneAlerts() {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between rounded-md border px-3 py-2">
-        <span>Phone alerts on this device<span className="block text-xs text-muted-foreground">Your reminders and appointment alerts, even when the app is closed</span></span>
+        <span>Phone alerts on this device <HelpButton topic="phone-alerts" /><span className="block text-xs text-muted-foreground">Your reminders and appointment alerts, even when the app is closed</span></span>
         <Switch checked={on} disabled={busy} onCheckedChange={toggle} aria-label="Phone alerts on this device" />
       </div>
       {on && <Button variant="outline" size="sm" onClick={() => callApi('push-test').then(() => toast.success('Test alert sent')).catch((e) => toast.error(e.message))}>Send a test alert</Button>}

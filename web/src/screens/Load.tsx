@@ -85,7 +85,7 @@ export function Load() {
       )}
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Next test</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle className="text-base" help="next-test">Next test</CardTitle></CardHeader>
         <CardContent className="space-y-1 text-sm">
           {next && nextPoint ? (
             <>
@@ -117,7 +117,7 @@ export function Load() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-1"><CardTitle className="text-base">Fitness, Fatigue and load</CardTitle></CardHeader>
+        <CardHeader className="pb-1"><CardTitle className="text-base" help="fitness-fatigue-form">Fitness, Fatigue and load</CardTitle></CardHeader>
         <CardContent>
           <Legend items={[
             { label: 'Actual load', color: C.cyan, area: true }, { label: 'Planned load', color: C.yellow, area: true, dashed: true },
@@ -144,7 +144,7 @@ export function Load() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-1"><CardTitle className="text-base">Weekly load vs plan</CardTitle></CardHeader>
+        <CardHeader className="pb-1"><CardTitle className="text-base" help="load-vs-plan">Weekly load vs plan</CardTitle></CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={170}>
             <BarChart data={weeks} margin={{ top: 16, right: 4, bottom: 0, left: -18 }}>
@@ -172,7 +172,7 @@ export function Load() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-1"><CardTitle className="text-base">Form</CardTitle></CardHeader>
+        <CardHeader className="pb-1"><CardTitle className="text-base" help="form-zones">Form</CardTitle></CardHeader>
         <CardContent>
           <Legend items={[...FORM_ZONES.map((z) => ({ label: z.name, color: z.color, area: true })), { label: 'Test-ready', color: C.text, area: true, dashed: true }]} />
           <ResponsiveContainer width="100%" height={210}>

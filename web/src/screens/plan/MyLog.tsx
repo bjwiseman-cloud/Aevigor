@@ -207,7 +207,7 @@ export function MyLog() {
     <div className="space-y-4">
       <SubTabs tabs={PLAN_TABS} />
       <Card>
-        <CardHeader className="pb-2"><CardTitle>My log</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="my-log">My log</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">Things you take or do on a schedule. You set them and their reminders; Aevigor keeps the log. {NOT_MEDICAL}</p>
           <div className="grid grid-cols-2 gap-2 text-center">
@@ -219,7 +219,7 @@ export function MyLog() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle>⏰ Reminder groups</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="my-log">⏰ Reminder groups</CardTitle></CardHeader>
         <CardContent className="divide-y">
           {groups.map((g) => {
             const its = items.filter((i) => i.group_id === g.id && i.active);

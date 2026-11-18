@@ -29,7 +29,7 @@ function PowerCurve({ rides, curves, today, weight }: { rides: Activity[]; curve
   const table = local ? efforts : api ? [5, 60, 300, 1200, 3600].map((s) => { const i = api.secs.indexOf(s); return i < 0 ? null : { secs: s, rank: [{ id: '', day: '', name: null, watts: api.watts[i], wkg: api.wkg?.[i] ?? (weight ? +(api.watts[i] / weight).toFixed(2) : null) }] }; }).filter(Boolean) as ReturnType<typeof bestEfforts> : [];
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle>Power curve</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="power-curve">Power curve</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <Chips>{RANGES.map((r) => <Chip key={r.id} on={range === r.id} onClick={() => setRange(r.id)}>{r.label}</Chip>)}</Chips>
         <Chips><Chip on={!wkg} onClick={() => setWkg(false)}>Watts</Chip><Chip on={wkg} onClick={() => setWkg(true)}>W/kg</Chip></Chips>
@@ -66,11 +66,11 @@ function PowerCurve({ rides, curves, today, weight }: { rides: Activity[]; curve
 
 function Tests({ results }: { results: ReturnType<typeof testResults> }) {
   const [pick, setPick] = useState<Record<string, number>>({});
-  if (!results.length) return <Card><CardHeader className="pb-2"><CardTitle>Test results</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">Tests appear here after a planned FTP, VO2 or durability test day in your intervals.icu calendar has a ride with power.</CardContent></Card>;
+  if (!results.length) return <Card><CardHeader className="pb-2"><CardTitle help="tests">Test results</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">Tests appear here after a planned FTP, VO2 or durability test day in your intervals.icu calendar has a ride with power.</CardContent></Card>;
   const kinds = [...new Set(results.map((r) => r.kind))];
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle>Test results</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="tests">Test results</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         {kinds.map((k) => {
           const list = results.filter((r) => r.kind === k), latest = list[0], prev = list[pick[k] ?? 1];
@@ -97,7 +97,7 @@ function Fitness({ rides, weight }: { rides: Activity[]; weight: number | null }
   const best5 = Math.max(0, ...rides.map((r) => r.best?.[300] ?? 0));
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle>eFTP and 5-min max power</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="eftp">eFTP and 5-min max power</CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <div className="rounded-md bg-muted p-2 text-sm"><div className="text-xs text-muted-foreground">5-min max power (≈ VO2max power, MAP), last 6 months</div><b className="text-lg">{best5 ? `${best5} W` : '–'}</b>{best5 && weight ? <span className="text-muted-foreground"> · {(best5 / weight).toFixed(2)} W/kg</span> : null}</div>
         {has ? (
@@ -125,7 +125,7 @@ function EfDecoupling({ rides }: { rides: Activity[] }) {
   const pts = [...rides].reverse().filter((r) => (r.moving_time ?? 0) >= 3600).map((r) => ({ day: r.day, ef: n(r, 'icu_efficiency_factor'), dec: n(r, 'decoupling') }));
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle>Efficiency and decoupling</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="ef-decoupling">Efficiency and decoupling</CardTitle></CardHeader>
       <CardContent className="space-y-2">
         {pts.some((p) => p.ef != null || p.dec != null) ? (
           <div className="h-44">
