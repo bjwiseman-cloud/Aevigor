@@ -1,5 +1,5 @@
 // In-app reminders: a banner that pops up when something you set is due, and the 🔔 inbox.
-// Phone lock-screen alerts (Web Push) come next; they will use these same slots.
+// Phone lock-screen alerts (Web Push) use the same slots, sent by the api function's push-due job.
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell } from 'lucide-react';

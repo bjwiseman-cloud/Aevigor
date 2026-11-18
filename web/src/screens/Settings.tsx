@@ -22,6 +22,7 @@ import {
 import { TimeZoneSelect } from './TimeZoneSelect';
 import { InviteTesters } from './InviteTesters';
 import { useHealthOn } from '@/hooks/plan';
+import { PhoneAlerts } from '@/components/PhoneAlerts';
 
 const accountSchema = z.object({ display_name: z.string().trim().max(80), time_zone: z.string().min(1) });
 const passwordSchema = z.object({ password: z.string().min(8, 'At least 8 characters.') });
@@ -71,6 +72,9 @@ export function Settings() {
       }
       const { error } = await supabase.rpc('delete_my_health_data');
       if (error) throw error;
+      const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
+      await (await reg?.pushManager.getSubscription())?.unsubscribe();
+      await supabase.rpc('delete_my_push_data');
       await qc.invalidateQueries();
       toast.success('Your health data has been deleted.');
     } catch (e) { toast.error((e as Error).message); }
@@ -152,7 +156,8 @@ export function Settings() {
       <Card>
         <CardHeader className="pb-3"><CardTitle>Health log</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm">
-          <p className="text-muted-foreground">{healthOn ? 'On. My log, Schedule and Records keep what you enter, only for you.' : 'Off. Turn it on from Plan.'} Phone lock-screen alerts are coming in the next update; in-app reminders already work.</p>
+          <p className="text-muted-foreground">{healthOn ? 'On. My log, Schedule and Records keep what you enter, only for you.' : 'Off. Turn it on from Plan.'}</p>
+          {healthOn && <PhoneAlerts />}
           {healthOn && (
             <AlertDialog>
               <AlertDialogTrigger asChild><Button variant="outline" className="w-full border-destructive text-destructive">Delete my health data</Button></AlertDialogTrigger>

@@ -40,7 +40,7 @@ export function Inbox() {
           )) : <p className="text-sm text-muted-foreground">No appointments coming up. Add them in <Link className="underline" to="/plan/schedule">Schedule</Link>.</p>}
         </CardContent>
       </Card>
-      <p className="text-xs text-muted-foreground">Alerts on your phone's lock screen come in the next update. {NOT_MEDICAL}</p>
+      <p className="text-xs text-muted-foreground">Turn on phone alerts in Settings to get these on your lock screen. {NOT_MEDICAL}</p>
     </div>
   );
 }

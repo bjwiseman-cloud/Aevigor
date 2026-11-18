@@ -50,5 +50,15 @@ do $$ begin
 end $$;
 select pg_temp.expect_fail($q$insert into public.activities (user_id, id, day) values ('44444444-4444-4444-4444-444444444444', 'x', '2026-11-11')$q$);
 select pg_temp.expect_fail($q$update public.activities set name = 'x'$q$);
+select pg_temp.expect_fail($q$select * from public.app_secrets$q$);
+select pg_temp.expect_fail($q$select * from public.push_sent$q$);
+insert into public.push_subscriptions (endpoint, p256dh, auth) values ('https://push.example/1', 'k', 'a');
+select pg_temp.expect_fail($q$insert into public.push_subscriptions (endpoint, user_id, p256dh, auth) values ('https://push.example/2', '55555555-5555-5555-5555-555555555555', 'k', 'a')$q$);
+set request.jwt.sub = '55555555-5555-5555-5555-555555555555';
+do $$ begin if (select count(*) from public.push_subscriptions) <> 0 then raise exception 'sees someone else''s phone'; end if; end $$;
+set request.jwt.sub = '44444444-4444-4444-4444-444444444444';
+select public.delete_my_push_data();
+do $$ begin if (select count(*) from public.push_subscriptions) <> 0 then raise exception 'push data not deleted'; end if; end $$;
 reset role;
+do $$ begin if (select length(value) from public.app_secrets where name = 'push_cron_token') < 40 then raise exception 'no cron token'; end if; end $$;
 select 'health walls ok';

@@ -4,6 +4,7 @@
 //   /api/sync            the Sync button
 //   /api/checkin         save the daily check-in, copy it to intervals.icu, recompute today
 //   /api/streams         one activity's second-by-second data (Sessions, W′ battery)
+//   /api/push-key, /api/push-test   phone alerts set-up; /api/push-due runs every 5 minutes (database job)
 //   /api/delete-account  delete the account and every row of the person's data
 //   /api/cron            nightly sync of everyone (needs the x-cron-secret header)
 //   /api/invites, /api/invite, /api/uninvite   admins only: list, add and remove testers
@@ -13,6 +14,7 @@ import { icu, athletePath, putWellness, IntervalsError } from '../_shared/interv
 import { encrypt, decrypt } from '../_shared/crypto.js';
 import { addDays } from '../_shared/rules.js';
 import { fetchStreams } from '../_shared/performance.js';
+import { checkToken, publicKey, pushDue, sendTo } from './push.ts';
 
 // The encryption key and the cron password default to values derived from the project's own service-role key,
 // which Supabase gives every function automatically, so no hand-made secrets are needed. Setting
@@ -185,6 +187,19 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     const { data } = await admin.from('activities').select('id').eq('user_id', user.id).eq('id', id).maybeSingle();
     if (!data) throw new HttpError(404, 'That activity was not found. Try syncing first.');
     return { streams: await fetchStreams(await keyFor(user.id), id) };
+  },
+
+  // Phone alerts
+  async 'push-key'(req) { await currentUser(req); return { publicKey: await publicKey(admin) }; },
+  async 'push-test'(req) {
+    const { user } = await currentUser(req);
+    const sent = await sendTo(admin, user.id, { title: '🔔 Aevigor', body: 'Phone alerts are on. Reminders you set will show here.', url: '/beta/inbox', tag: 'test' });
+    if (!sent) throw new HttpError(409, 'No phone is set up for alerts yet. Turn alerts on first.');
+    return { ok: true, sent };
+  },
+  async 'push-due'(req) {
+    if (!(await checkToken(admin, req.headers.get('x-push-token')))) throw new HttpError(401, 'Not allowed');
+    return await pushDue(admin);
   },
 
   async 'delete-account'(req, body) {
