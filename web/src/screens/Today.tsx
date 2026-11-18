@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
-import { useLatestStatus, useProfile, useTodayCheckin } from '@/hooks/data';
+import { useLatestStatus, usePlannedTests, useProfile, useTodayCheckin } from '@/hooks/data';
+import { addDays } from '@rules';
+import { shortDay } from '@/components/charts';
 import { STATUS, WEEKLY, DOT, type Dot } from '@/lib/status';
 import { fmt, niceDay, todayIn } from '@/lib/time';
 import type { Profile, Signals } from '@/lib/types';
@@ -35,11 +37,37 @@ function signalLines(s: Signals, checkedIn: boolean) {
   ];
 }
 
+// What to change when the Weekly check flags (BUILD-LIST, Ben 2026-11-18): volume, lifting, the next test, sleep.
+// Common deload practice: cut volume, keep some intensity (Bosquet 2007 taper meta-analysis; Pritchard 2015 for lifting).
+function changes(weekly: string, test: { day: string; kind: string } | undefined, today: string): string[] {
+  const near = (d: number) => test && test.day <= addDays(today, d);
+  if (weekly === 'WATCH') return [
+    'Avoid two hard days in a row. Keep the next hard session, but stop early if it feels much harder than usual.',
+    'Aim for 8 hours in bed for the next 2 nights.',
+    'Check again tomorrow morning; one more low day turns this into a deload.'
+  ];
+  if (weekly === 'DELOAD') return [
+    'Cut this week\'s training volume by 30-40%: shorter rides and runs, keep one short quality session.',
+    'Lifting: keep the weights, do about half the sets, and stop each set with 3 or more reps in reserve.',
+    near(7) ? `Move your ${test!.kind} (${shortDay(test!.day)}) back about a week, so you test fresh.` : 'If a test is planned in the next week, move it back a week.',
+    'Aim for 8+ hours of sleep and eat enough carbohydrate on training days.'
+  ];
+  if (weekly === 'DELOAD - STRONG') return [
+    'Take 3-5 easy days: rest, or only easy zone 1-2 sessions under an hour.',
+    'Lifting: skip heavy lifts; light technique work only.',
+    near(10) ? `Move your ${test!.kind} (${shortDay(test!.day)}) until after these easy days.` : 'Move any test planned in the next 10 days.',
+    'Extra sleep and good food. If you feel unwell, rest.'
+  ];
+  return [];
+}
+
 export function Today() {
   const profile = useProfile().data!;
   const status = useLatestStatus(profile);
   const checkin = useTodayCheckin(profile);
   const day = todayIn(profile.time_zone);
+  const tests = usePlannedTests(profile);
+  const nextTest = (tests.data ?? []).find((t) => t.day >= day);
 
   if (status.isLoading) return <p className="text-muted-foreground">Loading today…</p>;
   const r = status.data;
@@ -98,8 +126,14 @@ export function Today() {
       <Card className={wk.cls.split(' ')[1]}>
         <CardHeader className="pb-2"><CardTitle help="weekly-check">Weekly check</CardTitle></CardHeader>
         <CardContent>
-          <p><b className={wk.cls.split(' ')[0]}>{wk.icon} {r.weekly}</b>{r.weekly_why && <span className="text-muted-foreground"> · {r.weekly_why}</span>}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{wk.text}</p>
+          <p><b className={wk.cls.split(' ')[0]}>{wk.icon} {r.weekly}</b></p>
+          <p className="mt-1 text-sm">{wk.text}</p>
+          {r.weekly_why && <p className="mt-2 text-sm"><b>Why:</b> {r.weekly_why}.</p>}
+          {changes(r.weekly, nextTest, day).length > 0 && (
+            <div className="mt-2 text-sm"><b>What to change</b>
+              <ul className="mt-1 list-disc space-y-1 pl-5">{changes(r.weekly, nextTest, day).map((c) => <li key={c}>{c}</li>)}</ul>
+            </div>
+          )}
         </CardContent>
       </Card>
 
