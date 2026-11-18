@@ -7,13 +7,12 @@ import { Arrange } from '@/components/Arrange';
 import { C, HowToRead, Legend, axis, shortDay, tooltipStyle } from '@/components/charts';
 import { usePlannedTests, useProfile } from '@/hooks/data';
 import { useActivities, useCurves } from '@/hooks/perf';
-import { MEDALS, bestEfforts, curveFromEfforts, isRide, latestWeight, n, secsLabel, testResults, type Activity, type Curve } from '@/lib/perf';
+import { BEST_SECS, MEDALS, bestEfforts, curveFromEfforts, isRide, latestWeight, n, secsLabel, testResults, type Activity, type Curve } from '@/lib/perf';
 import { todayIn } from '@/lib/time';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 type Range = '30' | '60' | '90' | 's0' | '1y' | 'all';
 const RANGES: { id: Range; label: string }[] = [{ id: '30', label: '30 d' }, { id: '60', label: '60 d' }, { id: '90', label: '90 d' }, { id: 's0', label: 'Season' }, { id: '1y', label: 'Year' }, { id: 'all', label: 'All-time' }];
-const TICKS = [1, 5, 15, 60, 300, 1200, 3600, 10800];
 
 function PowerCurve({ rides, curves, today, weight }: { rides: Activity[]; curves: Curve[]; today: string; weight: number | null }) {
   const [range, setRange] = useState<Range>('90');
@@ -23,7 +22,9 @@ function PowerCurve({ rides, curves, today, weight }: { rides: Activity[]; curve
   const efforts = useMemo(() => bestEfforts(inRange, weight), [inRange, weight]);
   const api = curves.find((c) => c.sport === 'ride' && c.curve === range);
   const data = local ? curveFromEfforts(efforts)
-    : api ? api.secs.map((s, i) => ({ secs: s, watts: api.watts[i], wkg: api.wkg?.[i] ?? (weight ? +(api.watts[i] / weight).toFixed(2) : null) })).filter((p) => p.secs >= 1 && p.watts > 0) : [];
+    : api ? BEST_SECS.map((s) => { const i = api.secs.indexOf(s); return i < 0 || !api.watts[i] ? null : { secs: s, watts: api.watts[i], wkg: api.wkg?.[i] ?? (weight ? +(api.watts[i] / weight).toFixed(2) : null) }; }).filter(Boolean) as { secs: number; watts: number; wkg: number | null }[] : [];
+  // Evenly spaced standard durations (a log-scale area chart does not draw reliably in Recharts)
+  const plot = data.map((p) => ({ ...p, label: secsLabel(p.secs) }));
   const key = wkg ? 'wkg' : 'watts', unit = wkg ? ' W/kg' : ' W';
   const table = local ? efforts : api ? [5, 60, 300, 1200, 3600].map((s) => { const i = api.secs.indexOf(s); return i < 0 ? null : { secs: s, rank: [{ id: '', day: '', name: null, watts: api.watts[i], wkg: api.wkg?.[i] ?? (weight ? +(api.watts[i] / weight).toFixed(2) : null) }] }; }).filter(Boolean) as ReturnType<typeof bestEfforts> : [];
   return (
@@ -35,12 +36,12 @@ function PowerCurve({ rides, curves, today, weight }: { rides: Activity[]; curve
         {data.length ? (
           <div className="h-52">
             <ResponsiveContainer>
-              <AreaChart data={data} margin={{ top: 5, right: 8, left: -14, bottom: 0 }}>
+              <AreaChart data={plot} margin={{ top: 5, right: 8, left: -14, bottom: 0 }}>
                 <defs><linearGradient id="pc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.cyan} stopOpacity={0.45} /><stop offset="100%" stopColor={C.cyan} stopOpacity={0.02} /></linearGradient></defs>
                 <CartesianGrid stroke={C.grid} vertical={false} />
-                <XAxis dataKey="secs" type="number" scale="log" domain={[1, 'dataMax']} ticks={TICKS} tickFormatter={secsLabel} {...axis} />
+                <XAxis dataKey="label" {...axis} interval="preserveStartEnd" minTickGap={8} />
                 <YAxis {...axis} />
-                <Tooltip {...tooltipStyle} labelFormatter={(s) => secsLabel(Number(s))} formatter={(v) => [`${v}${unit}`, 'Best']} />
+                <Tooltip {...tooltipStyle} labelFormatter={(l) => String(l)} formatter={(v) => [`${v}${unit}`, 'Best']} />
                 <Area type="monotone" dataKey={key} stroke={C.cyan} strokeWidth={2} fill="url(#pc)" connectNulls />
               </AreaChart>
             </ResponsiveContainer>

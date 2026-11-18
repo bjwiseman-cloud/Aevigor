@@ -17,13 +17,13 @@ self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
   e.waitUntil(self.registration.showNotification(d.title || 'Aevigor', {
-    body: d.body || '', tag: d.tag, data: { url: d.url || '/beta/inbox' },
+    body: d.body || '', tag: d.tag, data: { url: d.url || '/beta/#/inbox' },
     icon: '/app/icon-192.png', badge: '/app/icon-192.png'
   }));
 });
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const url = (e.notification.data && e.notification.data.url) || '/beta/inbox';
+  const url = (e.notification.data && e.notification.data.url) || '/beta/#/inbox';
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
     const open = list.find((c) => c.url.includes('/beta/'));
     if (open) { open.navigate(url); return open.focus(); }

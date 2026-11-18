@@ -94,17 +94,17 @@ export async function pushDue(admin: SupabaseClient) {
       if (!g.reminder) continue;
       const its = mine.filter((i: Item) => i.group_id === g.id && now.day >= i.start_date && (!i.end_date || now.day <= i.end_date));
       if (!its.length || !occursOn(g.rrule, its.reduce((a: string, b: Item) => (a < b.start_date ? a : b.start_date), its[0].start_date), now.day)) continue;
-      for (const t of g.times) if (inWindow(t)) due.push({ key: `g:${g.id}:${now.day}:${t}`, title: `🔔 ${g.name}`, body: its.map(amount).join(', '), url: '/beta/inbox' });
+      for (const t of g.times) if (inWindow(t)) due.push({ key: `g:${g.id}:${now.day}:${t}`, title: `🔔 ${g.name}`, body: its.map(amount).join(', '), url: '/beta/#/inbox' });
     }
     for (const i of mine.filter((x: Item) => !x.group_id || !gs.some((g: Group) => g.id === x.group_id))) {
       if (!occursOn(i.rrule, i.start_date, now.day, i.end_date)) continue;
-      for (const t of i.times) if (inWindow(t)) due.push({ key: `i:${i.id}:${now.day}:${t}`, title: '🔔 Reminder', body: amount(i), url: '/beta/inbox' });
+      for (const t of i.times) if (inWindow(t)) due.push({ key: `i:${i.id}:${now.day}:${t}`, title: '🔔 Reminder', body: amount(i), url: '/beta/#/inbox' });
     }
     for (const e of (events ?? []).filter((x: Ev) => x.user_id === p.user_id)) {
       const start = new Date(e.starts_at).getTime();
       for (const m of e.remind_minutes ?? []) {
         const d = (Date.now() - (start - m * 60000)) / 60000;
-        if (d >= 0 && d < WINDOW_MIN) due.push({ key: `e:${e.id}:${m}`, title: `📅 ${e.title}`, body: e.prep_notes ? `Prep: ${e.prep_notes}` : new Date(e.starts_at).toLocaleString('en-CA', { timeZone: p.time_zone, dateStyle: 'medium', timeStyle: 'short' }), url: '/beta/plan/schedule' });
+        if (d >= 0 && d < WINDOW_MIN) due.push({ key: `e:${e.id}:${m}`, title: `📅 ${e.title}`, body: e.prep_notes ? `Prep: ${e.prep_notes}` : new Date(e.starts_at).toLocaleString('en-CA', { timeZone: p.time_zone, dateStyle: 'medium', timeStyle: 'short' }), url: '/beta/#/plan/schedule' });
       }
     }
     for (const d of due) {
