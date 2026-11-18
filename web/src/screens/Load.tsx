@@ -9,6 +9,7 @@ import { C, HowToRead, Legend, axis, shortDay, tooltipStyle } from '@/components
 import { useDailyLoad, usePlannedTests, useProfile, LOAD_BACK, PLAN_AHEAD } from '@/hooks/data';
 import { FORM_ZONES, RAMP_ZONES, TEST_READY, formZone, pmc, rampZone, weekly, type Sport } from '@/lib/metrics';
 import { todayIn, fmt } from '@/lib/time';
+import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 const SHOW_BACK = 84, SHOW_AHEAD = 28;
 
@@ -67,6 +68,7 @@ export function Load() {
 
   return (
     <div className="space-y-4">
+      <SubTabs tabs={TRAINING_TABS} />
       <div className="flex items-center justify-between">
         <h1 className="font-mono text-xl text-primary">Load</h1>
         <ToggleGroup type="single" variant="outline" size="sm" value={sport} onValueChange={(v) => v && setSport(v as Sport)}>

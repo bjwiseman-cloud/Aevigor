@@ -15,6 +15,12 @@ import { Load } from '@/screens/Load';
 import { Trends } from '@/screens/Trends';
 import { Settings } from '@/screens/Settings';
 import { Message } from '@/screens/Message';
+import { Schedule } from '@/screens/plan/Schedule';
+import { MyLog } from '@/screens/plan/MyLog';
+import { Records } from '@/screens/plan/Records';
+import { Inbox } from '@/screens/Inbox';
+import { Menu } from '@/screens/Menu';
+import { TrainingPlaceholder } from '@/screens/training/Placeholder';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 
@@ -43,7 +49,17 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/today" element={connected ? <Today /> : <Navigate to="/connect" replace />} />
         <Route path="/checkin" element={connected ? <CheckinPage /> : <Navigate to="/connect" replace />} />
-        <Route path="/load" element={connected ? <Load /> : <Navigate to="/connect" replace />} />
+        <Route path="/training/load" element={connected ? <Load /> : <Navigate to="/connect" replace />} />
+        <Route path="/training/performance" element={<TrainingPlaceholder page="performance" />} />
+        <Route path="/training/sessions" element={<TrainingPlaceholder page="sessions" />} />
+        <Route path="/training" element={<Navigate to="/training/load" replace />} />
+        <Route path="/load" element={<Navigate to="/training/load" replace />} />
+        <Route path="/plan/schedule" element={<Schedule />} />
+        <Route path="/plan/log" element={<MyLog />} />
+        <Route path="/plan/records" element={<Records />} />
+        <Route path="/plan" element={<Navigate to="/plan/schedule" replace />} />
+        <Route path="/inbox" element={<Inbox />} />
+        <Route path="/menu" element={<Menu />} />
         <Route path="/trends" element={connected ? <Trends /> : <Navigate to="/connect" replace />} />
         <Route path="/guide" element={<Guide />} />
         <Route path="/settings" element={<Settings />} />
