@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthProvider';
 import type { Checkin, DailyStatus, Profile } from '@/lib/types';
@@ -55,7 +55,7 @@ async function rows<T>(table: string, cols: string, from: string, to?: string): 
   return (data ?? []) as T[];
 }
 
-export const LOAD_BACK = 180, PLAN_AHEAD = 42, TRENDS_BACK = 84 + 70;
+export const LOAD_BACK = 365, PLAN_AHEAD = 180, TRENDS_BACK = 120 + 80;
 
 export function useDailyLoad(profile: Profile | null | undefined) {
   return useQuery({
@@ -74,6 +74,32 @@ export function usePlannedTests(profile: Profile | null | undefined) {
     enabled: !!profile,
     queryFn: () => rows<TestRow>('planned_tests', 'day, kind, name', addDays(todayIn(profile!.time_zone), -LOAD_BACK))
   });
+}
+
+export function useCalendar(profile: Profile | null | undefined) {
+  return useQuery({
+    queryKey: ['calendar_items', profile?.user_id],
+    enabled: !!profile,
+    queryFn: () => rows<{ id: string; day: string; kind: string; name: string | null }>('calendar_items', 'id, day, kind, name', addDays(todayIn(profile!.time_zone), -LOAD_BACK))
+  });
+}
+
+export function usePref<T>(key: string, fallback: T) {
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ['user_prefs', key],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('user_prefs').select('value').eq('key', key).maybeSingle();
+      if (error) throw error;
+      return (data?.value as T | undefined) ?? null;
+    }
+  });
+  const save = async (value: T) => {
+    const { error } = await supabase.from('user_prefs').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' });
+    if (error) throw error;
+    await qc.invalidateQueries({ queryKey: ['user_prefs', key] });
+  };
+  return { value: q.data ?? fallback, loaded: !q.isLoading, save };
 }
 
 export function useWellness(profile: Profile | null | undefined) {

@@ -22,7 +22,7 @@ function useUnit(): [Unit, (u: Unit) => void] {
   return [u, (v) => { setU(v); try { localStorage.setItem(UNIT_KEY, v); } catch { /* private window */ } }];
 }
 
-function useSets() {
+export function useSets() {
   return useQuery({
     queryKey: ['lift_sets'],
     queryFn: async () => {

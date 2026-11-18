@@ -1,202 +1,367 @@
+// Load tab, matching the live app's redesign (Ben 2026-11-18, Apps Script V16-V18):
+// sport picker (★ default, Combined, more sports) · Next test · Training status (dial, or a ribbon over a range) ·
+// Fitness/Fatigue (shaded, no load bars) · Form · Ramp rate · one slider for all three · actual vs planned this week.
 import { useMemo, useState } from 'react';
-import {
-  Area, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis
-} from 'recharts';
+import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { toast } from 'sonner';
 import { addDays } from '@rules';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { C, HowToRead, Legend, axis, shortDay, tooltipStyle } from '@/components/charts';
-import { useDailyLoad, usePlannedTests, useProfile, LOAD_BACK, PLAN_AHEAD } from '@/hooks/data';
-import { FORM_ZONES, RAMP_ZONES, TEST_READY, formZone, pmc, rampZone, weekly, type Sport } from '@/lib/metrics';
-import { todayIn, fmt } from '@/lib/time';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Chip, Chips } from '@/components/chips';
+import { HowToRead, axis, shortDay, tooltipStyle } from '@/components/charts';
+import { HelpButton } from '@/components/Help';
+import { useCalendar, useCheckins, useDailyLoad, usePlannedTests, usePref, useProfile, useWellness, LOAD_BACK } from '@/hooks/data';
+import { useActivities } from '@/hooks/perf';
+import { pmc, type PmcPoint } from '@/lib/metrics';
+import { testResults } from '@/lib/perf';
+import { TS_ORDER, mergeDays, statusColor, trainingStatus, weekPct, type Status } from '@/lib/training-status';
+import { todayIn } from '@/lib/time';
+import { cn } from '@/lib/utils';
+import { useSets } from '@/screens/training/Lifting';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
-const SHOW_BACK = 84, SHOW_AHEAD = 28;
+const FIT = '#14b8a6', FAT = '#fb7185', ACT = '#8b5cf6', PLAN = '#f59e0b';
+type Zone = [number, number, string, string];
+const FORM_Z: Zone[] = [[-999, -30, '#ef4444', 'High risk'], [-30, -10, '#22c55e', 'Optimal'], [-10, 5, '#94a3b8', 'Grey zone'], [5, 20, '#3b82f6', 'Fresh'], [20, 999, '#f59e0b', 'Transition']];
+const RAMP_Z: Zone[] = [[-999, 0, '#94a3b8', 'Dropping'], [0, 3, '#3b82f6', 'Gentle'], [3, 7, '#22c55e', 'Ideal'], [7, 8, '#f59e0b', 'Fast'], [8, 999, '#ef4444', 'Too fast']];
+const zoneOf = (z: Zone[], v: number) => z.find((x) => v < x[1]) ?? z[z.length - 1];
+const RANGES: [string, string][] = [['t', 'Today'], ['7', 'Week'], ['30', 'Month'], ['42', '42 d'], ['90', '3 mo'], ['c', 'Custom']];
+const LABEL: Record<string, string> = { ride: 'Cycling', run: 'Running', mix: 'Combined', all: 'All sports', WeightTraining: 'Lifting', Workout: 'Other workout' };
+const sportLabel = (k: string) => LABEL[k] ?? k.replace(/([a-z])([A-Z])/g, '$1 $2');
+const markOf = (kind: string) => (/test/.test(kind) ? '🎯' : /Race/.test(kind) ? '🏁' : '📅');
+const DN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const monday = (d: string) => addDays(d, -((new Date(d + 'T12:00:00Z').getUTCDay() + 6) % 7));
 
-function ZoneBar({ label, value, zones, unit = '' }: {
-  label: string; value: number | null; unit?: string;
-  zones: readonly { name: string; from: number; to: number; color: string }[];
-}) {
-  const min = zones[0].from, max = zones[zones.length - 1].to;
-  const row = Object.fromEntries(zones.map((z) => [z.name, z.to - z.from]));
-  const zone = value === null ? null : zones.find((z) => value < z.to) ?? zones[zones.length - 1];
-  const clamped = value === null ? null : Math.min(max, Math.max(min, value));
+// A vertical gradient that colours a line by zone. Offsets follow the plotted values' own top and bottom,
+// which is the box the browser uses for objectBoundingBox gradients.
+function ZoneGradient({ id, values, zones }: { id: string; values: (number | null)[]; zones: Zone[] }) {
+  const v = values.filter((x): x is number => x != null);
+  if (!v.length) return null;
+  const hi = Math.max(...v), lo = Math.min(...v), span = hi - lo || 1;
+  const stops: { o: number; c: string }[] = [];
+  [...zones].reverse().forEach((z) => {
+    const top = Math.min(hi, z[1]), bot = Math.max(lo, z[0]);
+    if (top <= bot && !(hi === lo && lo >= z[0] && lo < z[1])) return;
+    stops.push({ o: (hi - top) / span, c: z[2] }, { o: (hi - bot) / span, c: z[2] });
+  });
+  return <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">{stops.map((s, i) => <stop key={i} offset={Math.min(1, Math.max(0, s.o))} stopColor={s.c} />)}</linearGradient>;
+}
+
+function Dial({ st }: { st: Status }) {
+  const N = TS_ORDER.length, cx = 120, cy = 112, r = 92, w = 18;
+  const idx = TS_ORDER.findIndex((t) => t[0] === st.word);
+  const pt = (a: number, rr: number) => [cx - rr * Math.cos(a), cy - rr * Math.sin(a)];
+  const desc = idx >= 0 ? TS_ORDER[idx][2] : st.word === 'Paused' ? 'You logged being sick, so training status is paused until you are well.' : 'Needs about 6 weeks of training history.';
+  const tip = idx >= 0 ? pt((Math.PI * (idx + 0.5)) / N, r - w - 6) : null;
   return (
-    <div>
-      <div className="flex items-baseline justify-between text-sm">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-mono" style={{ color: zone?.color }}>{fmt(value, unit)} {zone && <span className="text-xs">· {zone.name}</span>}</span>
-      </div>
-      <ResponsiveContainer width="100%" height={26}>
-        <BarChart data={[row]} layout="vertical" margin={{ top: 4, right: 0, bottom: 4, left: 0 }}>
-          <XAxis type="number" domain={[0, max - min]} hide />
-          <YAxis type="category" hide />
-          {zones.map((z) => <Bar key={z.name} dataKey={z.name} stackId="z" fill={z.color} fillOpacity={0.35} isAnimationActive={false} />)}
-          {clamped !== null && <ReferenceLine x={clamped - min} stroke={C.text} strokeWidth={3} />}
-        </BarChart>
-      </ResponsiveContainer>
+    <div className="space-y-2">
+      <svg viewBox="0 0 240 134" role="img" aria-label={`Training status: ${st.word}`} className="mx-auto block w-full max-w-xs">
+        {TS_ORDER.map((t, i) => {
+          const a0 = (Math.PI * i) / N + 0.012, a1 = (Math.PI * (i + 1)) / N - 0.012, p0 = pt(a0, r), p1 = pt(a1, r), q1 = pt(a1, r - w), q0 = pt(a0, r - w);
+          return <path key={t[0]} d={`M${p0} A${r},${r} 0 0 1 ${p1} L${q1} A${r - w},${r - w} 0 0 0 ${q0}Z`} fill={t[1]} opacity={i === idx ? 1 : 0.5} />;
+        })}
+        {tip && <line x1={cx} y1={cy} x2={tip[0]} y2={tip[1]} stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" />}
+        <circle cx={cx} cy={cy} r={6} fill="currentColor" />
+        <text x={14} y={128} fontSize={10} className="fill-muted-foreground">Easing off</text>
+        <text x={226} y={128} fontSize={10} textAnchor="end" className="fill-muted-foreground">Strained</text>
+      </svg>
+      <div className="text-center font-serif text-2xl font-bold" style={{ color: idx >= 0 ? TS_ORDER[idx][1] : undefined }}>{st.word}</div>
+      <p className="text-center text-sm text-muted-foreground">{desc}</p>
+      <StatusLegend on={(w) => w === st.word} />
+      <div className="flex flex-wrap justify-center gap-1.5">{st.chips.map(([t, flag]) => <span key={t} className={cn('rounded-full border px-2 py-0.5 text-xs', flag && 'border-status-caution text-status-caution')}>{t}</span>)}</div>
     </div>
   );
 }
 
-const TEST_LABEL: Record<string, string> = { 'FTP test': 'FTP test', 'VO2 test': 'VO2 test', 'Durability test': 'Durability test' };
+function StatusLegend({ on }: { on: (w: string) => boolean }) {
+  return <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs">{TS_ORDER.map((t) => <span key={t[0]} className={cn('inline-flex items-center gap-1', !on(t[0]) && 'opacity-50')}><i className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: t[1] }} />{t[0]}</span>)}</div>;
+}
+
+function Ribbon({ hist, days, sel }: { hist: Status[]; days: string[]; sel: number }) {
+  const n = days.length; if (!n) return <p className="text-sm text-muted-foreground">No status history for this range.</p>;
+  const W = 400, bw = W / n, cnt: Record<string, number> = {};
+  hist.forEach((h) => { cnt[h.word] = (cnt[h.word] ?? 0) + 1; });
+  const cur = hist[Math.min(sel, n - 1)];
+  return (
+    <div className="space-y-2">
+      <svg viewBox={`0 0 ${W} 30`} preserveAspectRatio="none" className="h-8 w-full">
+        {hist.map((h, k) => <rect key={k} x={k * bw} y={k === sel ? 0 : 4} width={Math.max(1, bw - (n > 60 ? 0 : 1.5))} height={k === sel ? 30 : 22} rx={n > 60 ? 0 : 3} fill={statusColor(h.word)} opacity={TS_ORDER.some((t) => t[0] === h.word) ? 1 : 0.35} />)}
+      </svg>
+      <div className="flex justify-between text-xs text-muted-foreground"><span>{shortDay(days[0])}</span><span>{shortDay(days[n - 1])}</span></div>
+      {cur && <p className="text-sm"><b>{shortDay(days[Math.min(sel, n - 1)])}</b>: <b style={{ color: statusColor(cur.word) }}>{cur.word}</b>{(cur.perf.length || cur.sym.length) ? <><br /><span className="text-xs text-muted-foreground">{[...cur.perf, ...cur.sym].join(', ')}</span></> : null}</p>}
+      <StatusLegend on={(w) => !!cnt[w]} />
+      <div className="flex flex-wrap justify-center gap-1.5 text-xs">{TS_ORDER.filter((t) => cnt[t[0]]).map((t) => <span key={t[0]} className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5"><i className="inline-block h-2 w-2 rounded-full" style={{ background: t[1] }} />{t[0]} {cnt[t[0]]} d</span>)}</div>
+    </div>
+  );
+}
+
+const M = { top: 8, right: 6, bottom: 0, left: -18 };
 
 export function Load() {
-  const profile = useProfile();
-  const p = profile.data;
-  const load = useDailyLoad(p);
-  const tests = usePlannedTests(p);
-  const [sport, setSport] = useState<Sport>('ride');
-  const today = p ? todayIn(p.time_zone) : '';
+  const p = useProfile().data!;
+  const today = todayIn(p.time_zone);
+  const load = useDailyLoad(p), tests = usePlannedTests(p), cal = useCalendar(p), acts = useActivities(p), wellness = useWellness(p), checkins = useCheckins(p), lifts = useSets();
+  const pref = usePref<{ def: string; sports: string[] | null }>('load_sports', { def: 'ride', sports: null });
+  const [pick, setPick] = useState<string | null>(null);
+  const [R, setR] = useState('t');
+  const [cf, setCf] = useState(''), [ct, setCt] = useState('');
+  const [pj, setPj] = useState(true);
+  const [tIdx, setTIdx] = useState<number | null>(null);
+  const [selDay, setSelDay] = useState<string | null>(null);
 
-  const points = useMemo(
-    () => (load.data && today ? pmc(load.data, sport, addDays(today, -LOAD_BACK), addDays(today, PLAN_AHEAD), today) : []),
-    [load.data, sport, today]
+  const rows = load.data ?? [];
+  const avail = useMemo(() => {
+    const c: Record<string, number> = {};
+    rows.forEach((r) => { if (r.day <= today && r.sessions > 0) c[r.sport] = (c[r.sport] ?? 0) + r.sessions; });
+    const keys = Object.keys(c).sort((a, b) => c[b] - c[a]);
+    ['ride', 'run'].forEach((k) => { if (!keys.includes(k)) keys.push(k); });
+    return { c, keys };
+  }, [rows, today]);
+  const shown = (pref.value.sports ?? avail.keys).filter(Boolean);
+  const first = pref.value.def || 'ride';
+  const sport = pick ?? first;
+  const others = shown.filter((k) => k !== first);
+
+  const ahead = useMemo(() => (cal.data ?? []).filter((c) => c.day > today && c.day <= addDays(today, 180)), [cal.data, today]);
+  const defTarget = Math.max(0, ahead.findIndex((c) => c.kind !== 'Event'));
+  const target = ahead.length ? ahead[tIdx ?? defTarget] : null;
+  const horizon = ahead.length && ahead[ahead.length - 1].day > addDays(today, 14) ? ahead[ahead.length - 1].day : addDays(today, 14);
+  const from = addDays(today, -LOAD_BACK);
+  const all = useMemo(() => pmc(rows, sport === 'mix' ? shown : sport, from, horizon, today), [rows, sport, shown.join(), from, horizon, today]);
+  const allSports = useMemo(() => pmc(rows, 'all', from, horizon, today), [rows, from, horizon, today]);
+  const iToday = all.findIndex((x) => x.day === today);
+  const iTarget = target ? all.findIndex((x) => x.day === target.day) : -1;
+
+  // Visible window, as in the live app: Today = last 42 days; ranges count back from today; projection extends to the target
+  const end = pj && iTarget > iToday ? iTarget : iToday;
+  let a0: number, a1: number;
+  if (R === 'c' && cf && ct) { const i0 = all.findIndex((x) => x.day >= (cf < ct ? cf : ct)), i1 = all.findIndex((x) => x.day >= (cf < ct ? ct : cf)); a0 = Math.max(0, i0); a1 = i1 < 0 ? all.length - 1 : i1; }
+  else { a1 = end; a0 = Math.max(0, iToday - (R === 't' ? 42 : Number(R) || 42) + 1); }
+  let sel = selDay ? all.findIndex((x) => x.day === selDay) : iToday;
+  if (sel < a0 || sel > a1) sel = Math.min(a1, Math.max(a0, iToday));
+  const win = all.slice(a0, a1 + 1);
+
+  // Training status (all sports), today and day by day for the ribbon
+  const statusIn = useMemo(() => ({
+    days: mergeDays((wellness.data ?? []) as never[], (checkins.data ?? []) as never[]),
+    all: allSports, acts: acts.data ?? [], tests: testResults(tests.data ?? [], acts.data ?? []), lifts: lifts.data ?? []
+  }), [wellness.data, checkins.data, allSports, acts.data, tests.data, lifts.data]);
+  const status = useMemo(() => trainingStatus(today, statusIn, weekPct(allSports, today)), [statusIn, today, allSports]);
+  const ribbonDays = R === 't' ? [] : win.filter((x) => x.day <= today).map((x) => x.day).slice(-120);
+  const hist = useMemo(() => ribbonDays.map((d) => (d === today ? status : trainingStatus(d, statusIn, weekPct(allSports, d)))), [ribbonDays.join(), statusIn, status]);
+
+  const marks = (cal.data ?? []).filter((c) => c.day >= (win[0]?.day ?? '') && c.day <= (win[win.length - 1]?.day ?? ''));
+  const data = win.map((x, k) => {
+    const g = a0 + k, past = g <= iToday, fut = g >= iToday;
+    const ramp = x.ramp;
+    return { day: x.day, ctlA: past ? x.ctl : null, ctlP: fut ? x.ctl : null, atlA: past ? x.atl : null, atlP: fut ? x.atl : null, formA: past ? x.form : null, formP: fut ? x.form : null, rampA: past ? ramp : null, rampP: fut ? ramp : null };
+  });
+  const cur: PmcPoint | undefined = all[sel];
+  const fz = cur ? zoneOf(FORM_Z, cur.form) : null, rz = cur?.ramp != null ? zoneOf(RAMP_Z, cur.ramp) : null;
+  const next = (tests.data ?? []).find((t) => t.day >= today && t.kind !== 'Durability test') ?? (tests.data ?? []).find((t) => t.day >= today);
+  const nextPt = next && all.find((x) => x.day === next.day);
+  const daysTo = next ? Math.round((Date.parse(next.day) - Date.parse(today)) / 864e5) : null;
+
+  // This week day by day, and the following weeks' plan
+  const mon = monday(today);
+  const byDay = (d: string) => all.find((x) => x.day === d);
+  const week = (st: string) => DN.map((n, j) => { const d = addDays(st, j), pt = byDay(d); return { n, day: d, a: d > today ? null : Math.round(pt?.actual ?? 0), p: Math.round(pt?.planned ?? 0) }; });
+  const w0 = week(mon);
+  const done = w0.filter((x) => x.a != null), pa = done.reduce((s, x) => s + (x.a ?? 0), 0), pp = done.reduce((s, x) => s + x.p, 0);
+  const pct = pp ? Math.round((pa / pp) * 100) : null;
+  const [more, setMore] = useState(0);
+
+  const chipsRow = (
+    <>
+      <Chips>{RANGES.map(([k, l]) => <Chip key={k} on={R === k} onClick={() => { setR(k); if (k === 'c' && !cf) { setCf(addDays(today, -89)); setCt(today); } }}>{l}</Chip>)}</Chips>
+      {R === 'c' && <div className="grid grid-cols-2 gap-2"><Input type="date" value={cf} onChange={(e) => setCf(e.target.value)} aria-label="From" /><Input type="date" value={ct} onChange={(e) => setCt(e.target.value)} aria-label="To" /></div>}
+    </>
   );
-  const shown = points.filter((x) => x.day >= addDays(today, -SHOW_BACK) && x.day <= addDays(today, SHOW_AHEAD));
-  const now = points.find((x) => x.day === today);
-  const weeks = useMemo(() => weekly(points, today), [points, today]);
-  const next = (tests.data ?? []).find((t) => t.day >= today && t.kind !== 'Durability test')
-    ?? (tests.data ?? []).find((t) => t.day >= today);
-  const nextPoint = next && points.find((x) => x.day === next.day);
-  const daysTo = next ? Math.round((Date.parse(next.day) - Date.parse(today)) / 86400000) : null;
-  const ready = nextPoint ? nextPoint.form >= TEST_READY.from && nextPoint.form <= TEST_READY.to : false;
-  const hasData = (load.data ?? []).some((r) => r.actual > 0 || r.planned > 0);
-  const testDays = (tests.data ?? []).filter((t) => t.day >= shown[0]?.day && t.day <= shown[shown.length - 1]?.day);
+  const marksEls = marks.map((m) => <ReferenceLine key={m.id} x={m.day} stroke="currentColor" strokeOpacity={0.25} strokeDasharray="2 3" label={{ value: markOf(m.kind), position: 'insideTop', fontSize: 12 }} />);
+  const selLine = cur ? <ReferenceLine x={cur.day} stroke="currentColor" strokeOpacity={0.6} /> : null;
+  const X = <XAxis dataKey="day" {...axis} tickFormatter={shortDay} minTickGap={24} />;
 
-  if (load.isLoading) return <p className="text-muted-foreground">Loading…</p>;
+  if (load.isLoading) return <><SubTabs tabs={TRAINING_TABS} /><p className="text-muted-foreground">Loading…</p></>;
+  const hasData = rows.some((r) => r.actual > 0 || r.planned > 0);
 
   return (
     <div className="space-y-4">
       <SubTabs tabs={TRAINING_TABS} />
-      <div className="flex items-center justify-between">
-        <h1 className="font-serif text-xl font-bold tracking-wide">Load</h1>
-        <ToggleGroup type="single" variant="outline" size="sm" value={sport} onValueChange={(v) => v && setSport(v as Sport)}>
-          <ToggleGroupItem value="ride">Cycling</ToggleGroupItem>
-          <ToggleGroupItem value="run">Running</ToggleGroupItem>
-          <ToggleGroupItem value="all">All</ToggleGroupItem>
-        </ToggleGroup>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Chip on={sport === first} onClick={() => setPick(first)}>★ {sportLabel(first)}</Chip>
+        {first !== 'mix' && shown.length > 1 && <Chip on={sport === 'mix'} onClick={() => setPick('mix')}>Combined</Chip>}
+        {others.length > 0 && (
+          <select className="h-8 rounded-full border bg-card px-3 text-sm" value={others.includes(sport) ? sport : ''} onChange={(e) => e.target.value && setPick(e.target.value)} aria-label="More sports">
+            <option value="">More sports ▾</option>{others.map((k) => <option key={k} value={k}>{sportLabel(k)}</option>)}
+          </select>
+        )}
       </div>
+      <ChooseSports keys={avail.keys} counts={avail.c} shown={shown} def={first} onSave={async (v) => { try { await pref.save(v); setPick(null); toast.success('Saved'); } catch (e) { toast.error((e as Error).message); } }} />
 
-      {!hasData && (
-        <Card><CardContent className="pt-6 text-sm text-muted-foreground">
-          No training load yet. Tap <b>Sync</b> after your rides and runs reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.
-        </CardContent></Card>
-      )}
+      {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base" help="next-test">Next test</CardTitle></CardHeader>
-        <CardContent className="space-y-1 text-sm">
-          {next && nextPoint ? (
-            <>
-              <p className="font-mono text-2xl text-primary">{daysTo === 0 ? 'Today' : `${daysTo} day${daysTo === 1 ? '' : 's'}`}</p>
-              <p>{TEST_LABEL[next.kind] ?? next.kind} on {shortDay(next.day)}{next.name ? ` (${next.name})` : ''}</p>
-              <p>
-                Projected Form that day: <span className="font-mono" style={{ color: formZone(nextPoint.form).color }}>{fmt(nextPoint.form)}</span>{' '}
-                {ready ? <span className="text-status-go">✓ in the test-ready band (+5 to +15)</span>
-                  : <span className="text-muted-foreground">(test-ready band is +5 to +15)</span>}
-              </p>
-              <p className="text-xs text-muted-foreground">Projected from the workouts planned in intervals.icu. It changes if the plan changes.</p>
-            </>
-          ) : (
-            <p className="text-muted-foreground">No test planned. Name a planned workout in intervals.icu with "FTP test", "VO2 test" or "Durability test" and it shows here.</p>
+        <CardHeader className="pb-2"><CardTitle help="next-test">Next test</CardTitle></CardHeader>
+        <CardContent className="text-sm">
+          {next ? (
+            <div className="flex items-center gap-4">
+              <div className="font-mono text-3xl">{daysTo}<span className="text-sm"> days</span></div>
+              <div><b>{next.kind}</b> · {shortDay(next.day)}
+                <div className="text-muted-foreground">Projected Form that day: <b style={{ color: nextPt && nextPt.form >= 5 && nextPt.form <= 15 ? '#22c55e' : PLAN }}>{nextPt ? Math.round(nextPt.form) : '–'}</b>{' '}
+                  {next.kind === 'Durability test' ? '(no target band for durability)' : nextPt && nextPt.form >= 5 && nextPt.form <= 15 ? '✓ inside the +5 to +15 test band' : '· aim for +5 to +15'}</div>
+              </div>
+            </div>
+          ) : <p className="text-muted-foreground">No test in your intervals.icu plan yet. Name a workout "FTP test", "VO2 test" or "Durability test".</p>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle help="training-status">Training status</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {chipsRow}
+          {R === 't' ? <Dial st={status} /> : <Ribbon hist={hist} days={ribbonDays} sel={Math.min(sel - a0, ribbonDays.length - 1)} />}
+          <p className="text-xs text-muted-foreground">Uses all your sports. Training guidance, not medical advice.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-1"><CardTitle help="fitness-fatigue-form">Fitness · Fatigue</CardTitle><p className="text-xs text-muted-foreground">{sport === 'mix' ? `Combined: ${shown.map(sportLabel).join(' + ')}` : sportLabel(sport)}</p></CardHeader>
+        <CardContent className="space-y-2">
+          {ahead.length > 0 && (
+            <label className="flex flex-wrap items-center gap-2 text-sm">
+              <input type="checkbox" checked={pj} onChange={(e) => setPj(e.target.checked)} /> Projection to
+              <select className="h-8 rounded-md border bg-card px-2 text-sm" value={tIdx ?? defTarget} onChange={(e) => { setTIdx(Number(e.target.value)); setPj(true); }}>
+                {ahead.map((c, k) => <option key={c.id} value={k}>{c.kind === 'Event' || /Race/.test(c.kind) ? c.name : c.kind} · {shortDay(c.day)}</option>)}
+              </select>
+            </label>
+          )}
+          <div className="h-44">
+            <ResponsiveContainer>
+              <ComposedChart data={data} margin={M}>
+                <defs>
+                  <linearGradient id="gFit" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={FIT} stopOpacity={0.45} /><stop offset="100%" stopColor={FIT} stopOpacity={0.03} /></linearGradient>
+                  <linearGradient id="gFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={FAT} stopOpacity={0.3} /><stop offset="100%" stopColor={FAT} stopOpacity={0.02} /></linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} strokeOpacity={0.15} />
+                {X}<YAxis {...axis} domain={[0, 'auto']} />
+                <Tooltip {...tooltipStyle} formatter={(v, name) => [Math.round(Number(v)), String(name)]} />
+                <Area dataKey="atlA" name="Fatigue" stroke={FAT} strokeWidth={2} fill="url(#gFat)" connectNulls isAnimationActive={false} />
+                <Area dataKey="ctlA" name="Fitness" stroke={FIT} strokeWidth={3} fill="url(#gFit)" connectNulls isAnimationActive={false} />
+                <Line dataKey="atlP" name="Fatigue (projected)" stroke={FAT} strokeOpacity={0.5} strokeWidth={1.5} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
+                <Line dataKey="ctlP" name="Fitness (projected)" stroke={FIT} strokeOpacity={0.5} strokeWidth={2.5} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
+                {marksEls}{selLine}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-wrap gap-3 text-xs"><span><i className="mr-1 inline-block h-1 w-4 rounded align-middle" style={{ background: FIT }} />Fitness</span><span><i className="mr-1 inline-block h-1 w-4 rounded align-middle" style={{ background: FAT }} />Fatigue</span>{ahead.length > 0 && <span><i className="mr-1 inline-block h-0.5 w-4 rounded align-middle" style={{ background: FIT + '80' }} />Projected</span>}<span>🎯 test 🏁 race 📅 event</span></div>
+        </CardContent>
+      </Card>
+
+      <ZoneChart title="Form" help="form-zones" data={data} keyA="formA" keyP="formP" zones={FORM_Z} ticks={[-30, -10, 5, 20]} lo={-40} hi={25} X={X} extra={<>{marksEls}{selLine}</>} />
+      <ZoneChart title="Ramp rate" help="ramp-rate" data={data} keyA="rampA" keyP="rampP" zones={RAMP_Z} ticks={[0, 3, 8]} lo={-4} hi={12} X={X} extra={<>{marksEls}{selLine}</>} />
+
+      <Card>
+        <CardContent className="space-y-3 pt-5">
+          <Slider min={a0} max={Math.max(a0, a1)} step={1} value={[sel]} onValueChange={([v]) => setSelDay(all[v]?.day ?? null)} aria-label="Pick a day" />
+          {cur && (
+            <p className="text-sm">
+              <b>{shortDay(cur.day)}</b>{sel > iToday ? ' · projected' : sel === iToday ? ' · today' : ''}<br />
+              <span style={{ color: FIT }}>Fitness <b>{Math.round(cur.ctl)}</b></span> · <span style={{ color: FAT }}>Fatigue <b>{Math.round(cur.atl)}</b></span> · <span style={{ color: fz?.[2] }}>Form <b>{Math.round(cur.form)}</b> {fz?.[3]}</span><br />
+              <span style={{ color: rz?.[2] }}>Ramp <b>{cur.ramp == null ? '–' : cur.ramp}</b>/wk {rz?.[3]}</span> · <span style={{ color: ACT }}>Load <b>{sel > iToday ? '–' : Math.round(cur.actual ?? 0)}</b></span> · <span style={{ color: PLAN }}>planned <b>{Math.round(cur.planned) || '–'}</b></span>
+            </p>
           )}
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="space-y-3 pt-6">
-          <ZoneBar label="Ramp rate (Fitness change per week)" value={now?.ramp ?? null} zones={RAMP_ZONES} />
-          <ZoneBar label="Form today" value={now?.form ?? null} zones={FORM_ZONES} />
-          <HowToRead>
-            <p><b>Ramp rate</b> is how much Fitness rose in the last 7 days. 3 to 7 a week builds fitness at a pace most people absorb; over 8 is fast and raises the risk of getting run down.</p>
-            <p><b>Form</b> is yesterday's Fitness minus Fatigue. The zones match intervals.icu: below −30 high risk, −30 to −10 optimal training, −10 to +5 grey zone, +5 to +20 fresh, above +20 transition (losing fitness).</p>
-            <p>Current zone: ramp {now?.ramp != null ? rampZone(now.ramp).name.toLowerCase() : 'not enough data'}, Form {now ? formZone(now.form).name.toLowerCase() : 'not enough data'}.</p>
-          </HowToRead>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-1"><CardTitle className="text-base" help="fitness-fatigue-form">Fitness, Fatigue and load</CardTitle></CardHeader>
-        <CardContent>
-          <Legend items={[
-            { label: 'Actual load', color: C.cyan, area: true }, { label: 'Planned load', color: C.yellow, area: true, dashed: true },
-            { label: 'Fitness', color: C.green }, { label: 'Fatigue', color: C.magenta }
-          ]} />
-          <ResponsiveContainer width="100%" height={240}>
-            <ComposedChart data={shown} margin={{ top: 8, right: 4, bottom: 0, left: -18 }}>
-              <CartesianGrid stroke={C.grid} vertical={false} />
-              <XAxis dataKey="day" {...axis} tickFormatter={shortDay} minTickGap={28} />
-              <YAxis {...axis} />
-              <Tooltip {...tooltipStyle} />
-              <Area type="step" dataKey="planned" name="Planned" stroke={C.yellow} strokeDasharray="4 3" fill={C.yellow} fillOpacity={0.12} isAnimationActive={false} />
-              <Area type="step" dataKey="actual" name="Actual" stroke={C.cyan} fill={C.cyan} fillOpacity={0.3} isAnimationActive={false} connectNulls={false} />
-              <Line type="monotone" dataKey="atl" name="Fatigue" stroke={C.magenta} strokeWidth={1.5} dot={false} isAnimationActive={false} />
-              <Line type="monotone" dataKey="ctl" name="Fitness" stroke={C.green} strokeWidth={3} dot={false} isAnimationActive={false} />
-              <ReferenceLine x={today} stroke={C.text} strokeDasharray="2 2" label={{ value: 'today', fill: C.axis, fontSize: 10, position: 'insideTopRight' }} />
-            </ComposedChart>
-          </ResponsiveContainer>
-          <HowToRead>
-            <p><b>Actual load</b> is each day's training stress: power for rides, pace for runs (heart rate as backup), and session RPE (RPE × minutes) for lifting and badminton. <b>Planned load</b> comes from the workouts in your intervals.icu calendar.</p>
-            <p><b>Fitness</b> is your 42-day weighted load; <b>Fatigue</b> is your 7-day weighted load. After today the lines follow the plan.</p>
-          </HowToRead>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-1"><CardTitle className="text-base" help="load-vs-plan">Weekly load vs plan</CardTitle></CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={170}>
-            <BarChart data={weeks} margin={{ top: 16, right: 4, bottom: 0, left: -18 }}>
-              <CartesianGrid stroke={C.grid} vertical={false} />
-              <XAxis dataKey="week" {...axis} tickFormatter={shortDay} />
-              <YAxis {...axis} />
-              <Tooltip {...tooltipStyle} />
-              <Bar dataKey="planned" name="Planned" fill={C.yellow} fillOpacity={0.25} stroke={C.yellow} strokeDasharray="3 2" isAnimationActive={false} />
-              <Bar dataKey="actual" name="Actual" isAnimationActive={false}>
-                {weeks.map((w) => <Cell key={w.week} fill={w.pct !== null && w.pct > 120 ? C.orange : C.cyan} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="mt-1 grid grid-cols-4 gap-1 text-center font-mono text-[11px] sm:grid-cols-8">
-            {weeks.map((w) => (
-              <div key={w.week} className={w.pct !== null && w.pct > 120 ? 'text-status-warn' : 'text-muted-foreground'}>
-                {shortDay(w.week)}<br />{w.pct === null ? 'no plan' : `${w.pct}%`}
-              </div>
-            ))}
+        <CardHeader className="pb-2"><CardTitle help="load-vs-plan">Actual vs planned load</CardTitle></CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="h-36">
+            <ResponsiveContainer>
+              <BarChart data={w0} margin={M} barGap={2}>
+                <defs><pattern id="stripes" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill={PLAN + '22'} /><line x1="0" y1="0" x2="0" y2="6" stroke={PLAN} strokeWidth="2" strokeOpacity={0.55} /></pattern></defs>
+                <CartesianGrid vertical={false} strokeOpacity={0.15} />
+                <XAxis dataKey="n" {...axis} /><YAxis {...axis} />
+                <Tooltip {...tooltipStyle} labelFormatter={(_l, pl) => (pl?.[0] ? shortDay(String(pl[0].payload.day)) : '')} />
+                <Bar dataKey="a" name="Actual" fill={ACT} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                <Bar dataKey="p" name="Planned" fill="url(#stripes)" stroke={PLAN} strokeWidth={1.5} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <HowToRead>
-            <p>Each pair of bars is one week (Monday to Sunday): planned load dashed, actual solid. The percentage is actual ÷ planned. Weeks more than 20% over plan turn orange, the same rule as the load alert on Today.</p>
-          </HowToRead>
+          <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: ACT }} />Actual</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border align-middle" style={{ borderColor: PLAN, background: PLAN + '44' }} />Planned</span></div>
+          <p><b>This week so far</b> · {pa} done of {pp} planned{pct != null && <> · <b style={{ color: Math.abs(pct - 100) <= 10 ? '#22c55e' : Math.abs(pct - 100) <= 20 ? '#eab308' : '#ef4444' }}>{pct}%</b></>}<br />Whole week planned: {w0.reduce((s, x) => s + x.p, 0)}</p>
+          {more > 0 && (
+            <Accordion type="multiple">
+              {Array.from({ length: more }, (_, k) => week(addDays(mon, 7 * (k + 1)))).map((w) => (
+                <AccordionItem key={w[0].day} value={w[0].day}>
+                  <AccordionTrigger className="py-2 text-sm"><span>Week of {shortDay(w[0].day)}</span><span className="ml-auto mr-2 text-muted-foreground">{w.reduce((s, x) => s + x.p, 0) || '–'} planned</span></AccordionTrigger>
+                  <AccordionContent><table className="w-full text-sm"><tbody>{w.map((x) => <tr key={x.day}><td>{x.n} {shortDay(x.day)}</td><td className="text-right font-mono">{x.p || '–'}</td></tr>)}</tbody></table></AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
+          <Button variant="outline" size="sm" disabled={more >= 26} onClick={() => setMore(Math.min(26, more + 4))}>{more ? 'Show 4 more weeks ▾' : 'Next 4 weeks ▾'}</Button>
+          <HowToRead>This week day by day: what you did next to what intervals.icu has planned. Within 10% of plan is green, within 20% gold. The only load alert on Today is the last 7 days running more than 20% above plan.</HowToRead>
         </CardContent>
       </Card>
+    </div>
+  );
+}
 
-      <Card>
-        <CardHeader className="pb-1"><CardTitle className="text-base" help="form-zones">Form</CardTitle></CardHeader>
-        <CardContent>
-          <Legend items={[...FORM_ZONES.map((z) => ({ label: z.name, color: z.color, area: true })), { label: 'Test-ready', color: C.text, area: true, dashed: true }]} />
-          <ResponsiveContainer width="100%" height={210}>
-            <ComposedChart data={shown} margin={{ top: 8, right: 4, bottom: 0, left: -18 }}>
-              {FORM_ZONES.map((z) => <ReferenceArea key={z.name} y1={z.from} y2={z.to} fill={z.color} fillOpacity={0.1} stroke="none" ifOverflow="hidden" />)}
-              <ReferenceArea y1={TEST_READY.from} y2={TEST_READY.to} fill={C.text} fillOpacity={0.06} stroke={C.text} strokeDasharray="3 3" strokeOpacity={0.4} ifOverflow="hidden" />
-              <CartesianGrid stroke={C.grid} vertical={false} strokeOpacity={0.5} />
-              <XAxis dataKey="day" {...axis} tickFormatter={shortDay} minTickGap={28} />
-              <YAxis {...axis} domain={[-40, 30]} ticks={[-30, -10, 5, 20]} allowDataOverflow />
-              <Tooltip {...tooltipStyle} />
-              <Line type="monotone" dataKey="form" name="Form" stroke={C.text} strokeWidth={2} dot={false} isAnimationActive={false} />
-              <ReferenceLine x={today} stroke={C.text} strokeDasharray="2 2" />
-              {testDays.map((t) => (
-                <ReferenceLine key={t.day + t.kind} x={t.day} stroke={C.yellow} strokeDasharray="1 3"
-                  label={{ value: t.kind.replace(' test', ''), fill: C.yellow, fontSize: 9, position: 'insideTopLeft' }} />
-              ))}
+function ZoneChart({ title, help, data, keyA, keyP, zones, ticks, lo, hi, X, extra }: {
+  title: string; help: string; data: Record<string, number | string | null>[]; keyA: string; keyP: string; zones: Zone[]; ticks: number[]; lo: number; hi: number; X: JSX.Element; extra: JSX.Element;
+}) {
+  const vA = data.map((d) => d[keyA] as number | null), vP = data.map((d) => d[keyP] as number | null);
+  const all = [...vA, ...vP].filter((v): v is number => v != null);
+  const min = Math.min(lo, ...all.map((v) => v - 3)), max = Math.max(hi, ...all.map((v) => v + 3));
+  const id = title.replace(/\W/g, '');
+  return (
+    <Card>
+      <CardHeader className="pb-1"><CardTitle help={help}>{title}</CardTitle></CardHeader>
+      <CardContent className="space-y-2">
+        <div className="h-36">
+          <ResponsiveContainer>
+            <ComposedChart data={data} margin={M}>
+              <defs><ZoneGradient id={`${id}A`} values={vA} zones={zones} /><ZoneGradient id={`${id}P`} values={vP} zones={zones} /></defs>
+              {zones.map((z) => <ReferenceArea key={z[3]} y1={Math.max(z[0], min)} y2={Math.min(z[1], max)} fill={z[2]} fillOpacity={0.1} stroke="none" ifOverflow="hidden" />)}
+              {X}<YAxis {...axis} domain={[Math.floor(min), Math.ceil(max)]} ticks={ticks} allowDataOverflow />
+              <Tooltip {...tooltipStyle} formatter={(v) => [Math.round(Number(v) * 10) / 10, title]} />
+              <Line dataKey={keyA} stroke={`url(#${id}A)`} strokeWidth={3.5} dot={false} connectNulls isAnimationActive={false} />
+              <Line dataKey={keyP} stroke={`url(#${id}P)`} strokeOpacity={0.45} strokeWidth={2.5} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
+              {extra}
             </ComposedChart>
           </ResponsiveContainer>
-          <HowToRead>
-            <p>The coloured bands are the intervals.icu Form zones. The dashed white band (+5 to +15) is where you want to be on VO2 and FTP test days. Yellow lines mark planned tests; after today the line is projected from the plan.</p>
-          </HowToRead>
-        </CardContent>
-      </Card>
-      <p className="text-center text-xs text-muted-foreground">Training guidance, not medical advice.</p>
-    </div>
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">{zones.map((z) => <span key={z[3]}><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: z[2] }} />{z[3]}</span>)}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChooseSports({ keys, counts, shown, def, onSave }: { keys: string[]; counts: Record<string, number>; shown: string[]; def: string; onSave: (v: { def: string; sports: string[] }) => void }) {
+  const [on, setOn] = useState<string[] | null>(null);
+  const [d, setD] = useState<string | null>(null);
+  const picked = on ?? shown, dd = d ?? def;
+  return (
+    <Accordion type="single" collapsible className="rounded-lg border bg-card px-3">
+      <AccordionItem value="s" className="border-b-0">
+        <AccordionTrigger className="py-2 text-sm">⚙ Choose sports ({shown.length} on)</AccordionTrigger>
+        <AccordionContent className="space-y-2 text-sm">
+          <p className="text-xs text-muted-foreground">Ticked sports appear in the list above and count toward <b>Combined</b>. ★ = the tab that opens first. These are the activity types in your intervals.icu history. <HelpButton topic="load-vs-plan" /></p>
+          {[...keys, 'mix'].map((k) => (
+            <div key={k} className="grid grid-cols-[1.5rem_1fr_auto_2.5rem] items-center gap-2">
+              {k === 'mix' ? <span /> : <input type="checkbox" checked={picked.includes(k)} onChange={(e) => setOn(e.target.checked ? [...picked, k] : picked.filter((x) => x !== k))} aria-label={sportLabel(k)} />}
+              <span>{sportLabel(k)}</span>
+              <span className="text-xs text-muted-foreground">{k === 'mix' ? 'ticked sports added up' : `${counts[k] ?? 0} in 12 mo`}</span>
+              <label className="flex items-center gap-1 text-xs"><input type="radio" name="spDef" checked={dd === k} onChange={() => setD(k)} aria-label={`${sportLabel(k)} opens first`} />★</label>
+            </div>
+          ))}
+          <Button size="sm" onClick={() => { if (!picked.length) { toast.error('Pick at least one sport'); return; } onSave({ def: dd !== 'mix' && !picked.includes(dd) ? picked[0] : dd, sports: picked }); }}>Save</Button>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 }

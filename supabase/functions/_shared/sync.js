@@ -1,13 +1,13 @@
 // Sync one person: pull wellness, activities and planned workouts from intervals.icu, merge their check-ins,
 // work out the daily status for the last 7 days and save it. The `store` is passed in so this runs in tests too.
-import { evaluate, loadVsPlan, addDays, dailyLoadRows, plannedTests, HISTORY_DAYS, RULES_VERSION } from './rules.js';
+import { evaluate, loadVsPlan, addDays, dailyLoadRows, plannedTests, calendarItems, HISTORY_DAYS, RULES_VERSION } from './rules.js';
 import { fetchWellness, fetchActivities, fetchEvents } from './intervals.js';
 import { syncPerformance } from './performance.js';
 
 export const RECENT_DAYS = 7;
-export const WELLNESS_DAYS = 150;   // 12 weeks shown on Trends + 60 days for the normal band
-export const LOAD_BACK_DAYS = 180;  // Fitness (42-day) needs a long run-in
-export const PLAN_AHEAD_DAYS = 42;  // planned load and tests ahead, for the Form projection
+export const WELLNESS_DAYS = 220;   // 120 days of Training status history + 80 days for the normal bands
+export const LOAD_BACK_DAYS = 365;  // Fitness (42-day) needs a long run-in; Load shows up to a year
+export const PLAN_AHEAD_DAYS = 180; // planned load, tests, races and events ahead, for the projection
 
 export function todayIn(timeZone, now = new Date()) {
   try { return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now); }
@@ -69,6 +69,7 @@ export async function syncUser({ userId, key, athleteId, timeZone, store, now = 
     if (acts && events) {
       await store.replaceLoad(userId, loadFrom, planTo, dailyLoadRows(acts, events).filter((r) => r.day >= loadFrom && r.day <= planTo).map((r) => ({ ...r, user_id: userId })));
       await store.replaceTests(userId, plannedTests(events, addDays(day, -LOAD_BACK_DAYS)).map((t) => ({ ...t, user_id: userId })));
+      if (store.replaceCalendar) await store.replaceCalendar(userId, calendarItems(events, addDays(day, -LOAD_BACK_DAYS)).map((t) => ({ ...t, user_id: userId })));
     }
     // Performance and Sessions data: never fails the whole sync
     let performance = null;
