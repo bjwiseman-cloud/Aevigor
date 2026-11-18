@@ -25,4 +25,4 @@ jobs:
       - name: Database setup runs on Postgres
         run: |
           sudo systemctl start postgresql
-          sudo -u postgres psql -v ON_ERROR_STOP=1 -q -f tests/supabase-stub.sql -f supabase/migrations/20261116000000_beta.sql -f supabase/migrations/20261117000000_load.sql -f supabase/migrations/20261118000000_admin.sql -f tests/rls.test.sql
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -q -f tests/supabase-stub.sql -f supabase/migrations/20261116000000_beta.sql -f supabase/migrations/20261117000000_load.sql -f supabase/migrations/20261118000000_admin.sql -f supabase/migrations/20261119000000_plan.sql -f tests/rls.test.sql -f tests/health.test.sql
