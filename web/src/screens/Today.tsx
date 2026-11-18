@@ -45,7 +45,7 @@ export function Today() {
   if (!r) {
     return (
       <>
-        <h1 className="mb-3 font-mono text-xl text-primary">Today</h1>
+        <h1 className="mb-3 font-serif text-xl font-bold tracking-wide">Today</h1>
         <Card><CardContent className="space-y-2 pt-5">
           <p className="font-semibold">Not enough history yet.</p>
           <p className="text-sm text-muted-foreground">The status needs a couple of weeks of HRV or resting heart rate from intervals.icu to learn your normal. Keep wearing your watch overnight and doing the check-in; it fills in on its own.</p>
@@ -74,8 +74,7 @@ export function Today() {
       <Card className={cn('border-2 text-center', st.cls.split(' ').filter((c) => c.startsWith('border-')).join(' '))}>
         <CardContent className="pt-5">
           <div className="text-4xl leading-none">{st.icon}</div>
-          <div className={cn('mt-2 font-mono text-2xl font-bold', st.cls.split(' ')[0])}>{st.head}</div>
-          <div className="font-mono text-[11px] tracking-wider text-muted-foreground">{st.tag}</div>
+          <div className={cn('mt-2 font-serif text-2xl font-bold', st.cls.split(' ')[0])}>{st.head}</div>
           <p className="mt-3">{st.advice}</p>
           <dl className="mt-3 grid grid-cols-[72px_1fr] gap-x-3 gap-y-1.5 text-left text-sm">
             <dt className="font-semibold text-muted-foreground">Do</dt><dd>{st.do}</dd>
@@ -115,7 +114,7 @@ export function Today() {
       </Card>
 
       {!checkin.data && !checkin.isLoading && (
-        <Button asChild className="w-full font-mono"><Link to="/checkin">Do today&apos;s check-in</Link></Button>
+        <Button asChild className="w-full"><Link to="/checkin">Do today&apos;s check-in</Link></Button>
       )}
       <SyncLine profile={profile} />
       <p className="text-center text-sm text-muted-foreground">Training guidance, not medical advice.</p>

@@ -98,7 +98,7 @@ export function SignIn() {
               )} />
               {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
               {notice && <Alert className="border-status-go"><AlertDescription>{notice}</AlertDescription></Alert>}
-              <Button type="submit" className="w-full font-mono" disabled={form.formState.isSubmitting}>
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? 'Working…' : up ? 'Create account' : 'Sign in'}
               </Button>
             </form>

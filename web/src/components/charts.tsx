@@ -1,21 +1,35 @@
 // Shared bits for the Recharts charts (Recharts needs real colour values, not CSS variables).
+// Colours follow the theme: C, axis and tooltipStyle are read when a chart renders, and Layout
+// re-renders the page when the theme changes.
 import type { ReactNode } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { resolved } from '@/lib/theme';
 
-export const C = {
-  grid: '#16324a', axis: '#5f7f99', text: '#cfefff', cyan: '#00f0ff', green: '#39ff9a', yellow: '#ffcc00',
-  red: '#ff3d3d', orange: '#ff6a00', magenta: '#ff4fd8', grey: '#5f7f99', band: '#00f0ff'
+type Pal = { grid: string; axis: string; text: string; cyan: string; green: string; yellow: string; red: string; orange: string; magenta: string; grey: string; band: string; tip: string };
+// Names are kept from the first app (cyan = main series colour); the values are the website palettes.
+const PAL: Record<'light' | 'dark', Pal> = {
+  light: { grid: '#ddd4c4', axis: '#8a8278', text: '#171615', cyan: '#2f5d86', green: '#3f7d4e', yellow: '#a87b14', red: '#b4381f', orange: '#c4621c', magenta: '#8a4a86', grey: '#8a8278', band: '#2f5d86', tip: '#fffdf8' },
+  dark: { grid: '#38332d', axis: '#7d766c', text: '#ece6da', cyan: '#d2ae66', green: '#8fbf7f', yellow: '#e0c068', red: '#e07a5f', orange: '#e09a52', magenta: '#c79bd0', grey: '#7d766c', band: '#d2ae66', tip: '#1f1c19' }
 };
+const pal = () => PAL[resolved()];
+export const C = Object.fromEntries(
+  (Object.keys(PAL.light) as (keyof Pal)[]).map((k) => [k, undefined])
+) as unknown as Pal;
+for (const k of Object.keys(PAL.light) as (keyof Pal)[]) Object.defineProperty(C, k, { get: () => pal()[k], enumerable: true });
 
-export const axis = { stroke: C.axis, tick: { fill: C.axis, fontSize: 10 }, tickLine: false };
+export const axis = {
+  get stroke() { return C.axis; },
+  get tick() { return { fill: C.axis, fontSize: 10 }; },
+  tickLine: false
+};
 
 export function shortDay(d: string) {
   return new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 export const tooltipStyle = {
-  contentStyle: { background: '#06121d', border: '1px solid #16324a', borderRadius: 6, fontSize: 12 },
-  labelStyle: { color: C.text },
+  get contentStyle() { return { background: C.tip, border: `1px solid ${C.grid}`, borderRadius: 4, fontSize: 12, color: C.text }; },
+  get labelStyle() { return { color: C.text }; },
   labelFormatter: (d: unknown) => (typeof d === 'string' && /^\d{4}-/.test(d) ? shortDay(d) : String(d))
 };
 

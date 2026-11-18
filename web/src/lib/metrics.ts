@@ -1,3 +1,4 @@
+import { C } from '@/components/charts';
 // Numbers behind the Load and Trends pages, worked out in the browser from the person's own rows.
 // The Feel score and the rolling statistics come from the same rules file the server uses.
 import { addDays, feelOf, stats } from '@rules';
@@ -47,11 +48,11 @@ export function pmc(rows: LoadRow[], sport: Sport, from: string, to: string, tod
 
 // Form zones, matching intervals.icu
 export const FORM_ZONES = [
-  { name: 'High risk', from: -60, to: -30, color: '#ff3d3d' },
-  { name: 'Optimal', from: -30, to: -10, color: '#39ff9a' },
-  { name: 'Grey zone', from: -10, to: 5, color: '#5f7f99' },
-  { name: 'Fresh', from: 5, to: 20, color: '#00f0ff' },
-  { name: 'Transition', from: 20, to: 50, color: '#ffcc00' }
+  { name: 'High risk', from: -60, to: -30, get color() { return C.red; } },
+  { name: 'Optimal', from: -30, to: -10, get color() { return C.green; } },
+  { name: 'Grey zone', from: -10, to: 5, get color() { return C.grey; } },
+  { name: 'Fresh', from: 5, to: 20, get color() { return C.cyan; } },
+  { name: 'Transition', from: 20, to: 50, get color() { return C.yellow; } }
 ] as const;
 export const TEST_READY = { from: 5, to: 15 };
 
@@ -61,11 +62,11 @@ export function formZone(form: number) {
 
 // Ramp rate: weekly change in Fitness. 3-7 a week is ideal; over 8 is too fast.
 export const RAMP_ZONES = [
-  { name: 'Losing fitness', from: -10, to: 0, color: '#5f7f99' },
-  { name: 'Slow', from: 0, to: 3, color: '#00a8b3' },
-  { name: 'Ideal', from: 3, to: 7, color: '#39ff9a' },
-  { name: 'High', from: 7, to: 8, color: '#ffcc00' },
-  { name: 'Too fast', from: 8, to: 14, color: '#ff3d3d' }
+  { name: 'Losing fitness', from: -10, to: 0, get color() { return C.grey; } },
+  { name: 'Slow', from: 0, to: 3, get color() { return C.cyan; } },
+  { name: 'Ideal', from: 3, to: 7, get color() { return C.green; } },
+  { name: 'High', from: 7, to: 8, get color() { return C.yellow; } },
+  { name: 'Too fast', from: 8, to: 14, get color() { return C.red; } }
 ] as const;
 
 export function rampZone(ramp: number) {

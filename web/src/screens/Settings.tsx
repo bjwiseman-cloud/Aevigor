@@ -23,6 +23,7 @@ import { TimeZoneSelect } from './TimeZoneSelect';
 import { InviteTesters } from './InviteTesters';
 import { useHealthOn } from '@/hooks/plan';
 import { PhoneAlerts } from '@/components/PhoneAlerts';
+import { ThemeChips } from '@/components/ThemeButton';
 
 const accountSchema = z.object({ display_name: z.string().trim().max(80), time_zone: z.string().min(1) });
 const passwordSchema = z.object({ password: z.string().min(8, 'At least 8 characters.') });
@@ -91,7 +92,15 @@ export function Settings() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-mono text-xl text-primary">Settings</h1>
+      <h1 className="font-serif text-xl font-bold tracking-wide">Settings</h1>
+
+      <Card>
+        <CardHeader className="pb-3"><CardTitle>Appearance</CardTitle></CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <ThemeChips />
+          <p className="text-muted-foreground">Auto matches your phone or computer. Light is rice paper and ink; Dark is charcoal and gold. Same choice as aevigor.com.</p>
+        </CardContent>
+      </Card>
 
       {profile.is_admin && <InviteTesters />}
 

@@ -6,7 +6,7 @@ export function Message({ title, children }: { title: string; children?: ReactNo
     <div className="min-h-screen">
       <header className="border-b px-4 py-3"><Brand /></header>
       <main className="mx-auto max-w-lg p-4">
-        <h1 className="mb-3 mt-2 font-mono text-xl text-primary">{title}</h1>
+        <h1 className="mb-3 mt-2 font-serif text-xl font-bold tracking-wide">{title}</h1>
         <div className="text-muted-foreground">{children}</div>
       </main>
     </div>

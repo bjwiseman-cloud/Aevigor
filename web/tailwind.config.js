@@ -6,7 +6,11 @@ export default {
   theme: {
     container: { center: true, padding: '1rem' },
     extend: {
-      fontFamily: { mono: ['"Courier New"', 'Consolas', 'monospace'] },
+      fontFamily: {
+        serif: ['"Shippori Mincho"', '"Hiragino Mincho ProN"', '"Times New Roman"', 'Georgia', 'serif'],
+        sans: ['"Zen Kaku Gothic New"', '"Segoe UI"', 'system-ui', '-apple-system', 'Helvetica', 'Arial', 'sans-serif'],
+        mono: ['ui-monospace', '"SF Mono"', 'Menlo', 'Consolas', 'monospace']
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -20,8 +24,8 @@ export default {
         accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
         popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
         card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
-        // Status colours, the same as the v5 app
-        status: { go: '#39ff9a', ok: '#00f0ff', caution: '#ffcc00', easy: '#ff3d3d', none: '#5f7f99', deload: '#ff6a00', warn: '#ff5e1a' }
+        // Status colours, set per theme in index.css
+        status: Object.fromEntries(['go', 'ok', 'caution', 'easy', 'none', 'deload', 'warn'].map((k) => [k, `hsl(var(--status-${k}) / <alpha-value>)`]))
       },
       borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
       keyframes: {

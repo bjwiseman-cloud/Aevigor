@@ -66,7 +66,7 @@ export function CheckinPage() {
 
   return (
     <>
-      <h1 className="font-mono text-xl text-primary">Morning check-in</h1>
+      <h1 className="font-serif text-xl font-bold tracking-wide">Morning check-in</h1>
       <p className="mb-4 text-sm text-muted-foreground">{niceDay(day)}{existing.data && ' · saved, you can change it'}. Answer how you feel right now.</p>
       <Card>
         <CardContent className="pt-5">
@@ -100,7 +100,7 @@ export function CheckinPage() {
               <FormField control={form.control} name="notes" render={({ field }) => (
                 <FormItem><FormLabel>Notes (optional)</FormLabel><FormControl><Textarea maxLength={2000} {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <Button type="submit" className="w-full font-mono" disabled={form.formState.isSubmitting}>
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? 'Saving…' : 'Save check-in'}
               </Button>
             </form>

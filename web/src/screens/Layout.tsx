@@ -5,14 +5,18 @@ import { toast } from 'sonner';
 import { CalendarDays, ClipboardCheck, Home, LineChart, Menu as MenuIcon, Settings as Cog, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BellButton, ReminderBanner } from '@/components/reminders';
+import { ThemeButton } from '@/components/ThemeButton';
+import { useTheme } from '@/lib/theme';
 import { useProfile } from '@/hooks/data';
 import { callApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 export function Brand() {
   return (
-    <div className="font-mono text-lg font-bold tracking-[0.3em] text-cyan-100 [text-shadow:0_0_8px_hsl(var(--primary))]">
-      AEVIGOR<span className="ml-2 text-[11px] tracking-normal text-status-caution [text-shadow:none]">BETA</span>
+    <div className="flex items-center gap-2">
+      <img src="/app/icon.svg" alt="" className="h-6 w-6 rounded-sm" />
+      <span className="font-serif text-lg font-bold tracking-[0.22em]">AEVIGOR</span>
+      <span className="rounded-sm border border-primary px-1 text-[10px] tracking-widest text-primary">BETA</span>
     </div>
   );
 }
@@ -72,6 +76,7 @@ export function Layout() {
     onError: (e: Error) => toast.error(e.message)
   });
   const pull = usePullToRefresh(() => sync.mutate(), sync.isPending);
+  const { theme } = useTheme();   // charts read their colours on render, so the page re-renders on a theme change
 
   return (
     <div className="min-h-screen pb-[calc(84px+env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)]">
@@ -80,6 +85,7 @@ export function Layout() {
           <Button asChild variant="ghost" size="icon" aria-label="Menu"><Link to="/menu"><MenuIcon /></Link></Button>
           <Brand />
           <div className="flex items-center">
+            <ThemeButton />
             <BellButton />
             <Button asChild variant="ghost" size="icon" aria-label="Settings"><Link to="/settings"><Cog /></Link></Button>
           </div>
@@ -96,14 +102,14 @@ export function Layout() {
       )}
       <main className="mx-auto max-w-lg p-4">
         <ReminderBanner />
-        <Outlet />
+        <div key={theme}><Outlet /></div>
       </main>
       <nav className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         {TABS.map(({ to, label, icon: Icon, match, centre }) => {
           const on = match.some((m) => loc.pathname.startsWith(m));
           return (
             <Link key={to} to={to} aria-current={on ? 'page' : undefined}
-              className={cn('flex flex-col items-center gap-1 py-2.5 font-mono text-[10px] uppercase tracking-wide', on ? 'text-primary' : 'text-muted-foreground')}>
+              className={cn('flex flex-col items-center gap-1 py-2.5 text-[11px] tracking-wide', on ? 'text-primary' : 'text-muted-foreground')}>
               {centre
                 ? <span className={cn('-mt-6 grid h-12 w-12 place-items-center rounded-full shadow-lg', on ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground')}><Icon className="h-6 w-6" /></span>
                 : <Icon className="h-5 w-5" />}

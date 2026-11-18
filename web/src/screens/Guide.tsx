@@ -9,7 +9,7 @@ function Pm({ q, children }: { q: string; children: ReactNode }) {
 export function Guide() {
   return (
     <>
-      <h1 className="font-mono text-xl text-primary">Guide</h1>
+      <h1 className="font-serif text-xl font-bold tracking-wide">Guide</h1>
       <p className="mb-4 text-sm text-muted-foreground">How your daily status works and the research behind it. Training guidance, not medical advice.</p>
       <Card>
         <CardContent className="pt-1">
