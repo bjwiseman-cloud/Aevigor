@@ -151,6 +151,8 @@ export function evaluate(day, days, load) {
 const RIDE_TYPES = ['Ride', 'VirtualRide', 'GravelRide', 'MountainBikeRide', 'EBikeRide'];
 const RUN_TYPES = ['Run', 'VirtualRun', 'TrailRun'];
 function sportOf(t) { return RIDE_TYPES.includes(t) ? 'ride' : RUN_TYPES.includes(t) ? 'run' : 'other'; }
+// Load page sports: Cycling and Running group several intervals.icu types; every other type is its own sport
+export function sportKey(t) { t = t || 'Ride'; return RIDE_TYPES.includes(t) ? 'ride' : RUN_TYPES.includes(t) ? 'run' : String(t).replace(/[^\w]/g, '').slice(0, 40) || 'Other'; }
 
 // Load per activity: intervals.icu's own training load; without one, session RPE (RPE x minutes / 10).
 export function loadOf(a) {
@@ -189,7 +191,7 @@ export function dailyLoadRows(acts, events) {
   (acts || []).forEach((a) => {
     const day = String(a.start_date_local || '').slice(0, 10);
     if (!day) return;
-    const r = row(day, sportOf(a.type));
+    const r = row(day, sportKey(a.type));
     r.actual += loadOf(a); r.sessions++;
     const rpe = num(a.icu_rpe) || num(a.perceived_exertion);
     if (rpe !== null && (r.rpe === null || rpe > r.rpe)) r.rpe = rpe;
@@ -198,9 +200,21 @@ export function dailyLoadRows(acts, events) {
     if (e.category && e.category !== 'WORKOUT') return;
     const day = String(e.start_date_local || '').slice(0, 10);
     if (!day) return;
-    row(day, sportOf(e.type || 'Ride')).planned += num(e.icu_training_load) || num(e.load_target) || 0;
+    row(day, sportKey(e.type || 'Ride')).planned += num(e.icu_training_load) || num(e.load_target) || 0;
   });
   return Object.values(out).map((r) => ({ ...r, actual: Math.round(r.actual), planned: Math.round(r.planned) }));
+}
+
+// Tests, races and events from the intervals.icu calendar (for the Load projection target and chart marks)
+export function calendarItems(events, from) {
+  return (events || []).map((e) => {
+    const day = String(e.start_date_local || '').slice(0, 10), name = String(e.name || ''), c = String(e.category || '');
+    let kind = '';
+    if (/^RACE_[ABC]$/.test(c)) kind = 'Race ' + c.slice(5);
+    else if (c === 'WORKOUT' || !c) kind = TEST_RE.ftp.test(name) ? 'FTP test' : TEST_RE.vo2.test(name) ? 'VO2 test' : TEST_RE.dur.test(name) ? 'Durability test' : '';
+    else if (c === 'NOTE') kind = 'Event';
+    return kind && day >= from ? { id: String(e.id ?? day + kind), day, kind, name: (name || kind).slice(0, 120) } : null;
+  }).filter(Boolean).filter((t, i, all) => all.findIndex((x) => x.id === t.id) === i).sort((a, b) => (a.day < b.day ? -1 : 1));
 }
 
 // Planned tests found by name in the intervals.icu calendar, from `from` onwards

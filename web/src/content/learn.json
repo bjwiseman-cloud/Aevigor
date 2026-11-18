@@ -237,6 +237,43 @@
       ]
     },
     {
+      "id": "ramp-rate",
+      "field": "load",
+      "title": "Ramp rate",
+      "short": "How much your Fitness rose over the last 7 days. Dropping below 0, Gentle 0 to 3, Ideal 3 to 7, Fast 7 to 8, Too fast over 8 a week.",
+      "why": "Building too fast for weeks on end is hard to absorb; building too slowly holds fitness back.",
+      "calc": [
+        "Ramp rate = today's Fitness minus Fitness 7 days ago.",
+        "3 to 7 a week is a common coaching guide for building safely. Fast (7 to 8) is fine for a short overload block, such as a training camp, but not for weeks on end. It is a rule of thumb, not a research cut-off, so read it with your Feel, HRV and Training status."
+      ],
+      "refs": [
+        "r13"
+      ],
+      "coach": [
+        "D"
+      ]
+    },
+    {
+      "id": "training-status",
+      "field": "load",
+      "title": "Training status",
+      "short": "One word for how your training is going: Detraining, Recovery, Peaking, Maintaining, Productive, Unproductive, Strained or Overreaching (plus Paused when sick, and No status until about 6 weeks of history).",
+      "why": "It puts load, performance and how your body is coping together, so you can tell good hard training from too much.",
+      "calc": [
+        "Checked in this order. Paused: you logged being sick today or yesterday. Overreaching: high load and at least 1 performance drop and at least 2 signs of strain. Strained: 2 or more signs of strain. Unproductive: a performance drop while training is normal. Detraining: Fitness falling and 15% below its 90-day high. Peaking: Form +5 to +20 with Fitness near its high. Recovery: Fitness easing off. Productive: ramp 3 or more a week with no drops. Otherwise Maintaining.",
+        "High load: Form below -30, ramp over 8 a week, or more than 120% of this week's plan.",
+        "Performance drops (any one counts): EF below your 4-week normal on 2 rides in a row; decoupling over 5% on 2 rides when you are usually under; eFTP down 3% or more over 4 weeks; best 5-min power in the last 4 weeks 5% or more below the 8 weeks before (only if you rode hard lately); your latest FTP or VO2 test 3% or more below the one before; session RPE 2 or more above usual for the same intensity, twice; max heart rate in hard rides 8 or more bpm below usual; squat, bench or deadlift e1RM 5% or more down; or your last 2 sessions rated poor on your watch.",
+        "Signs of strain (3 of the last 4 days, against your own normal): Feel low, sleep under 7 h, soreness high, HRV 7-day below its band, resting HR above its band, or sick 2 or more days in 2 weeks.",
+        "Each check counts only when it has enough data. Missing data is never treated as a drop; with no performance data the app cannot call Overreaching. Uses all your sports. The cut-offs are starting values."
+      ],
+      "refs": [
+        "r11",
+        "r1",
+        "r12"
+      ],
+      "coach": []
+    },
+    {
       "id": "load-vs-plan",
       "field": "load",
       "title": "Weekly load vs plan",

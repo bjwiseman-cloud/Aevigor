@@ -22,8 +22,10 @@ globalThis.fetch = async (url, opts) => {
   else if (u.pathname.endsWith('/pace-curves')) body = { list: [{ id: '1y-f1', label: '1 year', distance: [400, 1000.4], values: [80, 230], activity_id: ['i7', 'i8'], paceModels: [{ type: 'CS', criticalSpeed: 3.9, dPrime: 210 }] }, { id: 'bad' }] };
   else if (u.pathname.endsWith('/events')) body = [
     { start_date_local: addDays(day, -2) + 'T00:00:00', type: 'Ride', category: 'WORKOUT', icu_training_load: 100 },
-    { start_date_local: addDays(day, 9) + 'T00:00:00', type: 'VirtualRide', category: 'WORKOUT', name: 'FTP test 20 min', icu_training_load: 90 },
-    { start_date_local: addDays(day, 9) + 'T00:00:00', type: 'VirtualRide', category: 'WORKOUT', name: 'FTP test (copy)', icu_training_load: 0 },
+    { id: 1, start_date_local: addDays(day, 9) + 'T00:00:00', type: 'VirtualRide', category: 'WORKOUT', name: 'FTP test 20 min', icu_training_load: 90 },
+    { id: 2, start_date_local: addDays(day, 9) + 'T00:00:00', type: 'VirtualRide', category: 'WORKOUT', name: 'FTP test (copy)', icu_training_load: 0 },
+    { id: 3, start_date_local: addDays(day, 20) + 'T00:00:00', category: 'RACE_A', name: 'Provincial TT' },
+    { start_date_local: addDays(day, 5) + 'T00:00:00', type: 'WeightTraining', category: 'WORKOUT', name: 'Squat day', icu_training_load: 30 },
     { start_date_local: addDays(day, 3) + 'T00:00:00', type: 'Run', category: 'WORKOUT', icu_training_load: 40 },
     { start_date_local: addDays(day, 4) + 'T00:00:00', category: 'NOTE', name: 'vo2 note not a workout' }];
   return new Response(JSON.stringify(body), { status: 200 });
@@ -41,7 +43,8 @@ const store = {
   upsertActivities: async (rows) => { db.acts = rows; },
   pruneActivities: async () => {},
   replaceCurves: async (_id, rows) => { db.curves = rows; },
-  replacePaceCurves: async (_id, rows) => { db.pace = rows; }
+  replacePaceCurves: async (_id, rows) => { db.pace = rows; },
+  replaceCalendar: async (_id, rows) => { db.cal = rows; }
 };
 const res = await syncUser({ userId: 'u1', key: 'abc123', athleteId: '0', timeZone: 'America/Edmonton', store, now });
 assert.ok(res.ok);
@@ -59,7 +62,9 @@ assert.equal(db.load.rows.find((r) => r.day === addDays(day, 9)).planned, 90);
 assert.equal(db.load.rows.find((r) => r.day === addDays(day, 3)).sport, 'run');
 assert.ok(db.load.rows.every((r) => r.user_id === 'u1' && r.day >= db.load.from && r.day <= db.load.to));
 assert.deepEqual(db.tests.map((t) => [t.day, t.kind]), [[addDays(day, 9), 'FTP test']], 'one FTP test, notes ignored');
-assert.ok(calls.some((c) => c.url.includes('/events?oldest=' + addDays(day, -180) + '&newest=' + addDays(day, 42))));
+assert.ok(calls.some((c) => c.url.includes('/events?oldest=' + addDays(day, -365) + '&newest=' + addDays(day, 180))));
+assert.deepEqual(db.cal.map((t) => [t.day, t.kind]), [[addDays(day, 4), 'Event'], [addDays(day, 9), 'FTP test'], [addDays(day, 9), 'FTP test'], [addDays(day, 20), 'Race A']], 'tests, races and calendar notes');
+assert.equal(db.load.rows.find((r) => r.day === addDays(day, 5)).sport, 'WeightTraining', 'other sports keep their own type');
 
 // Performance data
 assert.equal(db.acts.length, 1);

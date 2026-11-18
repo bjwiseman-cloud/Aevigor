@@ -3,8 +3,9 @@ import { C } from '@/components/charts';
 // The Feel score and the rolling statistics come from the same rules file the server uses.
 import { addDays, feelOf, stats } from '@rules';
 
-export type Sport = 'ride' | 'run' | 'all';
-export type LoadRow = { day: string; sport: 'ride' | 'run' | 'other'; actual: number; planned: number; rpe: number | null; sessions: number };
+// 'all', one sport key (ride, run, WeightTraining…), or a list of keys added up (Combined)
+export type Sport = string | string[];
+export type LoadRow = { day: string; sport: string; actual: number; planned: number; rpe: number | null; sessions: number };
 export type WellnessRow = {
   day: string; hrv: number | null; resting_hr: number | null; sleep_secs: number | null;
   sleep_quality: number | null; fatigue: number | null; soreness: number | null; stress: number | null; mood: number | null;
@@ -28,7 +29,7 @@ export type PmcPoint = { day: string; actual: number | null; planned: number; ct
 export function pmc(rows: LoadRow[], sport: Sport, from: string, to: string, today: string): PmcPoint[] {
   const act: Record<string, number> = {}, plan: Record<string, number> = {};
   rows.forEach((r) => {
-    if (sport !== 'all' && r.sport !== sport) return;
+    if (Array.isArray(sport) ? !sport.includes(r.sport) : sport !== 'all' && r.sport !== sport) return;
     act[r.day] = (act[r.day] || 0) + r.actual;
     plan[r.day] = (plan[r.day] || 0) + r.planned;
   });

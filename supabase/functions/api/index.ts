@@ -54,6 +54,11 @@ const store = {
     if (del.error) throw del.error;
     if (rows.length) { const { error } = await admin.from('planned_tests').insert(rows); if (error) throw error; }
   },
+  async replaceCalendar(userId: string, rows: unknown[]) {
+    const del = await admin.from('calendar_items').delete().eq('user_id', userId);
+    if (del.error) throw del.error;
+    if (rows.length) { const { error } = await admin.from('calendar_items').insert(rows); if (error) throw error; }
+  },
   async updateProfile(userId: string, patch: Record<string, unknown>) { await admin.from('profiles').update(patch).eq('user_id', userId); },
   async knownBests(userId: string, ids: string[]) {
     const { data, error } = await admin.from('activities').select('id').eq('user_id', userId).in('id', ids.length ? ids : ['-']).not('best', 'is', null);
