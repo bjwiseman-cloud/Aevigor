@@ -119,3 +119,12 @@ export function useCheckins(profile: Profile | null | undefined) {
       addDays(todayIn(profile!.time_zone), -TRENDS_BACK))
   });
 }
+
+export type SessionLog = { activity_id: string; day: string; kind: 'ride' | 'lift' | 'other'; rpe: number | null; note: string | null; data: Record<string, any> };
+export function useSessionLogs(profile: Profile | null | undefined) {
+  return useQuery({
+    queryKey: ['session_logs', profile?.user_id],
+    enabled: !!profile,
+    queryFn: () => rows<SessionLog>('session_logs', 'activity_id, day, kind, rpe, note, data', addDays(todayIn(profile!.time_zone), -LOAD_BACK))
+  });
+}
