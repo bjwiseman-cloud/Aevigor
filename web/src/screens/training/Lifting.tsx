@@ -16,7 +16,7 @@ import { Arrange } from '@/components/Arrange';
 import { C, HowToRead, axis, shortDay, tooltipStyle } from '@/components/charts';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
-const UNIT_KEY = 'aev-lift-unit';
+export const UNIT_KEY = 'aev-lift-unit';
 function useUnit(): [Unit, (u: Unit) => void] {
   const [u, setU] = useState<Unit>(() => { try { return localStorage.getItem(UNIT_KEY) === 'lb' ? 'lb' : 'kg'; } catch { return 'kg'; } });
   return [u, (v) => { setU(v); try { localStorage.setItem(UNIT_KEY, v); } catch { /* private window */ } }];
@@ -102,7 +102,7 @@ function LogSession({ sets, unit, today }: { sets: LiftSet[]; unit: Unit; today:
   );
 }
 
-function Strength({ sets, unit, ex, setEx }: { sets: LiftSet[]; unit: Unit; ex: string | null; setEx: (e: string) => void }) {
+export function Strength({ sets, unit, ex, setEx }: { sets: LiftSet[]; unit: Unit; ex: string | null; setEx: (e: string) => void }) {
   const list = useMemo(() => exercises(sets.filter((s) => e1rm(s.weight, s.reps) != null)), [sets]);
   const pick = ex && list.includes(ex) ? ex : list[0];
   const data = useMemo(() => (pick ? e1rmSeries(sets, pick).map((p) => ({ ...p, v: Math.round(fromKg(p.e1rm, unit) * 10) / 10 })) : []), [sets, pick, unit]);
