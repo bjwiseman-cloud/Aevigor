@@ -32,8 +32,11 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid 
 
 /* Theme switch */
 .theme-btn { position: fixed; z-index: 20; top: calc(14px + env(safe-area-inset-top, 0px)); right: max(14px, env(safe-area-inset-right, 0px));
-  height: 42px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); cursor: pointer; padding: 0 12px 0 10px; font: inherit; font-size: 13px; letter-spacing: .04em; }
-.theme-btn svg { width: 20px; height: 20px; flex: none; }
+  height: 42px; display: flex; align-items: center; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); color: var(--ink); }
+.theme-btn svg { width: 18px; height: 18px; flex: none; pointer-events: none; position: absolute; }
+.theme-btn .ico { left: 10px; } .theme-btn .chev { right: 9px; width: 14px; height: 14px; }
+.theme-btn select { appearance: none; -webkit-appearance: none; height: 100%; border: 0; background: transparent; color: inherit; font: inherit; font-size: 13px; letter-spacing: .04em; padding: 0 30px 0 36px; cursor: pointer; }
+.theme-btn select option { color: #181716; background: #fff; }
 
 /* Hero */
 .hero { text-align: center; padding: 72px 0 44px; display: flex; flex-direction: column; align-items: center; }
