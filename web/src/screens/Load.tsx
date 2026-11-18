@@ -365,3 +365,70 @@ function ChooseSports({ keys, counts, shown, def, onSave }: { keys: string[]; co
     </Accordion>
   );
 }
+
+// The Load tab's charts for the Trends page (all sports, the Trends window), as in the live app's Trends picker.
+export function LoadTrendCards({ from, to, show, selDay }: { from: string; to: string; show: string[]; selDay?: string }) {
+  const p = useProfile().data!;
+  const today = todayIn(p.time_zone);
+  const load = useDailyLoad(p);
+  const all = useMemo(() => pmc(load.data ?? [], 'all', addDays(today, -LOAD_BACK), to, today), [load.data, today, to]);
+  const win = all.filter((x) => x.day >= from && x.day <= to);
+  const data = win.map((x) => ({ day: x.day, ctlA: x.ctl, atlA: x.atl, formA: x.form, formP: null as number | null }));
+  const X = <XAxis dataKey="day" {...axis} tickFormatter={shortDay} minTickGap={24} />;
+  const selLine = selDay ? <ReferenceLine x={selDay} stroke="currentColor" strokeOpacity={0.6} /> : <></>;
+  const monday0 = monday(from);
+  const weeks: { w: string; a: number; p: number }[] = [];
+  for (let w = monday0; w <= to; w = addDays(w, 7)) {
+    const pts = all.filter((x) => x.day >= w && x.day < addDays(w, 7) && x.day <= today);
+    weeks.push({ w, a: Math.round(pts.reduce((s, x) => s + (x.actual ?? 0), 0)), p: Math.round(pts.reduce((s, x) => s + x.planned, 0)) });
+  }
+  if (load.isLoading) return null;
+  return (
+    <>
+      {show.includes('pmc') && (
+        <Card>
+          <CardHeader className="pb-1"><CardTitle help="fitness-fatigue-form">Fitness · Fatigue</CardTitle><p className="text-xs text-muted-foreground">All sports · same as the Load tab</p></CardHeader>
+          <CardContent>
+            <div className="h-40">
+              <ResponsiveContainer>
+                <ComposedChart data={data} margin={M}>
+                  <defs>
+                    <linearGradient id="tFit" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={FIT} stopOpacity={0.45} /><stop offset="100%" stopColor={FIT} stopOpacity={0.03} /></linearGradient>
+                    <linearGradient id="tFat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={FAT} stopOpacity={0.3} /><stop offset="100%" stopColor={FAT} stopOpacity={0.02} /></linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} strokeOpacity={0.15} />{X}<YAxis {...axis} domain={[0, 'auto']} />
+                  <Tooltip {...tooltipStyle} formatter={(v, name) => [Math.round(Number(v)), String(name)]} />
+                  <Area dataKey="atlA" name="Fatigue" stroke={FAT} strokeWidth={2} fill="url(#tFat)" isAnimationActive={false} />
+                  <Area dataKey="ctlA" name="Fitness" stroke={FIT} strokeWidth={3} fill="url(#tFit)" isAnimationActive={false} />
+                  {selLine}
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-1 w-4 rounded align-middle" style={{ background: FIT }} />Fitness</span><span><i className="mr-1 inline-block h-1 w-4 rounded align-middle" style={{ background: FAT }} />Fatigue</span></div>
+          </CardContent>
+        </Card>
+      )}
+      {show.includes('form') && <ZoneChart title="Form zones" help="form-zones" data={data} keyA="formA" keyP="formP" zones={FORM_Z} ticks={[-30, -10, 5, 20]} lo={-40} hi={25} X={X} extra={selLine} />}
+      {show.includes('plan') && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle help="load-vs-plan">Actual vs planned load</CardTitle><p className="text-xs text-muted-foreground">Week by week, all sports</p></CardHeader>
+          <CardContent>
+            <div className="h-36">
+              <ResponsiveContainer>
+                <BarChart data={weeks} margin={M} barGap={2}>
+                  <defs><pattern id="tStripes" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill={PLAN + '22'} /><line x1="0" y1="0" x2="0" y2="6" stroke={PLAN} strokeWidth="2" strokeOpacity={0.55} /></pattern></defs>
+                  <CartesianGrid vertical={false} strokeOpacity={0.15} />
+                  <XAxis dataKey="w" {...axis} tickFormatter={shortDay} /><YAxis {...axis} />
+                  <Tooltip {...tooltipStyle} labelFormatter={(l) => `Week of ${shortDay(String(l))}`} />
+                  <Bar dataKey="a" name="Actual" fill={ACT} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                  <Bar dataKey="p" name="Planned" fill="url(#tStripes)" stroke={PLAN} strokeWidth={1.5} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: ACT }} />Actual</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border align-middle" style={{ borderColor: PLAN, background: PLAN + '44' }} />Planned</span></div>
+          </CardContent>
+        </Card>
+      )}
+    </>
+  );
+}

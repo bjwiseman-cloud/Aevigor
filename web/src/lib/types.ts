@@ -11,6 +11,7 @@ export type Profile = {
   last_sync_error: string | null;
   is_admin?: boolean;
   health_consent_at?: string | null;
+  libido_log?: boolean;
 };
 
 export type Signals = {
@@ -35,6 +36,8 @@ export type Checkin = {
   sleep_quality: number | null; fatigue: number | null; soreness: number | null;
   stress: number | null; mood: number | null; motivation: number | null;
   sick: 'No' | 'Mild' | 'Yes' | null; notes: string | null;
+  clarity?: number | null; libido?: number | null; caffeine?: number | null; alcohol?: number | null; body_temp?: number | null;
+  body?: Record<string, { sore?: number; injury?: number }> | null;
 };
 
 export const CONSENT_VERSION = 'beta-2026-11';

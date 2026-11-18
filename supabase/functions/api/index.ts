@@ -3,6 +3,7 @@
 //   /api/disconnect      forget the key
 //   /api/sync            the Sync button
 //   /api/checkin         save the daily check-in, copy it to intervals.icu, recompute today
+//   /api/libido          turn the optional libido log on/off, or delete every entry
 //   /api/streams         one activity's second-by-second data (Sessions, W′ battery)
 //   /api/push-key, /api/push-test   phone alerts set-up; /api/push-due runs every 5 minutes (database job)
 //   /api/delete-account  delete the account and every row of the person's data
@@ -127,6 +128,29 @@ const MAX_TESTERS = 50;
 
 const ANSWERS = ['sleep_quality', 'fatigue', 'soreness', 'stress', 'mood', 'motivation'] as const;
 
+// Body map from the check-in: each part sore and/or injured, level 1 (light) to 4 (severe).
+type BodyMap = Record<string, { sore?: number; injury?: number }>;
+const PART = /^[a-z_]{2,24}$/;
+function cleanBody(v: unknown): BodyMap | null {
+  if (!v || typeof v !== 'object') return null;
+  const out: BodyMap = {};
+  for (const [k, x] of Object.entries(v as Record<string, unknown>).slice(0, 40)) {
+    if (!PART.test(k) || !x || typeof x !== 'object') continue;
+    const o: { sore?: number; injury?: number } = {};
+    for (const f of ['sore', 'injury'] as const) { const n = Number((x as Record<string, unknown>)[f]); if (Number.isInteger(n) && n >= 1 && n <= 4) o[f] = n; }
+    if (o.sore || o.injury) out[k] = o;
+  }
+  return Object.keys(out).length ? out : null;
+}
+const LEVEL = ['', 'light', 'moderate', 'strong', 'severe'];
+function bodySummary(b: BodyMap | null) {
+  if (!b) return '';
+  const part = (k: string) => k.replace(/_/g, ' ');
+  const sore = Object.entries(b).filter(([, x]) => x.sore).map(([k, x]) => `${part(k)} ${LEVEL[x.sore!]}`);
+  const inj = Object.entries(b).filter(([, x]) => x.injury).map(([k, x]) => `${part(k)} ${LEVEL[x.injury!]}`);
+  return [sore.length ? 'Sore: ' + sore.join(', ') : '', inj.length ? 'Injury: ' + inj.join(', ') : ''].filter(Boolean).join(' · ');
+}
+
 const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
   async connect(req, body) {
     const { user, profile } = await currentUser(req); needConsent(profile);
@@ -167,6 +191,17 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     }
     row.sick = ['No', 'Mild', 'Yes'].includes(body.sick) ? body.sick : null;
     row.notes = typeof body.notes === 'string' ? body.notes.slice(0, 2000) : null;
+    const numIn = (v: unknown, lo: number, hi: number, int = false) => {
+      if (v === null || v === undefined || v === '') return null;
+      const n = Number(v); if (!Number.isFinite(n) || n < lo || n > hi) return null;
+      return int ? Math.round(n) : Math.round(n * 10) / 10;
+    };
+    row.clarity = numIn(body.clarity, 1, 5, true);
+    row.libido = profile.libido_log ? numIn(body.libido, 0, 7, true) : null;
+    row.caffeine = numIn(body.caffeine, 0, 1500);
+    row.alcohol = numIn(body.alcohol, 0, 30);
+    row.body_temp = numIn(body.body_temp, 34, 42);
+    row.body = cleanBody(body.body);
     const { error } = await admin.from('checkins').upsert(row);
     if (error) throw error;
 
@@ -178,7 +213,12 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
       const map = { sleep_quality: 'sleepQuality', fatigue: 'fatigue', soreness: 'soreness', stress: 'stress', mood: 'mood', motivation: 'motivation' } as const;
       for (const k of ANSWERS) if (row[k] !== null) icuBody[map[k]] = row[k];
       const sickNote = row.sick === 'Yes' ? 'Sick (below the neck)' : row.sick === 'Mild' ? 'Mild sickness (above the neck)' : '';
-      const comments = [sickNote, row.notes].filter(Boolean).join(' | ');
+      icuBody.Sickness = row.sick === 'Yes' ? 2 : row.sick === 'Mild' ? 1 : 0;
+      for (const [col, f] of [['clarity', 'MentalClarity'], ['libido', 'Libido'], ['caffeine', 'Caffeine'], ['alcohol', 'Alcohol'], ['body_temp', 'BodyTemp']] as const) {
+        if (row[col] !== null) icuBody[f] = row[col];
+      }
+      const bodyNote = bodySummary(row.body as BodyMap | null);
+      const comments = [sickNote, bodyNote, row.notes].filter(Boolean).join(' | ');
       if (comments) icuBody.comments = comments;
       await putWellness(key, profile.intervals_athlete_id ?? '0', day, icuBody);
       copied = true;
@@ -187,6 +227,29 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
       if (!(e instanceof HttpError && e.status === 409)) console.warn('checkin follow-up failed', e);
     }
     return { ok: true, copied, sync };
+  },
+
+  // Libido log: optional, off by default. Turning it off keeps past entries; deleteAll removes every entry here and in intervals.icu.
+  async libido(req, body) {
+    const { user, profile } = await currentUser(req); needConsent(profile);
+    if (typeof body.on === 'boolean') await admin.from('profiles').update({ libido_log: body.on }).eq('user_id', user.id);
+    let deleted = 0;
+    if (body.deleteAll === true) {
+      const { data: rows } = await admin.from('checkins').select('day').eq('user_id', user.id).not('libido', 'is', null);
+      const { data: wrows } = await admin.from('wellness').select('day, extra').eq('user_id', user.id).not('extra->Libido', 'is', null);
+      const days = new Set([...(rows ?? []).map((r) => String(r.day)), ...(wrows ?? []).map((r) => String(r.day))]);
+      await admin.from('checkins').update({ libido: null }).eq('user_id', user.id).not('libido', 'is', null);
+      for (const w of wrows ?? []) {
+        const extra = { ...(w.extra as Record<string, unknown>) }; delete extra.Libido;
+        await admin.from('wellness').update({ extra }).eq('user_id', user.id).eq('day', w.day);
+      }
+      try {
+        const key = await keyFor(user.id);
+        for (const d of days) await putWellness(key, profile.intervals_athlete_id ?? '0', d, { Libido: null });
+      } catch (e) { console.warn('libido delete in intervals.icu failed', e); }
+      deleted = days.size;
+    }
+    return { ok: true, deleted };
   },
 
   // Second-by-second data for one activity (Sessions detail, W′ battery). Only the person's own activities.

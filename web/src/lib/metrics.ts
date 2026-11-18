@@ -9,8 +9,12 @@ export type LoadRow = { day: string; sport: string; actual: number; planned: num
 export type WellnessRow = {
   day: string; hrv: number | null; resting_hr: number | null; sleep_secs: number | null;
   sleep_quality: number | null; fatigue: number | null; soreness: number | null; stress: number | null; mood: number | null;
+  extra?: Record<string, number> | null;
 };
-export type CheckinRow = { day: string; sleep_quality: number | null; fatigue: number | null; soreness: number | null; stress: number | null; mood: number | null; sick: string | null };
+export type CheckinRow = {
+  day: string; sleep_quality: number | null; fatigue: number | null; soreness: number | null; stress: number | null; mood: number | null; sick: string | null;
+  clarity?: number | null; libido?: number | null; caffeine?: number | null; alcohol?: number | null; body_temp?: number | null;
+};
 export type TestRow = { day: string; kind: string; name: string | null };
 
 const r1 = (v: number | null) => (v === null || !isFinite(v) ? null : Math.round(v * 10) / 10);
@@ -93,16 +97,35 @@ export function weekly(points: PmcPoint[], today: string, weeks = 8): WeekPoint[
 }
 
 // ---------- Trends ----------
+// Ported from the live app's Trends page: same windows, bands and the Building fatigue flag.
+// Extra logs: the check-in value wins, otherwise the number intervals.icu holds (field name in `f`).
+export const EXTRA_METRICS: Record<string, { f: string; col?: keyof CheckinRow; u: string; d: number; bars?: boolean; how: string }> = {
+  caffeine: { f: 'Caffeine', col: 'caffeine', u: ' mg', d: 0, bars: true, how: 'Caffeine you logged for the day before each morning. A log only; it does not change the status.' },
+  alcohol: { f: 'Alcohol', col: 'alcohol', u: ' drinks', d: 1, bars: true, how: 'Standard drinks you logged for the day before each morning. A log only; it does not change the status.' },
+  bodyTemp: { f: 'BodyTemp', col: 'body_temp', u: ' °C', d: 1, how: 'Morning body temperature as you logged it. A log of your own readings only. Not medical advice.' },
+  weight: { f: 'weight', u: ' kg', d: 1, how: 'Body weight as logged in intervals.icu (or synced from a scale or watch). Dots are each day and the bold line is the 7-day average.' },
+  bodyFat: { f: 'bodyFat', u: '%', d: 1, how: 'Body fat % as logged in intervals.icu. Scales measure this loosely, so the 7-day line is more useful than any single day.' },
+  vo2max: { f: 'vo2max', u: '', d: 1, how: 'The VO2 max estimate synced from your watch to intervals.icu. A watch estimate, not a lab test. Your FTP and VO2 tests are on the Performance tab.' },
+  steps: { f: 'steps', u: '', d: 0, bars: true, how: 'Daily steps synced from your watch. Bars are each day and the line is the 7-day average.' },
+  sleepScore: { f: 'sleepScore', u: '', d: 0, how: "The sleep score from your watch, as synced to intervals.icu. It is the watch's own score; the Sleep chart uses hours." },
+  spO2: { f: 'spO2', u: '%', d: 0, how: 'Blood oxygen as synced from your watch. A log of your own readings only. Not medical advice.' },
+  respiration: { f: 'respiration', u: '/min', d: 1, how: 'Breaths per minute (usually overnight) as synced from your watch. A log of your own readings only.' },
+  hydration: { f: 'hydrationVolume', u: '', d: 1, how: 'Fluid intake as logged in intervals.icu, in the units you log it in there.' }
+};
+
 export type TrendPoint = {
   day: string;
   feel: number | null; feel7: number | null; feelBand: [number, number] | null; sick: string | null;
   hrv: number | null; hrv7: number | null; hrvBand: [number, number] | null;
+  cv: number | null; cvBand: [number, number] | null; fatigueFlag: boolean;
   sleep: number | null; sleep7: number | null;
   rhr: number | null; rhr7: number | null; rhrBand: [number, number] | null;
-  rpe: number | null; rpe7: number | null;
-  load: number; atl: number;
-  prevRpe: number | null; prevLoad: number;
+  clarity: number | null; clarity7: number | null; libido: number | null; libido7: number | null;
+  rpe: number | null; load: number; atl: number;   // rpe and load are the day before, paired with each morning
+  x: Record<string, { v: number | null; v7: number | null }>;
 };
+
+const mean = (a: (number | null | undefined)[]) => { const v = a.filter((x): x is number => x !== null && x !== undefined); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
 
 export function trends(wellness: WellnessRow[], checkins: CheckinRow[], load: LoadRow[], from: string, to: string): TrendPoint[] {
   const w: Record<string, WellnessRow> = {}, c: Record<string, CheckinRow> = {};
@@ -115,14 +138,16 @@ export function trends(wellness: WellnessRow[], checkins: CheckinRow[], load: Lo
     if (r.rpe !== null && (o.rpe === null || r.rpe > o.rpe)) o.rpe = r.rpe;
   });
 
-  // Work over a longer window so the 60-day normal is ready on the first day shown
-  const start = addDays(from, -70);
+  // Work over a longer window so the 60-day normals are ready on the first day shown
+  const start = addDays(from, -130);
   const days = dayRange(start, to);
-  const feel: (number | null)[] = [], ln: (number | null)[] = [], rhr: (number | null)[] = [], sleep: (number | null)[] = [], rpe: (number | null)[] = [];
+  const feel: (number | null)[] = [], ln: (number | null)[] = [], rhr: (number | null)[] = [], sleep: (number | null)[] = [];
+  const clarity: (number | null)[] = [], libido: (number | null)[] = [], sick: (string | null)[] = [];
+  const xs: Record<string, (number | null)[]> = Object.fromEntries(Object.keys(EXTRA_METRICS).map((k) => [k, []]));
   let atl = 0;
   const atlByDay: number[] = [];
   days.forEach((d) => {
-    const x = w[d], ci = c[d];
+    const x = w[d], ci = c[d], ex = x?.extra ?? {};
     const merged = {
       fatigue: ci?.fatigue ?? x?.fatigue, soreness: ci?.soreness ?? x?.soreness, sleepQuality: ci?.sleep_quality ?? x?.sleep_quality,
       stress: ci?.stress ?? x?.stress, mood: ci?.mood ?? x?.mood
@@ -131,30 +156,65 @@ export function trends(wellness: WellnessRow[], checkins: CheckinRow[], load: Lo
     ln.push(x?.hrv && x.hrv > 0 ? Math.log(x.hrv) : null);
     rhr.push(x?.resting_hr ?? null);
     sleep.push(x?.sleep_secs ? x.sleep_secs / 3600 : null);
-    rpe.push(dayLoad[d]?.rpe ?? null);
+    clarity.push(ci?.clarity ?? ex.MentalClarity ?? null);
+    libido.push(ci?.libido ?? ex.Libido ?? null);
+    const sk = ci?.sick && ci.sick !== 'No' ? ci.sick : ci?.sick === 'No' ? null : ex.Sickness === 2 ? 'Yes' : ex.Sickness === 1 ? 'Mild' : null;
+    sick.push(sk);
+    for (const [k, m] of Object.entries(EXTRA_METRICS)) {
+      const cv = m.col ? (ci?.[m.col] as number | null | undefined) : undefined;
+      xs[k].push(cv ?? ex[m.f] ?? null);
+    }
     atl += ((dayLoad[d]?.load || 0) - atl) / 7;
     atlByDay.push(atl);
   });
+  // 7-day CV of ln HRV, in %
+  const cvAll = days.map((_, k) => { const s7 = stats(ln, k, 7); return s7.mean ? (s7.sd! / s7.mean) * 100 : null; });
 
   const out: TrendPoint[] = [];
+  let run = 0;
   days.forEach((d, k) => {
     if (d < from) return;
-    const fs = stats(feel, k - 1, 28), fsd = fs.sd === null ? null : Math.max(fs.sd, 1.5);
+    const fs = stats(feel, k, 28), fsd = fs.sd === null ? null : Math.max(fs.sd, 1.5);
     const l7 = stats(ln, k, 7).mean, lb = stats(ln, k, 60);
     const r7 = stats(rhr, k, 7).mean, rb = stats(rhr, k, 60);
+    const cb = stats(cvAll, k, 60);
+    const hrv7 = l7 === null ? null : r1(Math.exp(l7));
+    const hrvBand: [number, number] | null = lb.mean !== null && lb.sd !== null ? [r1(Math.exp(lb.mean - 0.5 * lb.sd))!, r1(Math.exp(lb.mean + lb.sd))!] : null;
+    const cv = r1(cvAll[k]);
+    const cvBand: [number, number] | null = cb.mean !== null && cb.sd !== null ? [r1(Math.max(0, cb.mean - cb.sd))!, r1(cb.mean + cb.sd)!] : null;
+    const low = hrv7 !== null && hrvBand !== null && hrv7 < hrvBand[0];
+    const outCv = cv !== null && cvBand !== null && (cv < cvBand[0] || cv > cvBand[1]);
+    run = low && outCv ? run + 1 : 0;
+    const lw = libido.slice(Math.max(0, k - 6), k + 1).filter((v) => v !== null);
+    const x: TrendPoint['x'] = {};
+    for (const key of Object.keys(EXTRA_METRICS)) {
+      const win = xs[key].slice(Math.max(0, k - 6), k + 1).filter((v) => v !== null);
+      x[key] = { v: xs[key][k], v7: win.length >= 3 ? r1(mean(win)) : null };
+    }
+    const prev = days[k - 1];
     out.push({
       day: d,
-      feel: r1(feel[k]), feel7: r1(stats(feel, k, 7).mean), sick: c[d]?.sick && c[d].sick !== 'No' ? c[d].sick : null,
-      feelBand: fs.mean !== null && fsd !== null ? [r1(fs.mean - fsd)!, r1(fs.mean + fsd)!] : null,
-      hrv: w[d]?.hrv ?? null, hrv7: l7 === null ? null : r1(Math.exp(l7)),
-      hrvBand: lb.mean !== null && lb.sd !== null ? [r1(Math.exp(lb.mean - 0.5 * lb.sd))!, r1(Math.exp(lb.mean + lb.sd))!] : null,
+      feel: r1(feel[k]), feel7: r1(stats(feel, k, 7).mean), sick: sick[k],
+      feelBand: fs.mean !== null && fsd !== null ? [r1(fs.mean - fsd)!, r1(Math.min(25, fs.mean + fsd))!] : null,
+      hrv: w[d]?.hrv ?? null, hrv7, hrvBand, cv, cvBand, fatigueFlag: run >= 3,
       sleep: r1(sleep[k]), sleep7: r1(stats(sleep, k, 7).mean),
       rhr: rhr[k], rhr7: r1(r7),
       rhrBand: rb.mean !== null && rb.sd !== null ? [r1(rb.mean - 0.5 * rb.sd)!, r1(rb.mean + 0.5 * rb.sd)!] : null,
-      rpe: rpe[k], rpe7: r1(stats(rpe, k, 7).mean),
-      load: Math.round(dayLoad[d]?.load || 0), atl: r1(atlByDay[k])!,
-      prevRpe: k > 0 ? rpe[k - 1] : null, prevLoad: Math.round(dayLoad[days[k - 1]]?.load || 0)
+      clarity: clarity[k], clarity7: r1(stats(clarity, k, 7).mean),
+      libido: libido[k], libido7: lw.length >= 4 ? r1(mean(lw)) : null,
+      rpe: prev ? dayLoad[prev]?.rpe ?? null : null, load: Math.round(prev ? dayLoad[prev]?.load || 0 : 0), atl: Math.round(atlByDay[k - 1] ?? 0),
+      x
     });
+  });
+  return out;
+}
+
+// Runs of flagged days as [first, last] pairs, for the amber "Building fatigue" shading
+export function flagRuns(points: TrendPoint[]): [string, string][] {
+  const out: [string, string][] = []; let st: string | null = null;
+  points.forEach((p, i) => {
+    if (p.fatigueFlag && st === null) st = p.day;
+    if (st !== null && (!p.fatigueFlag || i === points.length - 1)) { out.push([st, p.fatigueFlag ? p.day : points[i - 1].day]); st = null; }
   });
   return out;
 }

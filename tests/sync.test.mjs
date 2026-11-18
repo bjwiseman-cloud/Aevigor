@@ -91,4 +91,11 @@ const k = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base
 const c = await encrypt('secret-key', k);
 assert.notEqual(c, 'secret-key');
 assert.equal(await decrypt(c, k), 'secret-key');
-console.log('ok sync, merge, errors and encryption');
+// Extra wellness numbers and sickness typed in intervals.icu
+import('../supabase/functions/_shared/intervals.js').then(({ extraOf }) => {
+  assert.deepEqual(extraOf({ MentalClarity: 4, Libido: null, weight: '81.5', steps: 'x', Sickness: 0 }), { MentalClarity: 4, weight: 81.5, Sickness: 0 });
+  const m = mergeDays([{ day: '2026-11-10', extra: { Sickness: 2 } }, { day: '2026-11-11', extra: { Sickness: 1 } }], [{ day: '2026-11-11', sick: 'No' }]);
+  assert.equal(m['2026-11-10'].sick, 'Yes');
+  assert.equal(m['2026-11-11'].sick, 'No', 'the check-in answer wins');
+  console.log('ok sync, merge, extras, errors and encryption');
+});

@@ -55,7 +55,7 @@ async function rows<T>(table: string, cols: string, from: string, to?: string): 
   return (data ?? []) as T[];
 }
 
-export const LOAD_BACK = 365, PLAN_AHEAD = 180, TRENDS_BACK = 120 + 80;
+export const LOAD_BACK = 365, PLAN_AHEAD = 180, TRENDS_BACK = 84 + 136;
 
 export function useDailyLoad(profile: Profile | null | undefined) {
   return useQuery({
@@ -106,7 +106,7 @@ export function useWellness(profile: Profile | null | undefined) {
   return useQuery({
     queryKey: ['wellness', profile?.user_id],
     enabled: !!profile,
-    queryFn: () => rows<WellnessRow>('wellness', 'day, hrv, resting_hr, sleep_secs, sleep_quality, fatigue, soreness, stress, mood',
+    queryFn: () => rows<WellnessRow>('wellness', 'day, hrv, resting_hr, sleep_secs, sleep_quality, fatigue, soreness, stress, mood, extra',
       addDays(todayIn(profile!.time_zone), -TRENDS_BACK))
   });
 }
@@ -115,7 +115,7 @@ export function useCheckins(profile: Profile | null | undefined) {
   return useQuery({
     queryKey: ['checkins', profile?.user_id],
     enabled: !!profile,
-    queryFn: () => rows<CheckinRow>('checkins', 'day, sleep_quality, fatigue, soreness, stress, mood, sick',
+    queryFn: () => rows<CheckinRow>('checkins', 'day, sleep_quality, fatigue, soreness, stress, mood, sick, clarity, libido, caffeine, alcohol, body_temp',
       addDays(todayIn(profile!.time_zone), -TRENDS_BACK))
   });
 }

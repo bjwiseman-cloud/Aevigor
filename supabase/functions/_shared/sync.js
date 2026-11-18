@@ -22,6 +22,9 @@ export function mergeDays(wellnessRows, checkinRows) {
       hrv: w.hrv, restingHR: w.resting_hr, sleepSecs: w.sleep_secs,
       sleepQuality: w.sleep_quality, fatigue: w.fatigue, soreness: w.soreness, stress: w.stress, mood: w.mood
     };
+    // Sickness typed straight into intervals.icu (0 no, 1 mild, 2 yes) counts when there is no check-in answer
+    const sk = w.extra?.Sickness;
+    if (sk === 1 || sk === 2) days[w.day].sick = sk === 2 ? 'Yes' : 'Mild';
   }
   for (const c of checkinRows) {
     const d = days[c.day] || (days[c.day] = {});

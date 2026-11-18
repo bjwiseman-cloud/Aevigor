@@ -31,13 +31,22 @@ export function athletePath(athleteId) {
 }
 
 // Wellness rows keyed by day, in the shape the rules expect
+// Other numbers kept for Trends: custom fields from the check-in and values synced from a watch or scale.
+export const EXTRA_FIELDS = ['Sickness', 'MentalClarity', 'Libido', 'Caffeine', 'Alcohol', 'BodyTemp', 'weight', 'bodyFat', 'vo2max', 'steps', 'sleepScore', 'spO2', 'respiration', 'hydrationVolume'];
+export function extraOf(w) {
+  const o = {};
+  for (const k of EXTRA_FIELDS) { const v = Number(w?.[k]); if (w?.[k] !== null && w?.[k] !== undefined && w?.[k] !== '' && Number.isFinite(v)) o[k] = v; }
+  return o;
+}
+
 export async function fetchWellness(key, athleteId, oldest, newest) {
   const rows = await icu(key, athletePath(athleteId) + '/wellness?oldest=' + oldest + '&newest=' + newest) || [];
   return rows.map((w) => ({
     day: String(w.id).slice(0, 10),
     hrv: w.hrv ?? null, resting_hr: w.restingHR ?? null, sleep_secs: w.sleepSecs ?? null,
     sleep_quality: w.sleepQuality ?? null, fatigue: w.fatigue ?? null, soreness: w.soreness ?? null,
-    stress: w.stress ?? null, mood: w.mood ?? null, motivation: w.motivation ?? null
+    stress: w.stress ?? null, mood: w.mood ?? null, motivation: w.motivation ?? null,
+    extra: extraOf(w)
   }));
 }
 
