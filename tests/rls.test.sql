@@ -28,11 +28,11 @@ set request.jwt.sub = '11111111-1111-1111-1111-111111111111';
 do $$ begin
   if (select count(*) from public.daily_status) <> 1 then raise exception 'sees other people''s status rows'; end if;
   if (select count(*) from public.profiles) <> 1 then raise exception 'sees other profiles'; end if;
-  if (select count(*) from public.invites) <> 0 then raise exception 'can read the invite list'; end if;
   if (select count(*) from public.daily_load) <> 1 then raise exception 'sees other people''s load'; end if;
   if (select count(*) from public.planned_tests) <> 0 then raise exception 'sees other people''s tests'; end if;
 end $$;
 select pg_temp.expect_fail('select * from public.intervals_secrets');
+select pg_temp.expect_fail('select * from public.invites');
 select pg_temp.expect_fail($q$update public.profiles set intervals_athlete_id = 'x'$q$);
 select pg_temp.expect_fail($q$update public.profiles set is_admin = true$q$);
 select pg_temp.expect_fail($q$insert into public.invites (email) values ('sneaky@x.com')$q$);
