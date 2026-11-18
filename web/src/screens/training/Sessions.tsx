@@ -8,13 +8,52 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Chip, Chips } from '@/components/chips';
 import { C, axis, shortDay, tooltipStyle } from '@/components/charts';
 import { useProfile } from '@/hooks/data';
+import { usePaceCurves } from '@/hooks/perf';
+import { useSearchParams } from 'react-router-dom';
+import { addDays } from '@rules';
+import { todayIn } from '@/lib/time';
+import { e1rm, type LiftSet } from '@/lib/lifting';
+import { useSets } from '@/screens/training/Lifting';
 import { useActivities, useStreams } from '@/hooks/perf';
-import { METRICS, duration, isRace, isRide, isRun, n, wbal, workSplit, type Activity } from '@/lib/perf';
+import { MEDALS, METRICS, RUN_DIST, duration, isRace, isRide, isRun, n, secsLabel, wbal, workSplit, type Activity } from '@/lib/perf';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
-type Filter = 'all' | 'ride' | 'run' | 'other' | 'race';
-const FILTERS: { id: Filter; label: string }[] = [{ id: 'all', label: 'All' }, { id: 'ride', label: 'Rides' }, { id: 'run', label: 'Runs' }, { id: 'other', label: 'Other' }, { id: 'race', label: 'Races only' }];
-const icon = (a: Activity) => (isRide(a) ? '🚴' : isRun(a) ? '🏃' : /weight|strength/i.test(a.type) ? '🏋️' : '•');
+type Filter = 'all' | 'ride' | 'run' | 'lift' | 'other';
+const FILTERS: { id: Filter; label: string }[] = [{ id: 'all', label: 'All' }, { id: 'ride', label: '🚴 Cycling' }, { id: 'run', label: '🏃 Running' }, { id: 'lift', label: '🏋️ Lifting' }, { id: 'other', label: 'Other' }];
+const isLift = (a: Activity) => /weight|strength/i.test(a.type);
+const icon = (a: Activity) => (isRide(a) ? '🚴' : isRun(a) ? '🏃' : isLift(a) ? '🏋️' : '•');
+const LENGTHS = [{ id: 'l60', label: '<60 min', lo: 0, hi: 60 }, { id: 'l90', label: '60-90 min', lo: 60, hi: 90 }, { id: 'l120', label: '90-120 min', lo: 90, hi: 120 }, { id: 'lmax', label: '>120 min', lo: 120, hi: 1e9 }];
+const KINDS = ['Z2', 'VO2max', 'Threshold', 'Tempo', 'Easy Z1', 'Sprints'] as const;
+// Session type: from the name first, else from intensity (IF = NP ÷ FTP). A best guess, shown as such.
+export function kindOf(a: Activity): (typeof KINDS)[number] | null {
+  const t = a.name ?? '';
+  if (/sprint/i.test(t)) return 'Sprints';
+  if (/vo2|\b[3-6]x[3-5] ?min|4x4|30.?\/.?15|30.?30/i.test(t)) return 'VO2max';
+  if (/threshold|ftp|sweet ?spot|\bss\b|2x20|3x15|over.?under/i.test(t)) return 'Threshold';
+  if (/tempo/i.test(t)) return 'Tempo';
+  if (/recovery|easy|\bz1\b|spin/i.test(t)) return 'Easy Z1';
+  if (/z2|zone ?2|endurance|aerobic/i.test(t)) return 'Z2';
+  const ifv = n(a, 'icu_intensity'); if (ifv == null) return null;
+  const x = ifv / 100;
+  return x < 0.6 ? 'Easy Z1' : x < 0.76 ? 'Z2' : x < 0.88 ? 'Tempo' : x < 1.0 ? 'Threshold' : 'VO2max';
+}
+
+// Badges: top-3 power for a duration over the last 365 days (rides), and best-pace entries on the pace curves (runs)
+const BADGE_SECS = [5, 60, 300, 1200, 3600];
+function useBadges(acts: Activity[], pace: { curve: string; label: string | null; meters: number[]; activity_ids: (string | null)[] | null }[], today: string) {
+  return useMemo(() => {
+    const out: Record<string, string[]> = {};
+    const year = acts.filter((a) => isRide(a) && a.best && a.day >= addDays(today, -365));
+    for (const s of BADGE_SECS) {
+      year.filter((r) => r.best?.[s]).sort((a, b) => b.best![s] - a.best![s]).slice(0, 3)
+        .forEach((r, i) => { (out[r.id] ??= []).push(`${MEDALS[i]} ${secsLabel(s)}`); });
+    }
+    const all = pace.find((c) => c.curve === '1y') ?? pace[0];
+    const labels = new Map(RUN_DIST.map((d) => [d.m, d.label]));
+    all?.meters.forEach((m, i) => { const id = all.activity_ids?.[i]; const l = labels.get(Math.round(m)); if (id && l) (out[id] ??= []).push(`🏅 ${l}`); });
+    return out;
+  }, [acts, pace, today]);
+}
 
 function Battery({ pct }: { pct: number }) {
   const p = Math.max(0, Math.min(100, pct));
@@ -29,7 +68,7 @@ function Battery({ pct }: { pct: number }) {
   );
 }
 
-function Detail({ a, onClose }: { a: Activity; onClose: () => void }) {
+function Detail({ a, badges, sets, onClose }: { a: Activity; badges: string[]; sets: LiftSet[]; onClose: () => void }) {
   const s = useStreams(isRide(a) || isRun(a) ? a.id : null);
   const [t, setT] = useState(0);
   const watts = s.data?.watts ?? [], hr = s.data?.heartrate ?? [];
@@ -49,6 +88,12 @@ function Detail({ a, onClose }: { a: Activity; onClose: () => void }) {
       <SheetContent>
         <SheetHeader><SheetTitle>{icon(a)} {a.name || a.type}</SheetTitle><SheetDescription>{shortDay(a.day)} · {duration(a.moving_time)}</SheetDescription></SheetHeader>
         <div className="space-y-4">
+          {badges.length > 0 && <div className="flex flex-wrap gap-1">{badges.map((b) => <span key={b} className="rounded-full border px-2 py-0.5 text-xs">{b}</span>)}</div>}
+          {kindOf(a) && (isRide(a) || isRun(a)) && <p className="text-xs text-muted-foreground">Session type: <b>{kindOf(a)}</b> (from the name or intensity)</p>}
+          {isLift(a) && (sets.length ? (
+            <table className="w-full text-sm"><thead className="text-xs text-muted-foreground"><tr><th className="text-left">Exercise</th><th>Set</th><th>Reps</th><th>kg</th><th>e1RM</th></tr></thead>
+              <tbody>{sets.map((x) => <tr key={x.id} className="border-t"><td className="py-1">{x.exercise}{x.warmup ? ' (warm-up)' : ''}</td><td className="text-center">{x.set_no}</td><td className="text-center">{x.reps}</td><td className="text-center font-mono">{x.weight}</td><td className="text-center font-mono">{x.warmup ? '–' : e1rm(x.weight, x.reps) ? Math.round(e1rm(x.weight, x.reps)!) : '–'}</td></tr>)}</tbody></table>
+          ) : <p className="text-sm text-muted-foreground">No sets logged for this day. Add them in the Lifting tab or the After a session check-in.</p>)}
           {s.isLoading && <p className="text-sm text-muted-foreground">Loading the ride data…</p>}
           {s.error && <p className="text-sm text-muted-foreground">{(s.error as Error).message}</p>}
           {chart.length > 0 && (
@@ -91,16 +136,36 @@ function Detail({ a, onClose }: { a: Activity; onClose: () => void }) {
 
 export function Sessions() {
   const p = useProfile().data!;
-  const acts = useActivities(p);
+  const acts = useActivities(p), paceCurves = usePaceCurves(p), lifts = useSets();
+  const today = todayIn(p.time_zone);
+  const [params, setParams] = useSearchParams();
   const [filter, setFilter] = useState<Filter>('all');
+  const [race, setRace] = useState(false);
+  const [len, setLen] = useState<string | null>(null);
+  const [kind, setKind] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
-  const [open, setOpen] = useState<Activity | null>(null);
   const [more, setMore] = useState(30);
-  const list = (acts.data ?? []).filter((a) => filter === 'all' || (filter === 'ride' ? isRide(a) : filter === 'run' ? isRun(a) : filter === 'race' ? isRace(a) : !isRide(a) && !isRun(a)));
-  const cmp = picked.map((id) => (acts.data ?? []).find((a) => a.id === id)).filter(Boolean) as Activity[];
+  const all = acts.data ?? [];
+  const openId = params.get('open');
+  const open = openId ? all.find((a) => a.id === openId) ?? null : null;
+  const setOpen = (a: Activity | null) => setParams(a ? { open: a.id } : {}, { replace: !a });
+  const badges = useBadges(all, paceCurves.data ?? [], today);
+  const endurance = filter === 'ride' || filter === 'run';
+  const list = all.filter((a) => {
+    if (filter === 'ride' && !isRide(a)) return false;
+    if (filter === 'run' && !isRun(a)) return false;
+    if (filter === 'lift' && !isLift(a)) return false;
+    if (filter === 'other' && (isRide(a) || isRun(a) || isLift(a))) return false;
+    if (endurance && race && !isRace(a)) return false;
+    if (endurance && len) { const L = LENGTHS.find((x) => x.id === len)!, m = (a.moving_time ?? 0) / 60; if (m < L.lo || m >= L.hi) return false; }
+    if (endurance && kind && kindOf(a) !== kind) return false;
+    return true;
+  });
+  const cmp = picked.map((id) => all.find((a) => a.id === id)).filter(Boolean) as Activity[];
   const toggle = (id: string) => setPicked(picked.includes(id) ? picked.filter((x) => x !== id) : picked.length >= 4 ? picked : [...picked, id]);
   // Similar sessions: same kind, within 20% of the length
-  const similar = (a: Activity) => (acts.data ?? []).filter((b) => b.id !== a.id && isRide(b) === isRide(a) && isRun(b) === isRun(a) && Math.abs((b.moving_time ?? 0) - (a.moving_time ?? 0)) <= 0.2 * (a.moving_time ?? 0)).slice(0, 3);
+  const similar = (a: Activity) => all.filter((b) => b.id !== a.id && isRide(b) === isRide(a) && isRun(b) === isRun(a) && Math.abs((b.moving_time ?? 0) - (a.moving_time ?? 0)) <= 0.2 * (a.moving_time ?? 0)).slice(0, 3);
+  const pickFilter = (f: Filter) => { setFilter(f); setRace(false); setLen(null); setKind(null); };
 
   return (
     <div className="space-y-4">
@@ -120,7 +185,14 @@ export function Sessions() {
       <Card>
         <CardHeader className="pb-2"><CardTitle help="sessions">Sessions</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <Chips>{FILTERS.map((f) => <Chip key={f.id} on={filter === f.id} onClick={() => setFilter(f.id)}>{f.label}</Chip>)}</Chips>
+          <Chips>{FILTERS.map((f) => <Chip key={f.id} on={filter === f.id} onClick={() => pickFilter(f.id)}>{f.label}</Chip>)}</Chips>
+          {endurance && (
+            <div className="space-y-1.5 rounded-md border p-2">
+              <Chips><Chip on={race} onClick={() => setRace(!race)} className="text-xs">🏁 Races</Chip>{LENGTHS.map((l) => <Chip key={l.id} on={len === l.id} onClick={() => setLen(len === l.id ? null : l.id)} className="text-xs">{l.label}</Chip>)}</Chips>
+              <Chips>{KINDS.map((k) => <Chip key={k} on={kind === k} onClick={() => setKind(kind === k ? null : k)} className="text-xs">{k}</Chip>)}</Chips>
+              <p className="text-[11px] text-muted-foreground">Session type comes from the workout name, else from its intensity (a best guess).</p>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground">Tap a session for its analysis. Tick 2 to 4 to compare them side by side.</p>
           <div className="divide-y rounded-md border">
             {list.slice(0, more).map((a) => (
@@ -128,6 +200,7 @@ export function Sessions() {
                 <Checkbox checked={picked.includes(a.id)} onCheckedChange={() => toggle(a.id)} aria-label={`Compare ${a.name ?? a.type}`} />
                 <button type="button" className="flex-1 text-left" onClick={() => setOpen(a)}>
                   <span className="text-muted-foreground">{shortDay(a.day)}</span> {icon(a)} <b>{a.name || a.type}</b>{isRace(a) && ' 🏁'}
+                  {badges[a.id] && <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">{badges[a.id].slice(0, 4).map((b) => <span key={b} className="rounded-full border px-1.5 text-[10px]">{b}</span>)}</span>}
                   <span className="block text-xs text-muted-foreground">{duration(a.moving_time)}{a.load ? ` · load ${Math.round(a.load)}` : ''}{n(a, 'icu_weighted_avg_watts') ? ` · NP ${Math.round(n(a, 'icu_weighted_avg_watts')!)} W` : ''}</span>
                 </button>
                 <Button variant="ghost" size="sm" className="text-xs" onClick={() => setPicked([a.id, ...similar(a).map((b) => b.id)])}>Similar</Button>
@@ -136,10 +209,9 @@ export function Sessions() {
             {!list.length && <p className="p-3 text-sm text-muted-foreground">{acts.isLoading ? 'Loading…' : 'No sessions yet. They appear after the next sync.'}</p>}
           </div>
           {list.length > more && <Button variant="outline" className="w-full" onClick={() => setMore(more + 30)}>Show more</Button>}
-          <p className="text-xs text-muted-foreground">Lifting analysis (e1RM, volume, hard sets) comes with the lifting log.</p>
         </CardContent>
       </Card>
-      {open && <Detail a={open} onClose={() => setOpen(null)} />}
+      {open && <Detail a={open} badges={badges[open.id] ?? []} sets={(lifts.data ?? []).filter((x) => x.day === open.day)} onClose={() => setOpen(null)} />}
     </div>
   );
 }
