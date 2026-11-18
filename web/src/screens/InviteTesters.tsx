@@ -21,7 +21,7 @@ const schema = z.object({
 
 const LINK = 'https://aevigor.com/beta/';
 const message = (email: string) =>
-  `You're invited to test Aevigor, my training app. Open ${LINK} and tap "Create your account" (or Continue with Google) using ${email}. ` +
+  `You're invited to test Aevigor, my training app. Open ${LINK} and tap "Create your account" using ${email}. ` +
   `Then accept the privacy notice and connect your intervals.icu account. Thanks for helping!`;
 
 export function InviteTesters() {
