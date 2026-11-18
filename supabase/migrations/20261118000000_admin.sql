@@ -31,3 +31,12 @@ end $$;
 drop trigger if exists aevigor_on_invite_changed on public.invites;
 create trigger aevigor_on_invite_changed after insert or update of is_admin on public.invites
   for each row execute function public.on_invite_changed();
+
+-- ---------- Explicit table access ----------
+-- New Supabase projects may not grant table access by default, so say exactly what each role gets.
+-- Row Level Security still limits every read to the person's own rows.
+grant usage on schema public to authenticated, anon, service_role;
+grant select on public.profiles, public.wellness, public.checkins, public.daily_status, public.daily_load, public.planned_tests to authenticated;
+grant update (display_name, time_zone, consent_version, consent_at) on public.profiles to authenticated;
+grant all on public.invites, public.profiles, public.intervals_secrets, public.wellness, public.checkins,
+  public.daily_status, public.daily_load, public.planned_tests to service_role;
