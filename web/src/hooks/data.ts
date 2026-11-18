@@ -55,7 +55,11 @@ async function rows<T>(table: string, cols: string, from: string, to?: string): 
   return (data ?? []) as T[];
 }
 
+<<<<<<< HEAD
 export const LOAD_BACK = 365, PLAN_AHEAD = 180, TRENDS_BACK = 84 + 136;
+=======
+export const LOAD_BACK = 365, PLAN_AHEAD = 180, TRENDS_BACK = 120 + 80;
+>>>>>>> origin/main
 
 export function useDailyLoad(profile: Profile | null | undefined) {
   return useQuery({
