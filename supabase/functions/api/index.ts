@@ -193,7 +193,7 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
   async 'push-key'(req) { await currentUser(req); return { publicKey: await publicKey(admin) }; },
   async 'push-test'(req) {
     const { user } = await currentUser(req);
-    const sent = await sendTo(admin, user.id, { title: '🔔 Aevigor', body: 'Phone alerts are on. Reminders you set will show here.', url: '/beta/inbox', tag: 'test' });
+    const sent = await sendTo(admin, user.id, { title: '🔔 Aevigor', body: 'Phone alerts are on. Reminders you set will show here.', url: '/beta/#/inbox', tag: 'test' });
     if (!sent) throw new HttpError(409, 'No phone is set up for alerts yet. Turn alerts on first.');
     return { ok: true, sent };
   },
