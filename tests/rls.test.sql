@@ -5,13 +5,18 @@ begin
   raise exception 'expected this to be refused: %', sql;
 end $$;
 
-insert into public.invites values ('a@x.com', null), ('b@x.com', null);
+insert into public.invites (email, note) values ('a@x.com', null), ('b@x.com', null);
+insert into public.invites (email, note, is_admin) values ('boss@x.com', 'owner', true);
 do $$ begin
   if public.hook_before_user_created('{"user":{"email":"A@x.com"}}') <> '{}'::jsonb then raise exception 'invited email refused'; end if;
   if public.hook_before_user_created('{"user":{"email":"stranger@x.com"}}') -> 'error' ->> 'http_code' <> '403' then raise exception 'stranger allowed'; end if;
 end $$;
 select pg_temp.expect_fail($q$insert into auth.users (email) values ('stranger@x.com')$q$);
-insert into auth.users (id, email) values ('11111111-1111-1111-1111-111111111111', 'A@x.com'), ('22222222-2222-2222-2222-222222222222', 'b@x.com');
+insert into auth.users (id, email) values ('11111111-1111-1111-1111-111111111111', 'A@x.com'), ('22222222-2222-2222-2222-222222222222', 'b@x.com'), ('33333333-3333-3333-3333-333333333333', 'boss@x.com');
+do $$ begin
+  if not (select is_admin from public.profiles where email = 'boss@x.com') then raise exception 'admin flag not copied from the invite'; end if;
+  if (select is_admin from public.profiles where email = 'a@x.com') then raise exception 'tester became admin'; end if;
+end $$;
 insert into public.daily_status (user_id, day, status, weekly) values
   ('11111111-1111-1111-1111-111111111111', '2026-11-16', 'GO', 'OK'), ('22222222-2222-2222-2222-222222222222', '2026-11-16', 'CAUTION', 'OK');
 insert into public.intervals_secrets values ('11111111-1111-1111-1111-111111111111', 'v1:x:y');
@@ -29,6 +34,8 @@ do $$ begin
 end $$;
 select pg_temp.expect_fail('select * from public.intervals_secrets');
 select pg_temp.expect_fail($q$update public.profiles set intervals_athlete_id = 'x'$q$);
+select pg_temp.expect_fail($q$update public.profiles set is_admin = true$q$);
+select pg_temp.expect_fail($q$insert into public.invites (email) values ('sneaky@x.com')$q$);
 select pg_temp.expect_fail($q$insert into public.daily_load (user_id, day, sport) values ('11111111-1111-1111-1111-111111111111', '2026-11-16', 'ride')$q$);
 select pg_temp.expect_fail($q$insert into public.daily_status (user_id, day, status, weekly) values ('11111111-1111-1111-1111-111111111111', '2026-11-17', 'GO', 'OK')$q$);
 update public.profiles set consent_at = now(), consent_version = 'beta-1';

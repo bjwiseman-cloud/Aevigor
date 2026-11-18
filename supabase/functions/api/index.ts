@@ -5,6 +5,7 @@
 //   /api/checkin         save the daily check-in, copy it to intervals.icu, recompute today
 //   /api/delete-account  delete the account and every row of the person's data
 //   /api/cron            nightly sync of everyone (needs the x-cron-secret header)
+//   /api/invites, /api/invite, /api/uninvite   admins only: list, add and remove testers
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { syncUser, todayIn } from '../_shared/sync.js';
 import { icu, athletePath, putWellness, IntervalsError } from '../_shared/intervals.js';
@@ -80,6 +81,12 @@ function validTz(tz: unknown) {
   try { new Intl.DateTimeFormat('en-CA', { timeZone: tz }); return tz; } catch { return null; }
 }
 
+function needAdmin(profile: { is_admin?: boolean }) {
+  if (!profile.is_admin) throw new HttpError(403, 'Only the beta admin can manage invites.');
+}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const MAX_TESTERS = 50;
+
 const ANSWERS = ['sleep_quality', 'fatigue', 'soreness', 'stress', 'mood', 'motivation'] as const;
 
 const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
@@ -149,6 +156,46 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     if (body.confirm !== 'DELETE') throw new HttpError(400, 'Type DELETE to confirm.');
     // Every table references auth.users with ON DELETE CASCADE, so this removes all of the person's rows.
     const { error } = await admin.auth.admin.deleteUser(user.id);
+    if (error) throw error;
+    return { ok: true };
+  },
+
+  async invites(req) {
+    const { profile } = await currentUser(req); needAdmin(profile);
+    const [{ data: inv, error }, { data: people }] = await Promise.all([
+      admin.from('invites').select('email, note, invited_at, is_admin').order('invited_at', { ascending: false }),
+      admin.from('profiles').select('email, created_at, intervals_connected_at, last_sync')
+    ]);
+    if (error) throw error;
+    const byEmail = new Map((people ?? []).map((p) => [p.email, p]));
+    return {
+      invites: (inv ?? []).map((i) => {
+        const p = byEmail.get(i.email);
+        return { ...i, joined_at: p?.created_at ?? null, connected: !!p?.intervals_connected_at, last_sync: p?.last_sync ?? null };
+      })
+    };
+  },
+
+  async invite(req, body) {
+    const { user, profile } = await currentUser(req); needAdmin(profile);
+    const email = String(body.email ?? '').trim().toLowerCase();
+    if (!EMAIL_RE.test(email) || email.length > 254) throw new HttpError(400, 'That email address does not look right.');
+    const note = typeof body.note === 'string' ? body.note.trim().slice(0, 200) || null : null;
+    const { count } = await admin.from('invites').select('email', { count: 'exact', head: true });
+    if ((count ?? 0) >= MAX_TESTERS) throw new HttpError(400, `The beta is limited to ${MAX_TESTERS} people.`);
+    const { error } = await admin.from('invites').insert({ email, note, invited_by: user.id });
+    if (error?.code === '23505') throw new HttpError(409, 'That person is already invited.');
+    if (error) throw error;
+    return { ok: true, email };
+  },
+
+  async uninvite(req, body) {
+    const { profile } = await currentUser(req); needAdmin(profile);
+    const email = String(body.email ?? '').trim().toLowerCase();
+    if (email === profile.email) throw new HttpError(400, 'You cannot remove your own invite.');
+    const { data: joined } = await admin.from('profiles').select('user_id').eq('email', email).maybeSingle();
+    if (joined) throw new HttpError(409, 'This person has already signed up. They can delete their account in Settings, or you can remove them in Supabase > Authentication > Users.');
+    const { error } = await admin.from('invites').delete().eq('email', email);
     if (error) throw error;
     return { ok: true };
   },

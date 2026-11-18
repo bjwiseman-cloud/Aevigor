@@ -15,7 +15,7 @@ You never need to send Claude a password or secret key. The only two values to s
 ## 2. Create the database tables (5 min)
 
 1. In the project, open **SQL Editor** › **New query**.
-2. Open [the first setup SQL file](../supabase/migrations/20261116000000_beta.sql), copy all of it, paste it in, and press **Run**. It should say "Success". Then do the same with [the second SQL file](../supabase/migrations/20261117000000_load.sql) (it adds the Load page tables).
+2. Open [the first setup SQL file](../supabase/migrations/20261116000000_beta.sql), copy all of it, paste it in, and press **Run**. It should say "Success". Then do the same with [the second SQL file](../supabase/migrations/20261117000000_load.sql) (Load page tables) and [the third SQL file](../supabase/migrations/20261118000000_admin.sql) (lets you invite testers from the app), in that order.
 
 ## 3. Turn on invite-only sign-up (2 min)
 
@@ -86,18 +86,17 @@ These are meant to be public: they only allow what the database's privacy rules 
 
 ## 10. Invite people
 
-In Supabase › **SQL Editor**, run one line per person (lowercase emails):
+First add yourself as the admin. In Supabase › **SQL Editor**, run this once with your own email (lowercase):
 
 ```sql
-insert into public.invites (email, note) values ('you@example.com', 'owner');
-insert into public.invites (email, note) values ('friend@example.com', 'pilot');
+insert into public.invites (email, note, is_admin) values ('you@example.com', 'owner', true);
 ```
 
-Then send them the link **aevigor.com/beta**. They tap **Create your account** (or Continue with Google), confirm their email, accept the privacy notice and connect intervals.icu.
+Sign up at **aevigor.com/beta** with that email. Then open **Settings** (the gear at the top) › **Invite testers**: type a tester's email and tap **Invite**. A ready-to-send message with the link is copied, so paste it into a text or email. The list shows who has joined and connected intervals.icu.
 
 Start with yourself and 2 or 3 people for about a week, then invite the rest.
 
-To remove someone: Supabase › **Authentication** › **Users** › the person › **Delete user** (this deletes all their data), and delete their row from `invites`.
+To remove someone: Supabase › **Authentication** › **Users** › the person › **Delete user** (this deletes all their data), and delete their row from `invites`. Invites that nobody has used yet can be removed with the ✕ in Settings.
 
 ## Before inviting anyone
 

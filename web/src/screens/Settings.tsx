@@ -20,6 +20,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { TimeZoneSelect } from './TimeZoneSelect';
+import { InviteTesters } from './InviteTesters';
 
 const accountSchema = z.object({ display_name: z.string().trim().max(80), time_zone: z.string().min(1) });
 const passwordSchema = z.object({ password: z.string().min(8, 'At least 8 characters.') });
@@ -68,6 +69,8 @@ export function Settings() {
   return (
     <div className="space-y-4">
       <h1 className="font-mono text-xl text-primary">Settings</h1>
+
+      {profile.is_admin && <InviteTesters />}
 
       <Card>
         <CardHeader className="pb-3"><CardTitle>Account</CardTitle></CardHeader>

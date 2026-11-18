@@ -9,6 +9,7 @@ export type Profile = {
   intervals_connected_at: string | null;
   last_sync: string | null;
   last_sync_error: string | null;
+  is_admin?: boolean;
 };
 
 export type Signals = {
