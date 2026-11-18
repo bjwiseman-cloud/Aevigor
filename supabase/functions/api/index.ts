@@ -12,7 +12,11 @@ import { icu, athletePath, putWellness, IntervalsError } from '../_shared/interv
 import { encrypt, decrypt } from '../_shared/crypto.js';
 import { addDays } from '../_shared/rules.js';
 
-const ENC = Deno.env.get('BETA_ENCRYPTION_KEY') ?? '';
+// The encryption key and the cron password default to values derived from the project's own service-role key,
+// which Supabase gives every function automatically, so no hand-made secrets are needed. Setting
+// BETA_ENCRYPTION_KEY / BETA_CRON_SECRET still overrides them. (Rotating the service-role key means testers reconnect intervals.icu.)
+const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const ENC = Deno.env.get('BETA_ENCRYPTION_KEY') || (SERVICE_KEY ? 'aevigor-intervals-v1:' + SERVICE_KEY : '');
 const CRON_SECRET = Deno.env.get('BETA_CRON_SECRET') ?? '';
 const ORIGINS = (Deno.env.get('BETA_ALLOWED_ORIGINS') ?? 'https://aevigor.com,https://www.aevigor.com').split(',').map((s) => s.trim());
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
@@ -201,7 +205,10 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
   },
 
   async cron(req) {
-    if (!CRON_SECRET || req.headers.get('x-cron-secret') !== CRON_SECRET) throw new HttpError(401, 'Not allowed');
+    const bearer = (req.headers.get('authorization') ?? '').replace(/^Bearer /i, '');
+    const okSecret = !!CRON_SECRET && req.headers.get('x-cron-secret') === CRON_SECRET;
+    const okService = !!SERVICE_KEY && bearer === SERVICE_KEY;
+    if (!okSecret && !okService) throw new HttpError(401, 'Not allowed');
     const { data: people } = await admin.from('profiles').select('*').not('intervals_connected_at', 'is', null).not('consent_at', 'is', null);
     const results: Record<string, string> = {};
     const queue = [...(people ?? [])];
