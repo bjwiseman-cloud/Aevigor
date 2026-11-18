@@ -22,6 +22,8 @@ insert into public.daily_status (user_id, day, status, weekly) values
 insert into public.intervals_secrets values ('11111111-1111-1111-1111-111111111111', 'v1:x:y');
 insert into public.daily_load (user_id, day, sport, actual) values ('11111111-1111-1111-1111-111111111111', '2026-11-15', 'ride', 80), ('22222222-2222-2222-2222-222222222222', '2026-11-15', 'ride', 60);
 insert into public.planned_tests (user_id, day, kind) values ('22222222-2222-2222-2222-222222222222', '2026-11-25', 'FTP test');
+insert into public.lift_sets (user_id, day, exercise, reps, weight) values ('22222222-2222-2222-2222-222222222222', '2026-11-15', 'Squat', 5, 100);
+insert into public.pace_curves (user_id, curve, meters, secs) values ('22222222-2222-2222-2222-222222222222', 'all', '{400}', '{80}');
 
 set role authenticated;
 set request.jwt.sub = '11111111-1111-1111-1111-111111111111';
@@ -30,7 +32,13 @@ do $$ begin
   if (select count(*) from public.profiles) <> 1 then raise exception 'sees other profiles'; end if;
   if (select count(*) from public.daily_load) <> 1 then raise exception 'sees other people''s load'; end if;
   if (select count(*) from public.planned_tests) <> 0 then raise exception 'sees other people''s tests'; end if;
+  if (select count(*) from public.lift_sets) <> 0 then raise exception 'sees other people''s lifts'; end if;
+  if (select count(*) from public.pace_curves) <> 0 then raise exception 'sees other people''s pace curves'; end if;
 end $$;
+insert into public.lift_sets (day, exercise, reps, weight) values ('2026-11-16', 'Bench press', 5, 80);
+select pg_temp.expect_fail($q$insert into public.lift_sets (user_id, day, exercise, reps) values ('22222222-2222-2222-2222-222222222222', '2026-11-16', 'Squat', 5)$q$);
+select pg_temp.expect_fail($q$insert into public.pace_curves (user_id, curve, meters, secs) values ('11111111-1111-1111-1111-111111111111', 'x', '{1}', '{1}')$q$);
+update public.lift_sets set weight = 0 where user_id = '22222222-2222-2222-2222-222222222222';  -- silently matches nothing
 select pg_temp.expect_fail('select * from public.intervals_secrets');
 select pg_temp.expect_fail('select * from public.invites');
 select pg_temp.expect_fail($q$update public.profiles set intervals_athlete_id = 'x'$q$);
@@ -43,11 +51,13 @@ update public.profiles set time_zone = 'X' where user_id = '22222222-2222-2222-2
 reset role;
 do $$ begin
   if (select time_zone from public.profiles where email = 'b@x.com') <> 'America/Edmonton' then raise exception 'changed someone else''s profile'; end if;
+  if (select weight from public.lift_sets where user_id = '22222222-2222-2222-2222-222222222222') <> 100 then raise exception 'changed someone else''s lifts'; end if;
+  if (select count(*) from public.lift_sets where user_id = '11111111-1111-1111-1111-111111111111') <> 1 then raise exception 'could not log own lift'; end if;
   if (select consent_version from public.profiles where email = 'a@x.com') is distinct from 'beta-1' then raise exception 'could not save own consent'; end if;
 end $$;
 delete from auth.users where email = 'A@x.com';
 do $$ begin
-  if (select count(*) from public.daily_status where user_id = '11111111-1111-1111-1111-111111111111') + (select count(*) from public.intervals_secrets) + (select count(*) from public.profiles where email = 'a@x.com') + (select count(*) from public.daily_load where user_id = '11111111-1111-1111-1111-111111111111') <> 0
+  if (select count(*) from public.daily_status where user_id = '11111111-1111-1111-1111-111111111111') + (select count(*) from public.intervals_secrets) + (select count(*) from public.profiles where email = 'a@x.com') + (select count(*) from public.daily_load where user_id = '11111111-1111-1111-1111-111111111111') + (select count(*) from public.lift_sets where user_id = '11111111-1111-1111-1111-111111111111') <> 0
   then raise exception 'deleting an account left data behind'; end if;
 end $$;
 select 'privacy walls ok';

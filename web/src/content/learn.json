@@ -466,9 +466,9 @@
       "short": "Estimated 1-rep max (e1RM) from your top sets, volume load (sets × reps × weight), and reps in reserve (RIR).",
       "why": "e1RM tracks strength without testing a true max. Volume load tracks how much work you did for muscle growth.",
       "calc": [
-        "e1RM uses the Epley formula: weight × (1 + reps ÷ 30), from your heaviest logged set.",
-        "Lifting counts toward load through session RPE. It does not change the daily status.",
-        "A full lifting log with these charts is coming next."
+        "e1RM uses the Epley formula: weight × (1 + reps ÷ 30), from your best working set of 1 to 12 reps that day. A single counts as the weight itself. Warm-ups are left out.",
+        "Volume load = sets × reps × weight, added up per week (Monday to Sunday), warm-ups left out. Reps in reserve (RIR) is how many more reps you could have done; RPE 8 = 2 RIR.",
+        "Lifting counts toward load through session RPE in intervals.icu. It does not change the daily status."
       ],
       "refs": [
         "r39",
@@ -481,6 +481,21 @@
       "coach": [
         "E"
       ]
+    },
+    {
+      "id": "lifting-log",
+      "field": "strength",
+      "title": "Lifting log",
+      "short": "Log your sets (weight, reps, reps in reserve, warm-up) in the app, or import them from FitNotes, Strong, Hevy, Liftosaur or another app's CSV export.",
+      "why": "Your strength numbers sit next to your endurance training, so you can see both in one place.",
+      "calc": [
+        "Weights are saved in kg and shown in kg or lb, whichever you pick. \"Repeat\" copies the sets from the last time you did that exercise.",
+        "Import reads the column names in the file (date, exercise, reps, weight, unit, RPE or RIR, warm-up) so most apps' exports work. Sets you already have (same day, exercise, set number, reps and weight) are skipped, so importing the same file twice is safe."
+      ],
+      "refs": [
+        "r39"
+      ],
+      "coach": []
     },
     {
       "id": "schedule",
