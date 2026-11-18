@@ -9,6 +9,7 @@ import { ResetPassword } from '@/screens/ResetPassword';
 import { Consent } from '@/screens/Consent';
 import { Connect } from '@/screens/Connect';
 import { Today } from '@/screens/Today';
+import { SessionCheckin } from '@/screens/SessionCheckin';
 import { CheckinPage } from '@/screens/Checkin';
 import { Guide } from '@/screens/Guide';
 import { Load } from '@/screens/Load';
@@ -51,6 +52,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/today" element={connected ? <Today /> : <Navigate to="/connect" replace />} />
         <Route path="/checkin" element={connected ? <CheckinPage /> : <Navigate to="/connect" replace />} />
+        <Route path="/checkin/session" element={connected ? <SessionCheckin /> : <Navigate to="/connect" replace />} />
         <Route path="/training/load" element={connected ? <Load /> : <Navigate to="/connect" replace />} />
         <Route path="/training/performance" element={connected ? <Performance /> : <Navigate to="/connect" replace />} />
         <Route path="/training/sessions" element={connected ? <Sessions /> : <Navigate to="/connect" replace />} />

@@ -24,6 +24,7 @@ insert into public.daily_load (user_id, day, sport, actual) values ('11111111-11
 insert into public.planned_tests (user_id, day, kind) values ('22222222-2222-2222-2222-222222222222', '2026-11-25', 'FTP test');
 insert into public.lift_sets (user_id, day, exercise, reps, weight) values ('22222222-2222-2222-2222-222222222222', '2026-11-15', 'Squat', 5, 100);
 insert into public.pace_curves (user_id, curve, meters, secs) values ('22222222-2222-2222-2222-222222222222', 'all', '{400}', '{80}');
+insert into public.session_logs (user_id, activity_id, day, kind) values ('22222222-2222-2222-2222-222222222222', 'i1', '2026-11-10', 'ride');
 
 set role authenticated;
 set request.jwt.sub = '11111111-1111-1111-1111-111111111111';
@@ -34,10 +35,12 @@ do $$ begin
   if (select count(*) from public.planned_tests) <> 0 then raise exception 'sees other people''s tests'; end if;
   if (select count(*) from public.lift_sets) <> 0 then raise exception 'sees other people''s lifts'; end if;
   if (select count(*) from public.pace_curves) <> 0 then raise exception 'sees other people''s pace curves'; end if;
+  if (select count(*) from public.session_logs) <> 0 then raise exception 'sees other people''s session logs'; end if;
 end $$;
 insert into public.lift_sets (day, exercise, reps, weight) values ('2026-11-16', 'Bench press', 5, 80);
 select pg_temp.expect_fail($q$insert into public.lift_sets (user_id, day, exercise, reps) values ('22222222-2222-2222-2222-222222222222', '2026-11-16', 'Squat', 5)$q$);
 select pg_temp.expect_fail($q$insert into public.pace_curves (user_id, curve, meters, secs) values ('11111111-1111-1111-1111-111111111111', 'x', '{1}', '{1}')$q$);
+select pg_temp.expect_fail($q$insert into public.session_logs (user_id, activity_id, day, kind) values ('11111111-1111-1111-1111-111111111111', 'x', '2026-11-10', 'ride')$q$);
 update public.lift_sets set weight = 0 where user_id = '22222222-2222-2222-2222-222222222222';  -- silently matches nothing
 select pg_temp.expect_fail('select * from public.intervals_secrets');
 select pg_temp.expect_fail('select * from public.invites');

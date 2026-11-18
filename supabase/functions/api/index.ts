@@ -3,6 +3,8 @@
 //   /api/disconnect      forget the key
 //   /api/sync            the Sync button
 //   /api/checkin         save the daily check-in, copy it to intervals.icu, recompute today
+//   /api/session         after-a-session log (RPE to intervals.icu, ride conditions, lifting extras)
+//   /api/libido          turn the optional libido log on/off, or delete every entry
 //   /api/streams         one activity's second-by-second data (Sessions, W′ battery)
 //   /api/push-key, /api/push-test   phone alerts set-up; /api/push-due runs every 5 minutes (database job)
 //   /api/delete-account  delete the account and every row of the person's data
@@ -127,6 +129,34 @@ const MAX_TESTERS = 50;
 
 const ANSWERS = ['sleep_quality', 'fatigue', 'soreness', 'stress', 'mood', 'motivation'] as const;
 
+// Body map from the check-in: each part sore and/or injured, level 1 (light) to 4 (severe).
+type BodyMap = Record<string, { sore?: number; injury?: number }>;
+// Same parts, levels and comment wording as the live app, so either app can read the other's comments.
+const BODY_LABELS: Record<string, string> = { chest: 'Chest', shoulders: 'Shoulders', arms: 'Arms', abs: 'Abs', upperBack: 'Upper back/neck', lowerBack: 'Lower back', glutes: 'Glutes', quads: 'Quads', hamstrings: 'Hamstrings', calves: 'Calves' };
+const SORE_LEVELS = ['Low', 'Average', 'High', 'Extreme'], INJURY_LEVELS = ['None', 'Niggle', 'Poor', 'Injured'];
+function cleanBody(v: unknown): BodyMap | null {
+  if (!v || typeof v !== 'object') return null;
+  const out: BodyMap = {};
+  for (const [k, x] of Object.entries(v as Record<string, unknown>).slice(0, 40)) {
+    if (!BODY_LABELS[k] || !x || typeof x !== 'object') continue;
+    const o: { sore?: number; injury?: number } = {};
+    for (const f of ['sore', 'injury'] as const) { const n = Number((x as Record<string, unknown>)[f]); if (Number.isInteger(n) && n >= 1 && n <= 4) o[f] = n; }
+    if (o.sore || o.injury) out[k] = o;
+  }
+  return Object.keys(out).length ? out : null;
+}
+function bodySummary(b: BodyMap | null) {
+  if (!b) return '';
+  const keys = Object.keys(BODY_LABELS).filter((k) => b[k]);
+  const sore = keys.filter((k) => b[k].sore).map((k) => `${BODY_LABELS[k]} (${SORE_LEVELS[b[k].sore! - 1]})`);
+  const inj = keys.filter((k) => b[k].injury).map((k) => `${BODY_LABELS[k]} (${INJURY_LEVELS[b[k].injury! - 1]})`);
+  return [sore.length ? 'Sore: ' + sore.join(', ') : '', inj.length ? 'Injured: ' + inj.join(', ') : ''].filter(Boolean).join(' · ');
+}
+
+const COND_KEYS = ['type', 'len', 'time', 'fan', 'strap', 'fuel', 'heat', 'hyd', 'ill', 'sleep', 'hard', 'caf', 'warm', 'zero', 'meal'];
+const MUSCLES = ['Chest', 'Back', 'Shoulders', 'Arms', 'Core', 'Glutes', 'Quads', 'Hamstrings', 'Calves'];
+const JOINTS = ['Shoulder', 'Elbow', 'Wrist', 'Low back', 'Hip', 'Knee', 'Ankle', 'Other'];
+
 const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
   async connect(req, body) {
     const { user, profile } = await currentUser(req); needConsent(profile);
@@ -167,6 +197,24 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     }
     row.sick = ['No', 'Mild', 'Yes'].includes(body.sick) ? body.sick : null;
     row.notes = typeof body.notes === 'string' ? body.notes.slice(0, 2000) : null;
+    const numIn = (v: unknown, lo: number, hi: number, int = false) => {
+      if (v === null || v === undefined || v === '') return null;
+      const n = Number(v); if (!Number.isFinite(n) || n < lo || n > hi) return null;
+      return int ? Math.round(n) : Math.round(n * 10) / 10;
+    };
+    row.clarity = numIn(body.clarity, 1, 5, true);
+    row.libido = profile.libido_log ? numIn(body.libido, 0, 7, true) : null;
+    row.caffeine = numIn(body.caffeine, 0, 1500);
+    row.alcohol = numIn(body.alcohol, 0, 30);
+    row.body_temp = numIn(body.body_temp, 34, 42);
+    row.body = cleanBody(body.body);
+    // As in the live app: the body map replaces the soreness question (highest sore level, 1 when nothing is sore)
+    let injury: number | null = null;
+    if (body.body !== undefined) {
+      const b = (row.body ?? {}) as BodyMap;
+      row.soreness = Math.max(1, ...Object.values(b).map((x) => x.sore ?? 0));
+      injury = Math.max(1, ...Object.values(b).map((x) => x.injury ?? 0));
+    }
     const { error } = await admin.from('checkins').upsert(row);
     if (error) throw error;
 
@@ -177,8 +225,14 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
       const icuBody: Record<string, unknown> = {};
       const map = { sleep_quality: 'sleepQuality', fatigue: 'fatigue', soreness: 'soreness', stress: 'stress', mood: 'mood', motivation: 'motivation' } as const;
       for (const k of ANSWERS) if (row[k] !== null) icuBody[map[k]] = row[k];
-      const sickNote = row.sick === 'Yes' ? 'Sick (below the neck)' : row.sick === 'Mild' ? 'Mild sickness (above the neck)' : '';
-      const comments = [sickNote, row.notes].filter(Boolean).join(' | ');
+      icuBody.Sickness = row.sick === 'Yes' ? 2 : row.sick === 'Mild' ? 1 : 0;
+      if (injury !== null) icuBody.injury = injury;
+      for (const [col, f] of [['clarity', 'MentalClarity'], ['libido', 'Libido'], ['caffeine', 'Caffeine'], ['alcohol', 'Alcohol'], ['body_temp', 'BodyTemp']] as const) {
+        if (row[col] !== null) icuBody[f] = row[col];
+      }
+      const bodyNote = bodySummary(row.body as BodyMap | null);
+      // Body parts first, then notes, as the live app writes them (Sickness has its own field)
+      const comments = [bodyNote, row.notes].filter(Boolean).join(' | ');
       if (comments) icuBody.comments = comments;
       await putWellness(key, profile.intervals_athlete_id ?? '0', day, icuBody);
       copied = true;
@@ -187,6 +241,62 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
       if (!(e instanceof HttpError && e.status === 409)) console.warn('checkin follow-up failed', e);
     }
     return { ok: true, copied, sync };
+  },
+
+  // "After a session": session RPE (copied onto the intervals.icu activity), ride conditions or lifting extras.
+  async session(req, body) {
+    const { user, profile } = await currentUser(req); needConsent(profile);
+    const id = String(body.id ?? '');
+    const { data: act } = await admin.from('activities').select('id, day').eq('user_id', user.id).eq('id', id).maybeSingle();
+    if (!act) throw new HttpError(404, 'That session was not found. Try syncing first.');
+    const kind = ['ride', 'lift', 'other'].includes(body.kind) ? body.kind : 'other';
+    const rpe = Number.isInteger(Number(body.rpe)) && Number(body.rpe) >= 1 && Number(body.rpe) <= 10 ? Number(body.rpe) : null;
+    const int = (v: unknown, lo: number, hi: number) => { const n = Math.round(Number(v)); return v !== '' && v !== null && v !== undefined && Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
+    const pick = <T,>(v: unknown, list: readonly T[]) => (list.includes(v as T) ? (v as T) : null);
+    const d = (body.data ?? {}) as Record<string, any>;
+    const data: Record<string, unknown> = { perf: int(d.perf, 1, 5) };
+    if (kind === 'ride') {
+      const c: Record<string, boolean> = {};
+      for (const k of COND_KEYS) if (typeof d.c?.[k] === 'boolean') c[k] = d.c[k];
+      Object.assign(data, { mode: d.mode === 'test' ? 'test' : 'z2', c, temp: int(d.temp, -30, 50), carbs: int(d.carbs, 0, 200) });
+    } else if (kind === 'lift') {
+      const sore: Record<string, number> = {};
+      for (const m of MUSCLES) { const v = int(d.sore?.[m], 1, 3); if (v) sore[m] = v; }
+      const joint = int(d.joint, 0, 10) ?? 0;
+      Object.assign(data, { sore, joint, jointWhere: joint ? pick(d.jointWhere, JOINTS) : null, pump: int(d.pump, 0, 3) });
+    }
+    const row = { user_id: user.id, activity_id: id, day: act.day, kind, rpe, note: typeof body.note === 'string' ? body.note.slice(0, 300) : null, data, updated_at: new Date().toISOString() };
+    const { error } = await admin.from('session_logs').upsert(row);
+    if (error) throw error;
+    let copied = false;
+    if (rpe) {
+      try { await icu(await keyFor(user.id), '/activity/' + encodeURIComponent(id), 'PUT', { icu_rpe: rpe }); copied = true; }
+      catch (e) { console.warn('session RPE copy failed', e); }
+    }
+    return { ok: true, copied };
+  },
+
+  // Libido log: optional, off by default. Turning it off keeps past entries; deleteAll removes every entry here and in intervals.icu.
+  async libido(req, body) {
+    const { user, profile } = await currentUser(req); needConsent(profile);
+    if (typeof body.on === 'boolean') await admin.from('profiles').update({ libido_log: body.on }).eq('user_id', user.id);
+    let deleted = 0;
+    if (body.deleteAll === true) {
+      const { data: rows } = await admin.from('checkins').select('day').eq('user_id', user.id).not('libido', 'is', null);
+      const { data: wrows } = await admin.from('wellness').select('day, extra').eq('user_id', user.id).not('extra->Libido', 'is', null);
+      const days = new Set([...(rows ?? []).map((r) => String(r.day)), ...(wrows ?? []).map((r) => String(r.day))]);
+      await admin.from('checkins').update({ libido: null }).eq('user_id', user.id).not('libido', 'is', null);
+      for (const w of wrows ?? []) {
+        const extra = { ...(w.extra as Record<string, unknown>) }; delete extra.Libido;
+        await admin.from('wellness').update({ extra }).eq('user_id', user.id).eq('day', w.day);
+      }
+      try {
+        const key = await keyFor(user.id);
+        for (const d of days) await putWellness(key, profile.intervals_athlete_id ?? '0', d, { Libido: null });
+      } catch (e) { console.warn('libido delete in intervals.icu failed', e); }
+      deleted = days.size;
+    }
+    return { ok: true, deleted };
   },
 
   // Second-by-second data for one activity (Sessions detail, W′ battery). Only the person's own activities.
