@@ -37,8 +37,10 @@ function signalLines(s: Signals, checkedIn: boolean) {
   const sleepR: Range | null = s.sleepHours != null ? { ...scale(7, 9, s.sleepHours, 1.5, 0, 14), lo: 7, hi: 9, value: s.sleepHours, label: fmt(s.sleepHours, ' h') } : null;
   const rhrNow = s.restingHR ?? s.rhr7;
   const rhrLo = s.rhrNormal != null && s.rhrHigh != null ? s.rhrNormal - (s.rhrHigh - s.rhrNormal) : null;
-  const rhrR: Range | null = rhrNow != null && rhrLo != null && s.rhrHigh != null
-    ? { ...scale(rhrLo, s.rhrHigh, rhrNow, 0.6, 25), lo: r1(rhrLo), hi: r1(s.rhrHigh), value: rhrNow, label: fmt(rhrNow, ' bpm') } : null;
+  // Resting HR only has an upper limit in the rules (a raised 7-day average), so everything below it counts as normal
+  const rhrScale = rhrNow != null && rhrLo != null && s.rhrHigh != null ? scale(rhrLo, s.rhrHigh, rhrNow, 1.5, 25) : null;
+  const rhrR: Range | null = rhrScale && rhrNow != null && s.rhrHigh != null
+    ? { ...rhrScale, lo: rhrScale.min, hi: r1(s.rhrHigh), value: rhrNow, label: fmt(rhrNow, ' bpm') } : null;
   return [
     { k: 'Feel', dot: feel, range: feelR, sub: s.feelNormal != null ? `normal ${fmt(s.feelNormal)}` : null, v: s.feel == null
       ? (checkedIn ? 'Not enough answers' : <Link className="text-primary underline" to="/checkin">Do your check-in</Link>)
