@@ -7,17 +7,19 @@ import type { PmcPoint } from '@/lib/metrics';
 import { isRide, n, type Activity, type TestResult } from '@/lib/perf';
 import { e1rm, type LiftSet } from '@/lib/lifting';
 
+// Colours follow Garmin's Training Status look (Ben 2026-11-19): Recovery blue, Maintaining yellow, Productive green,
+// Strained magenta, Overreaching red, Peaking purple, Unproductive orange, Detraining grey.
 export const TS_ORDER: [string, string, string][] = [
-  ['Detraining', '#94a3b8', 'Load and Fitness are falling. Fitness is slipping away.'],
-  ['Recovery', '#38bdf8', 'A lighter spell. Fitness is holding while fatigue clears.'],
-  ['Peaking', '#facc15', 'Fresh and near your best Fitness: a good time for a test or race.'],
-  ['Maintaining', '#a8a29e', 'Load is steady, so Fitness is holding.'],
-  ['Productive', '#22c55e', 'Load is rising and your body is handling it.'],
-  ['Unproductive', '#fb923c', 'Training is normal but performance is down. Check sleep, fuelling and stress.'],
-  ['Strained', '#e879f9', 'Your body is showing signs of strain. Ease off until they settle.'],
-  ['Overreaching', '#ef4444', 'High load, performance down and several signs of strain. Plan easier days.']
+  ['Detraining', '#9ca3af', 'Load and Fitness are falling. Fitness is slipping away.'],
+  ['Recovery', '#1e88e5', 'A lighter spell. Fitness is holding while fatigue clears.'],
+  ['Peaking', '#7c3aed', 'Fresh and near your best Fitness: a good time for a test or race.'],
+  ['Maintaining', '#f5bd2a', 'Load is steady, so Fitness is holding.'],
+  ['Productive', '#16a34a', 'Load is rising and your body is handling it.'],
+  ['Unproductive', '#f97316', 'Training is normal but performance is down. Check sleep, fuelling and stress.'],
+  ['Strained', '#d63ad6', 'Your body is showing signs of strain. Ease off until they settle.'],
+  ['Overreaching', '#e5303a', 'High load, performance down and several signs of strain. Plan easier days.']
 ];
-export const statusColor = (w: string) => TS_ORDER.find((t) => t[0] === w)?.[1] ?? '#a8a29e';
+export const statusColor = (w: string) => TS_ORDER.find((t) => t[0] === w)?.[1] ?? '#9ca3af';
 
 export type Days = Record<string, Record<string, unknown>>;
 export type StatusInput = { days: Days; all: PmcPoint[]; acts: Activity[]; tests: TestResult[]; lifts: LiftSet[] };
