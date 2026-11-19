@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
@@ -16,18 +16,20 @@ import { Chip, Chips, Field } from '@/components/chips';
 import { C, axis, shortDay, tooltipStyle, Legend } from '@/components/charts';
 import { HealthConsent, NOT_MEDICAL } from '@/components/health';
 import { PLAN_TABS, SubTabs } from '@/screens/Layout';
-import { Arrange } from '@/components/Arrange';
 
-const KINDS: { id: RecordKind; label: string; icon: string }[] = [
-  { id: 'blood', label: 'Blood work', icon: '🩸' }, { id: 'urine', label: 'Urinalysis', icon: '🧪' },
-  { id: 'dexa', label: 'DEXA', icon: '🦴' }, { id: 'ecg', label: 'ECG', icon: '❤️' },
-  { id: 'imaging', label: 'X-ray / scan', icon: '🩻' }, { id: 'other', label: 'Other', icon: '📄' }
+// Labs and diagnostics types (no icons, Ben 2026-11-18). Value types get a chart and table; file types list by date.
+const KINDS: { id: RecordKind; label: string; female?: boolean }[] = [
+  { id: 'blood', label: 'Blood work' }, { id: 'urine', label: 'Urinalysis' }, { id: 'dexa', label: 'DEXA / body fat scan' },
+  { id: 'ecg', label: 'ECG' }, { id: 'imaging', label: 'X-ray' }, { id: 'mammogram', label: 'Mammogram', female: true },
+  { id: 'pap', label: 'Pap test', female: true }, { id: 'other', label: 'Other' }
 ];
+const VALUE_KINDS: RecordKind[] = ['blood', 'urine', 'dexa'];
+const kindsFor = (sex: string | null | undefined) => KINDS.filter((k) => !k.female || sex !== 'male');
 const FLAGS = ['Below', 'Normal', 'High'] as const;
 type Row = { marker: string; value: string; unit: string; range: string; flag: LabValue['flag'] };
 
 // ---------- Blood pressure ----------
-function BpCard({ tz }: { tz: string }) {
+function BpPanel({ tz }: { tz: string }) {
   const profile = useProfile().data!;
   const { bp } = useRecords(profile);
   const [range, setRange] = useState(30);
@@ -45,9 +47,7 @@ function BpCard({ tz }: { tz: string }) {
     setSys(''); setDia(''); setPulse(''); setOpen(false);
   };
   return (
-    <Card>
-      <CardHeader className="pb-2"><CardTitle help="blood-pressure">Blood pressure</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
+    <div className="space-y-3">
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div className="rounded-md bg-muted p-2"><div className="text-xs text-muted-foreground">Latest</div><b className="text-lg">{latest ? `${latest.systolic}/${latest.diastolic}` : '–'}</b>{latest && <div className="text-xs text-muted-foreground">{shortDate(latest.taken_at.slice(0, 10))}</div>}</div>
           <div className="rounded-md bg-muted p-2"><div className="text-xs text-muted-foreground">30-day average</div><b className="text-lg">{last30.length ? `${avg('systolic')}/${avg('diastolic')}` : '–'}</b><div className="text-xs text-muted-foreground">{last30.length} readings</div></div>
@@ -68,6 +68,12 @@ function BpCard({ tz }: { tz: string }) {
           </div>
         ) : <p className="text-sm text-muted-foreground">No readings in this range yet.</p>}
         <Legend items={[{ label: 'Systolic', color: C.cyan }, { label: 'Diastolic', color: C.magenta }]} />
+        {rows.length > 0 && (
+          <table className="w-full text-sm">
+            <thead className="text-xs text-muted-foreground"><tr><th className="text-left">Date</th><th className="text-left">Reading</th><th className="text-left">Pulse</th></tr></thead>
+            <tbody>{[...rows].reverse().slice(0, 30).map((r) => <tr key={r.id} className="border-t"><td className="py-1">{shortDate(r.taken_at.slice(0, 10))}</td><td>{r.systolic}/{r.diastolic}</td><td>{r.pulse ?? '–'}</td></tr>)}</tbody>
+          </table>
+        )}
         <Button variant="outline" className="w-full" onClick={() => setOpen(true)}><Plus /> Add a reading</Button>
         <p className="text-xs text-muted-foreground">Hilo band sync is being looked into; add readings by hand for now. {NOT_MEDICAL}</p>
         <Sheet open={open} onOpenChange={setOpen}>
@@ -81,14 +87,13 @@ function BpCard({ tz }: { tz: string }) {
             <Button className="mt-4 w-full" disabled={!(+sys > 40 && +sys < 260 && +dia > 20 && +dia < 200) || save.isPending} onClick={add}>Save</Button>
           </SheetContent>
         </Sheet>
-      </CardContent>
-    </Card>
+    </div>
   );
 }
 
 // ---------- Add / edit a record ----------
-function RecordSheet({ rec, labs, onClose, uid, today }: { rec: HealthRecord | null; labs: LabValue[]; onClose: () => void; uid: string; today: string }) {
-  const [kind, setKind] = useState<RecordKind>(rec?.kind ?? 'blood');
+function RecordSheet({ rec, labs, onClose, uid, today, start, sex }: { rec: HealthRecord | null; labs: LabValue[]; onClose: () => void; uid: string; today: string; start: RecordKind; sex: string | null | undefined }) {
+  const [kind, setKind] = useState<RecordKind>(rec?.kind ?? start);
   const [day, setDay] = useState(rec?.day ?? today);
   const [title, setTitle] = useState(rec?.title ?? '');
   const [source, setSource] = useState(rec?.source ?? '');
@@ -97,7 +102,7 @@ function RecordSheet({ rec, labs, onClose, uid, today }: { rec: HealthRecord | n
   const [rows, setRows] = useState<Row[]>(labs.map((l) => ({ marker: l.marker, value: l.value_num != null ? String(l.value_num) : l.value_text ?? '', unit: l.unit ?? '', range: l.range_text ?? '', flag: l.flag })));
   const [busy, setBusy] = useState(false);
   const save = useSave('records', ['records', 'lab_values']);
-  const lab = kind === 'blood' || kind === 'urine';
+  const lab = VALUE_KINDS.includes(kind);
   const set = (i: number, p: Partial<Row>) => setRows(rows.map((r, k) => (k === i ? { ...r, ...p } : r)));
 
   const submit = async () => {
@@ -137,7 +142,7 @@ function RecordSheet({ rec, labs, onClose, uid, today }: { rec: HealthRecord | n
         <SheetHeader><SheetTitle>{rec ? 'Edit record' : 'Add a health record'}</SheetTitle>
           <SheetDescription>Copy results and flags exactly as your report shows them.</SheetDescription></SheetHeader>
         <div className="space-y-4">
-          <Field label="Type"><Chips>{KINDS.map((k) => <Chip key={k.id} on={kind === k.id} onClick={() => setKind(k.id)}>{k.icon} {k.label}</Chip>)}</Chips></Field>
+          <Field label="Type"><Chips>{kindsFor(sex).map((k) => <Chip key={k.id} on={kind === k.id} onClick={() => setKind(k.id)}>{k.label}</Chip>)}</Chips></Field>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Date"><Input type="date" value={day} onChange={(e) => setDay(e.target.value)} /></Field>
             <Field label="Lab or clinic"><Input value={source} maxLength={120} onChange={(e) => setSource(e.target.value)} /></Field>
@@ -154,7 +159,7 @@ function RecordSheet({ rec, labs, onClose, uid, today }: { rec: HealthRecord | n
                 {rows.map((r, i) => (
                   <div key={i} className="space-y-1 rounded-md border p-2">
                     <div className="flex gap-1">
-                      <Input placeholder="Marker (e.g. Ferritin)" value={r.marker} onChange={(e) => set(i, { marker: e.target.value })} />
+                      <Input placeholder={kind === 'dexa' ? 'Measure (e.g. Body fat %)' : 'Marker (e.g. Ferritin)'} value={r.marker} onChange={(e) => set(i, { marker: e.target.value })} />
                       <Button size="icon" variant="ghost" aria-label="Remove row" onClick={() => setRows(rows.filter((_, k) => k !== i))}><Trash2 /></Button>
                     </div>
                     <div className="grid grid-cols-3 gap-1">
@@ -195,7 +200,7 @@ function MarkerTimeline({ marker, labs, records }: { marker: string; labs: LabVa
               <XAxis dataKey="t" tickFormatter={shortDay} {...axis} />
               <YAxis domain={['auto', 'auto']} {...axis} />
               <Tooltip {...tooltipStyle} />
-              <Line dataKey="v" name={marker} stroke={C.green} strokeWidth={2} dot={{ r: 3 }} />
+              <Line dataKey="v" name={marker} stroke={C.cyan} strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -211,60 +216,57 @@ function MarkerTimeline({ marker, labs, records }: { marker: string; labs: LabVa
 export function Records() {
   const profile = useProfile().data!;
   const { on, records, labs } = useRecords(profile);
-  const [filter, setFilter] = useState<RecordKind | 'all'>('all');
+  const [type, setType] = useState<RecordKind | 'bp'>('bp');
   const [sheet, setSheet] = useState<{ rec: HealthRecord | null } | null>(null);
   const [marker, setMarker] = useState<string | null>(null);
   const today = todayIn(profile.time_zone);
-  const markers = useMemo(() => [...new Set((labs.data ?? []).map((l) => l.marker))].sort(), [labs.data]);
+  const recs = useMemo(() => (records.data ?? []).filter((r) => r.kind === type).sort((a, b) => b.day.localeCompare(a.day)), [records.data, type]);
+  const markers = useMemo(() => {
+    const ids = new Set(recs.map((r) => r.id));
+    return [...new Set((labs.data ?? []).filter((l) => ids.has(l.record_id)).map((l) => l.marker))].sort();
+  }, [labs.data, recs]);
+  useEffect(() => { setMarker(null); }, [type]);
 
   if (!on) return <><SubTabs tabs={PLAN_TABS} /><HealthConsent profile={profile} /></>;
-  const list = (records.data ?? []).filter((r) => filter === 'all' || r.kind === filter);
   const open = async (path: string) => {
     const { data, error } = await supabase.storage.from('records').createSignedUrl(path, 300);
     if (error) toast.error(error.message); else window.open(data.signedUrl, '_blank', 'noopener');
   };
+  const kind = KINDS.find((k) => k.id === type);
+  const values = type !== 'bp' && VALUE_KINDS.includes(type);
 
   return (
     <div className="space-y-4">
       <SubTabs tabs={PLAN_TABS} />
-      <Arrange page="records" cards={[
-        { id: 'bp', label: 'Blood pressure', node: <BpCard tz={profile.time_zone} /> },
-        { id: 'labs', label: 'Labs and diagnostics', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="labs">Labs and diagnostics</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <Chips><Chip on={filter === 'all'} onClick={() => setFilter('all')}>All</Chip>{KINDS.map((k) => <Chip key={k.id} on={filter === k.id} onClick={() => setFilter(k.id)}>{k.icon} {k.label}</Chip>)}</Chips>
-          <div className="divide-y rounded-md border">
-            {list.length ? list.map((r) => {
-              const k = KINDS.find((x) => x.id === r.kind)!;
-              const vals = (labs.data ?? []).filter((l) => l.record_id === r.id);
-              return (
-                <div key={r.id} className="space-y-1 px-3 py-2 text-sm">
-                  <button type="button" className="w-full text-left" onClick={() => setSheet({ rec: r })}>
-                    <span className="text-muted-foreground">{shortDate(r.day)}</span> {k.icon} <b>{r.title || k.label}</b>{r.source && <span className="text-muted-foreground"> · {r.source}</span>}
-                    {!!vals.length && <span className="block text-xs text-muted-foreground">{vals.length} results{vals.some((v) => v.flag && v.flag !== 'Normal') ? ` · ${vals.filter((v) => v.flag && v.flag !== 'Normal').length} flagged on the report` : ''}</span>}
-                  </button>
-                  {r.files.map((f) => <button key={f} type="button" className="mr-2 text-xs underline" onClick={() => open(f)}>📎 {f.split('/').pop()!.slice(37)}</button>)}
-                </div>
-              );
-            }) : <p className="p-3 text-sm text-muted-foreground">No records yet.</p>}
-          </div>
-          <Button className="w-full" onClick={() => setSheet({ rec: null })}><Plus /> Add a record</Button>
+          <Chips><Chip on={type === 'bp'} onClick={() => setType('bp')}>Blood pressure</Chip>{kindsFor(profile.sex).map((k) => <Chip key={k.id} on={type === k.id} onClick={() => setType(k.id)}>{k.label}</Chip>)}</Chips>
+          {type === 'bp' ? <BpPanel tz={profile.time_zone} /> : <>
+            {values && (markers.length ? <>
+              <Chips>{markers.map((m) => <Chip key={m} on={marker === m} onClick={() => setMarker(m)}>{m}</Chip>)}</Chips>
+              {marker ? <MarkerTimeline marker={marker} labs={labs.data ?? []} records={recs} /> : <p className="text-sm text-muted-foreground">Pick a result to see it over time, with a table of each test date.</p>}
+            </> : null)}
+            <div className="divide-y rounded-md border">
+              {recs.length ? recs.map((r) => {
+                const vals = (labs.data ?? []).filter((l) => l.record_id === r.id);
+                return (
+                  <div key={r.id} className="space-y-1 px-3 py-2 text-sm">
+                    <button type="button" className="w-full text-left" onClick={() => setSheet({ rec: r })}>
+                      <span className="text-muted-foreground">{shortDate(r.day)}</span> <b>{r.title || kind?.label}</b>{r.source && <span className="text-muted-foreground"> · {r.source}</span>}
+                      {!!vals.length && <span className="block text-xs text-muted-foreground">{vals.length} results{vals.some((v) => v.flag && v.flag !== 'Normal') ? ` · ${vals.filter((v) => v.flag && v.flag !== 'Normal').length} flagged on the report` : ''}</span>}
+                    </button>
+                    {r.files.map((f) => <button key={f} type="button" className="mr-2 text-xs underline" onClick={() => open(f)}>{f.split('/').pop()!.slice(37)}</button>)}
+                  </div>
+                );
+              }) : <p className="p-3 text-sm text-muted-foreground">No {kind?.label ?? 'records'} yet.</p>}
+            </div>
+            <Button className="w-full" onClick={() => setSheet({ rec: null })}><Plus /> Add {kind?.label ?? 'a record'}</Button>
+          </>}
+          <p className="text-xs text-muted-foreground">Flags are copied as printed on your report. {NOT_MEDICAL}</p>
         </CardContent>
       </Card>
-        ) },
-        { id: 'timeline', label: 'One result over time', node: markers.length ? (
-        <Card>
-          <CardHeader className="pb-2"><CardTitle help="labs">One result over time</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <Chips>{markers.map((m) => <Chip key={m} on={marker === m} onClick={() => setMarker(m)}>{m}</Chip>)}</Chips>
-            {marker ? <MarkerTimeline marker={marker} labs={labs.data ?? []} records={records.data ?? []} /> : <p className="text-sm text-muted-foreground">Pick a result to see each date it was tested.</p>}
-            <p className="text-xs text-muted-foreground">{NOT_MEDICAL}</p>
-          </CardContent>
-        </Card>
-        ) : null }
-      ]} />
-      {sheet && <RecordSheet rec={sheet.rec} labs={sheet.rec ? (labs.data ?? []).filter((l) => l.record_id === sheet.rec!.id) : [{ id: '', record_id: '', marker: '', value_num: null, value_text: null, unit: null, range_text: null, flag: null }]} uid={profile.user_id} today={today} onClose={() => setSheet(null)} />}
+      {sheet && <RecordSheet rec={sheet.rec} start={type === 'bp' ? 'blood' : type} sex={profile.sex} labs={sheet.rec ? (labs.data ?? []).filter((l) => l.record_id === sheet.rec!.id) : [{ id: '', record_id: '', marker: '', value_num: null, value_text: null, unit: null, range_text: null, flag: null }]} uid={profile.user_id} today={today} onClose={() => setSheet(null)} />}
     </div>
   );
 }

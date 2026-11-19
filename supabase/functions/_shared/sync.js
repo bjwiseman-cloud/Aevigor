@@ -1,7 +1,7 @@
 // Sync one person: pull wellness, activities and planned workouts from intervals.icu, merge their check-ins,
 // work out the daily status for the last 7 days and save it. The `store` is passed in so this runs in tests too.
 import { evaluate, loadVsPlan, addDays, dailyLoadRows, plannedTests, calendarItems, HISTORY_DAYS, RULES_VERSION } from './rules.js';
-import { fetchWellness, fetchActivities, fetchEvents } from './intervals.js';
+import { fetchWellness, fetchActivities, fetchEvents, fetchAthlete } from './intervals.js';
 import { syncPerformance } from './performance.js';
 
 export const RECENT_DAYS = 7;
@@ -47,10 +47,11 @@ export async function syncUser({ userId, key, athleteId, timeZone, store, now = 
   const oldest = addDays(day, -Math.max(WELLNESS_DAYS, HISTORY_DAYS + RECENT_DAYS + 2));
   const loadFrom = addDays(day, -LOAD_BACK_DAYS), planTo = addDays(day, PLAN_AHEAD_DAYS);
   try {
-    const [wellness, acts, events] = await Promise.all([
+    const [wellness, acts, events, athlete] = await Promise.all([
       fetchWellness(key, athleteId, oldest, day),
       fetchActivities(key, athleteId, loadFrom, day).catch(() => null),
-      fetchEvents(key, athleteId, loadFrom, planTo).catch(() => null)
+      fetchEvents(key, athleteId, loadFrom, planTo).catch(() => null),
+      fetchAthlete(key, athleteId).catch(() => null)
     ]);
     if (wellness.length) await store.upsertWellness(wellness.map((w) => ({ ...w, user_id: userId, synced_at: new Date().toISOString() })));
     const checkins = await store.checkins(userId, oldest);
@@ -80,7 +81,7 @@ export async function syncUser({ userId, key, athleteId, timeZone, store, now = 
       try { performance = await syncPerformance({ userId, key, athleteId, acts, from: loadFrom, to: day, store }); }
       catch (e) { console.warn('performance sync failed', e?.message || e); }
     }
-    await store.updateProfile(userId, { last_sync: new Date().toISOString(), last_sync_error: null });
+    await store.updateProfile(userId, { last_sync: new Date().toISOString(), last_sync_error: null, ...(athlete ? { athlete } : {}) });
     const today = rows.find((r) => r.day === day) || null;
     return { ok: true, day, today, days: wellness.length, enoughHistory: rows.length > 0, performance };
   } catch (e) {

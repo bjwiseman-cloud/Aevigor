@@ -8,7 +8,7 @@ import type { Profile } from '@/lib/types';
 // Health tables are written straight from the app: Row Level Security only lets people touch their own rows,
 // and only after the separate health-data opt-in (see migration 20261119000000_plan.sql).
 
-export type RecordKind = 'blood' | 'urine' | 'dexa' | 'ecg' | 'imaging' | 'other';
+export type RecordKind = 'blood' | 'urine' | 'dexa' | 'ecg' | 'imaging' | 'mammogram' | 'pap' | 'other';
 export type HealthRecord = { id: string; kind: RecordKind; day: string; title: string | null; source: string | null; notes: string | null; files: string[] };
 export type LabValue = { id: string; record_id: string; marker: string; value_num: number | null; value_text: string | null; unit: string | null; range_text: string | null; flag: 'Below' | 'Normal' | 'High' | null };
 export type BpReading = { id: string; taken_at: string; systolic: number; diastolic: number; pulse: number | null; source: string };

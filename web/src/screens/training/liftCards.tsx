@@ -11,6 +11,13 @@ import { e1rm, e1rmSeries, exercises, fromKg, importCsv, setKey, showW, weeklyVo
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Chip, Chips } from '@/components/chips';
+import { BodyFigure, ScaleLegend, figureSex } from '@/components/BodyMap';
+import { useExercises } from '@/components/ExercisePicker';
+import { useProfile, usePref } from '@/hooks/data';
+import { colorFor, levelName, muscleLabel, type MuscleKey } from '@/lib/muscles';
+import { DEFAULT_LANDMARKS, LANDMARK_KEY, hardSets, volumeLevel, weekStart, type Landmark } from '@/lib/volume';
+import { todayIn } from '@/lib/time';
+import { addDays } from '@rules';
 import { C, HowToRead, axis, shortDay, tooltipStyle } from '@/components/charts';
 
 export function Strength({ sets, unit, ex, setEx }: { sets: LiftSet[]; unit: Unit; ex: string | null; setEx: (e: string) => void }) {
@@ -44,7 +51,7 @@ export function Strength({ sets, unit, ex, setEx }: { sets: LiftSet[]; unit: Uni
   );
 }
 
-export function Volume({ sets, unit, ex }: { sets: LiftSet[]; unit: Unit; ex: string | null }) {
+function VolumeChart({ sets, unit, ex }: { sets: LiftSet[]; unit: Unit; ex: string | null }) {
   const [only, setOnly] = useState(false);
   const data = useMemo(() => weeklyVolume(sets, only ? ex : null).slice(-16).map((w) => ({ ...w, v: Math.round(fromKg(w.volume, unit)) })), [sets, only, ex, unit]);
   return (
@@ -68,6 +75,57 @@ export function Volume({ sets, unit, ex }: { sets: LiftSet[]; unit: Unit; ex: st
         <HowToRead>Volume load = sets × reps × weight, added up for each week (Monday to Sunday), warm-ups left out. Tap a bar to see the number of working sets.</HowToRead>
       </CardContent>
     </Card>
+  );
+}
+
+// Weekly volume: the body heat map of hard sets per muscle (this week, or step back) and the volume-load bars.
+export function Volume({ sets, unit, ex }: { sets: LiftSet[]; unit: Unit; ex: string | null }) {
+  const p = useProfile().data!;
+  const all = useExercises();
+  const lm = usePref<Partial<Record<MuscleKey, Landmark>>>(LANDMARK_KEY, {});
+  const [back, setBack] = useState(0);
+  const [cur, setCur] = useState<string | null>(null);
+  const [side, setSide] = useState<'front' | 'back'>('front');
+  const byName = useMemo(() => {
+    const m = new Map((all ?? []).map((x) => [x.n.toLowerCase(), x]));
+    // Short names from the older lifting log
+    for (const [k, v] of [['squat', 'back squat'], ['bench', 'bench press'], ['ohp', 'standing military press']]) if (m.get(v)) m.set(k, m.get(v)!);
+    return m;
+  }, [all]);
+  const from = addDays(weekStart(todayIn(p.time_zone)), -7 * back), to = addDays(from, 6);
+  const counts = useMemo(() => hardSets(sets, (n) => byName.get(n.toLowerCase()) ?? null, from, to), [sets, byName, from, to]);
+  const land = (k: string) => (lm.value as Record<string, Landmark>)[k] ?? DEFAULT_LANDMARKS[k as MuscleKey];
+  const level = (k: string) => volumeLevel(counts[k as MuscleKey], land(k));
+  const unknown = useMemo(() => [...new Set(sets.filter((x) => x.day >= from && x.day <= to && !x.warmup && !byName.has(x.exercise.toLowerCase())).map((x) => x.exercise))], [sets, from, to, byName]);
+  const l = cur ? land(cur) : undefined;
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-2"><CardTitle help="strength">Weekly volume by muscle</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <Button size="sm" variant="outline" onClick={() => setBack(Math.min(26, back + 1))} aria-label="Earlier week">‹</Button>
+            <span>Week of {shortDay(from)}</span>
+            <Button size="sm" variant="outline" disabled={!back} onClick={() => setBack(back - 1)} aria-label="Later week">›</Button>
+          </div>
+          <div className="mx-auto w-full max-w-[220px]">
+            <BodyFigure sex={figureSex(p.sex)} side={side} selected={cur} fill={(k) => (level(k) ? colorFor('volume', level(k)) : undefined)} onMuscle={(k) => setCur(cur === k ? null : k)} />
+            <div className="mt-1 flex justify-center gap-1">{(['front', 'back'] as const).map((s) => <Chip key={s} on={side === s} onClick={() => setSide(s)}>{s === 'front' ? 'Front' : 'Back'}</Chip>)}</div>
+          </div>
+          <ScaleLegend scale="volume" />
+          {cur && (
+            <div className="rounded-md border p-3 text-sm">
+              <b>{muscleLabel(cur)}</b>: {counts[cur as MuscleKey] ?? 0} hard sets this week
+              {l ? <div className="text-xs text-muted-foreground">MV {l.mv} · MEV {l.mev} · MAV {l.mavLo}-{l.mavHi} · MRV {l.mrv} sets a week{level(cur) ? ` · ${levelName('volume', level(cur))}` : ''}</div>
+                : <div className="text-xs text-muted-foreground">No landmarks set for this muscle. Add them in Settings &gt; Weekly volume landmarks.</div>}
+            </div>
+          )}
+          {unknown.length > 0 && <p className="text-xs text-muted-foreground">Not counted (exercise not in the list, so its muscles are unknown): {unknown.join(', ')}</p>}
+          <HowToRead>Each muscle is coloured by its hard sets this week (Monday to Sunday): working sets with 0-4 reps in reserve, 1 set for the main muscle and half a set for helping muscles. The colours show where that number falls against the volume landmarks MV, MEV, MAV and MRV (Renaissance Periodization's typical numbers, which you can change in Settings). It needs every working set logged, not just top sets. Tap a muscle for its numbers.</HowToRead>
+        </CardContent>
+      </Card>
+      <VolumeChart sets={sets} unit={unit} ex={ex} />
+    </>
   );
 }
 

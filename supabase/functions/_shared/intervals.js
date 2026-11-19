@@ -72,3 +72,24 @@ export async function uploadActivity(key, athleteId, name, bytes) {
   if (!res.ok) throw new IntervalsError(res.status, 'intervals.icu could not take that file (' + res.status + '): ' + text.slice(0, 160));
   return text ? JSON.parse(text) : null;
 }
+
+// Profile numbers from intervals.icu (athlete + Sport Settings): thresholds and zones per sport, shown read-only in Profile.
+// Only plain numbers and short names are kept.
+const num = (v) => (typeof v === 'number' && isFinite(v) ? Math.round(v * 1000) / 1000 : null);
+const nums = (a) => (Array.isArray(a) ? a.slice(0, 12).map(num).filter((x) => x !== null) : null);
+const names = (a) => (Array.isArray(a) ? a.slice(0, 12).map((x) => String(x).slice(0, 30)) : null);
+export function athleteProfile(a) {
+  if (!a || typeof a !== 'object') return null;
+  const sports = (Array.isArray(a.sportSettings) ? a.sportSettings : []).slice(0, 20).map((s) => ({
+    types: Array.isArray(s.types) ? s.types.slice(0, 20).map((t) => String(t).slice(0, 40)) : [],
+    ftp: num(s.ftp), indoor_ftp: num(s.indoor_ftp), w_prime: num(s.w_prime), p_max: num(s.p_max),
+    lthr: num(s.lthr), max_hr: num(s.max_hr), threshold_pace: num(s.threshold_pace), pace_units: s.pace_units ? String(s.pace_units).slice(0, 20) : null,
+    power_zones: nums(s.power_zones), power_zone_names: names(s.power_zone_names),
+    hr_zones: nums(s.hr_zones), hr_zone_names: names(s.hr_zone_names),
+    pace_zones: nums(s.pace_zones), pace_zone_names: names(s.pace_zone_names)
+  })).filter((s) => s.types.length);
+  return { weight: num(a.icu_weight ?? a.weight), resting_hr: num(a.icu_resting_hr), sports };
+}
+export async function fetchAthlete(key, athleteId) {
+  return athleteProfile(await icu(key, athletePath(athleteId)));
+}

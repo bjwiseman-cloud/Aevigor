@@ -22,12 +22,17 @@ insert into storage.objects (bucket_id, name) values ('records', '44444444-4444-
 select pg_temp.expect_fail($q$insert into storage.objects (bucket_id, name) values ('records', '55555555-5555-5555-5555-555555555555/b.pdf')$q$);
 select pg_temp.expect_fail($q$insert into public.bp_readings (user_id, taken_at, systolic, diastolic) values ('55555555-5555-5555-5555-555555555555', now(), 1, 1)$q$);
 insert into public.ui_layout (page, card_order) values ('records', '{bp,labs}');
+insert into public.cycle_settings (life_stage) values ('regular');
+insert into public.cycle_days (day, period, flow, symptoms) values ('2026-11-10', true, 'medium', '{cramps}');
+insert into public.records (kind, day) values ('mammogram', '2026-10-01');
+select pg_temp.expect_fail($q$insert into public.cycle_days (user_id, day) values ('55555555-5555-5555-5555-555555555555', '2026-11-10')$q$);
 
 set request.jwt.sub = '55555555-5555-5555-5555-555555555555';
 update public.profiles set health_consent_at = now();
 do $$ begin
   if (select count(*) from public.log_items) + (select count(*) from public.bp_readings) + (select count(*) from public.records)
-     + (select count(*) from public.lab_values) + (select count(*) from storage.objects) + (select count(*) from public.ui_layout) <> 0
+     + (select count(*) from public.lab_values) + (select count(*) from storage.objects) + (select count(*) from public.ui_layout)
+     + (select count(*) from public.cycle_days) + (select count(*) from public.cycle_settings) <> 0
   then raise exception 'sees someone else''s health data'; end if;
 end $$;
 
@@ -35,7 +40,7 @@ set request.jwt.sub = '44444444-4444-4444-4444-444444444444';
 select public.delete_my_health_data();
 reset role;
 do $$ begin
-  if (select count(*) from public.log_items) + (select count(*) from public.bp_readings) + (select count(*) from public.records) + (select count(*) from public.lab_values) <> 0
+  if (select count(*) from public.log_items) + (select count(*) from public.bp_readings) + (select count(*) from public.records) + (select count(*) from public.lab_values) + (select count(*) from public.cycle_days) + (select count(*) from public.cycle_settings) <> 0
   then raise exception 'Delete my health data left rows behind'; end if;
   if (select health_consent_at from public.profiles where email = 'h1@x.com') is not null then raise exception 'opt-in not cleared'; end if;
   if (select health_consent_at from public.profiles where email = 'h2@x.com') is null then raise exception 'cleared someone else''s opt-in'; end if;

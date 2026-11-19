@@ -18,6 +18,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { HelpButton } from '@/components/Help';
 import { HelpQ } from '@/components/HelpQ';
 import { BodyMapEditor, figureSex, upgradeKeys, type MapMode, type MapValue } from '@/components/BodyMap';
+import { DayLog } from '@/components/Cycle';
+import { useCycle } from '@/hooks/cycle';
 import { cn } from '@/lib/utils';
 
 // intervals.icu stores these answers as 1-4 (1 = best). Soreness comes from the body map.
@@ -153,6 +155,8 @@ export function CheckinPage() {
         <Q key={q.key} title={q.label} help={q.help}><Opts cols={4} opts={[...q.opts]} value={v[q.key]} onPick={pick(q.key)} /></Q>
       ))}
 
+      <PeriodQ day={day} />
+
       <Q title="Mental clarity" help="How clear your thinking feels, 1 very foggy to 5 very sharp. A log only: it does not change the status.">
         <Opts cols={5} opts={CLARITY} value={v.clarity} onPick={pick('clarity')} />
       </Q>
@@ -211,4 +215,11 @@ export function CheckinPage() {
       <p className="text-center text-xs text-muted-foreground">Training guidance, not medical advice. <HelpButton topic="feel" /></p>
     </div>
   );
+}
+
+// Cycle tracking (only when turned on): "Period today?" saves straight away, like the Cycle card on Today
+function PeriodQ({ day }: { day: string }) {
+  const c = useCycle(useProfile().data);
+  if (!c.on) return null;
+  return <Q title="Period" help="Saved straight away to your cycle log (private). Phases on Trends are estimates from these days. Not medical advice."><DayLog day={day} compact /></Q>;
 }
