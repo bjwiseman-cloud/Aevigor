@@ -2,7 +2,7 @@
 // Feel, then the ride conditions checklist (rides) or lifts + sore / joint pain / pump body map (lifting and other).
 // Everything is sent to the intervals.icu activity. Answers the app filled in itself show an "Auto" tag.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { ReadLift } from '@/lib/logreader';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -91,7 +91,9 @@ export function SessionCheckin() {
   const recent = useMemo(() => (acts.data ?? []).filter((a) => a.day >= addDays(today, -6) && (a.moving_time ?? 0) >= 900)
     .sort((a, b) => String(b.start_local ?? b.day).localeCompare(String(a.start_local ?? a.day))), [acts.data, today]);
   const logged = (a: Activity) => (logs.data ?? []).some((l) => l.activity_id === a.id);
-  const [id, setId] = useState<string | null>(null);
+  // ?a=<activity id> comes from a Post Activity reminder (email or phone alert)
+  const [params] = useSearchParams();
+  const [id, setId] = useState<string | null>(params.get('a'));
   const manual = id === 'manual';
   const a = manual ? undefined : recent.find((x) => x.id === id) ?? recent.find((x) => !logged(x)) ?? recent[0];
   const prev = (logs.data ?? []).find((l) => l.activity_id === a?.id);

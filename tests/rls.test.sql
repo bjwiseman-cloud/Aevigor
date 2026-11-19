@@ -64,3 +64,21 @@ do $$ begin
   then raise exception 'deleting an account left data behind'; end if;
 end $$;
 select 'privacy walls ok';
+
+-- Reminder settings: own row only
+insert into public.notify_prefs (user_id, morning_email) values ('22222222-2222-2222-2222-222222222222', true);
+set role authenticated;
+set request.jwt.sub = '33333333-3333-3333-3333-333333333333';
+do $$ begin
+  if (select count(*) from public.notify_prefs) <> 0 then raise exception 'sees other people''s reminder settings'; end if;
+end $$;
+insert into public.notify_prefs (morning_email, morning_time) values (true, '06:30');
+select pg_temp.expect_fail($q$insert into public.notify_prefs (user_id) values ('22222222-2222-2222-2222-222222222222')$q$);
+select pg_temp.expect_fail($q$update public.notify_prefs set morning_time = '25:00'$q$);
+update public.notify_prefs set morning_email = false where user_id = '22222222-2222-2222-2222-222222222222';  -- silently matches nothing
+reset role;
+do $$ begin
+  if (select count(*) from public.notify_prefs where user_id = '33333333-3333-3333-3333-333333333333') <> 1 then raise exception 'could not save own reminder settings'; end if;
+  if not (select morning_email from public.notify_prefs where user_id = '22222222-2222-2222-2222-222222222222') then raise exception 'changed someone else''s reminder settings'; end if;
+end $$;
+select 'reminder settings ok';
