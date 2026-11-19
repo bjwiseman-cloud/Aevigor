@@ -46,7 +46,7 @@ export const CONSENT_VERSION = 'beta-2026-11';
 
 // Thresholds and zones per sport, copied from intervals.icu Sport Settings at each sync
 export type SportSettings = {
-  types: string[]; ftp: number | null; indoor_ftp: number | null; w_prime: number | null; p_max: number | null;
+  id?: number | null; types: string[]; ftp: number | null; indoor_ftp: number | null; w_prime: number | null; p_max: number | null;
   lthr: number | null; max_hr: number | null; threshold_pace: number | null; pace_units: string | null;
   power_zones: number[] | null; power_zone_names: string[] | null; hr_zones: number[] | null; hr_zone_names: string[] | null;
   pace_zones: number[] | null; pace_zone_names: string[] | null;

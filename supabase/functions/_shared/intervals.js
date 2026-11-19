@@ -81,6 +81,7 @@ const names = (a) => (Array.isArray(a) ? a.slice(0, 12).map((x) => String(x).sli
 export function athleteProfile(a) {
   if (!a || typeof a !== 'object') return null;
   const sports = (Array.isArray(a.sportSettings) ? a.sportSettings : []).slice(0, 20).map((s) => ({
+    id: num(s.id),
     types: Array.isArray(s.types) ? s.types.slice(0, 20).map((t) => String(t).slice(0, 40)) : [],
     ftp: num(s.ftp), indoor_ftp: num(s.indoor_ftp), w_prime: num(s.w_prime), p_max: num(s.p_max),
     lthr: num(s.lthr), max_hr: num(s.max_hr), threshold_pace: num(s.threshold_pace), pace_units: s.pace_units ? String(s.pace_units).slice(0, 20) : null,
@@ -90,6 +91,39 @@ export function athleteProfile(a) {
   })).filter((s) => s.types.length);
   return { weight: num(a.icu_weight ?? a.weight), resting_hr: num(a.icu_resting_hr), sports };
 }
+// Own thresholds and zones sent back to intervals.icu Sport Settings. Only known fields, numbers in range, zones rising.
+const ZONE_MAX = { power_zones: 1000, hr_zones: 999, pace_zones: 1000 };
+export function sportSettingsBody(v) {
+  const o = {};
+  const n = (x, lo, hi) => { const y = Number(x); return x !== null && x !== '' && x !== undefined && Number.isFinite(y) && y >= lo && y <= hi ? y : undefined; };
+  const set = (k, x) => { if (x !== undefined) o[k] = x; };
+  set('ftp', n(v?.ftp, 30, 2500) && Math.round(v.ftp));
+  set('indoor_ftp', n(v?.indoor_ftp, 30, 2500) && Math.round(v.indoor_ftp));
+  set('w_prime', n(v?.w_prime, 1000, 100000) && Math.round(v.w_prime));
+  set('p_max', n(v?.p_max, 50, 4000) && Math.round(v.p_max));
+  set('lthr', n(v?.lthr, 60, 230) && Math.round(v.lthr));
+  set('max_hr', n(v?.max_hr, 80, 250) && Math.round(v.max_hr));
+  set('threshold_pace', n(v?.threshold_pace, 0.5, 12));
+  for (const k of Object.keys(ZONE_MAX)) {
+    const z = v?.[k];
+    if (!Array.isArray(z) || z.length < 2 || z.length > 10) continue;
+    const vals = z.map(Number);
+    if (vals.every((x, i) => Number.isFinite(x) && x > 0 && x <= ZONE_MAX[k] && (i === 0 || x > vals[i - 1]))) o[k] = vals.map((x) => Math.round(x * 10) / 10);
+  }
+  return o;
+}
+export async function putSportSettings(key, athleteId, settingsId, body) {
+  const id = String(settingsId ?? '');
+  if (!/^(\d+|[A-Za-z]+)$/.test(id)) throw new IntervalsError(400, 'That sport is not set up in intervals.icu yet.');
+  try {
+    return await icu(key, athletePath(athleteId) + '/sport-settings/' + id, 'PUT', body);
+  } catch (e) {
+    // No block for this sport yet: create one for that activity type
+    if (e instanceof IntervalsError && e.status === 404 && /^[A-Za-z]+$/.test(id)) return await icu(key, athletePath(athleteId) + '/sport-settings', 'POST', { ...body, types: [id] });
+    throw e;
+  }
+}
+
 export async function fetchAthlete(key, athleteId) {
   return athleteProfile(await icu(key, athletePath(athleteId)));
 }
