@@ -1,5 +1,6 @@
 // Lifting log maths and CSV import (run with: node --experimental-strip-types tests/lifting.test.mjs)
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 const L = await import('../web/src/lib/lifting.ts');
 
 assert.equal(L.e1rm(100, 1), 100);
@@ -48,5 +49,14 @@ console.log('ok lifting');
   assert.equal(out[3].sets[0].kg, '', 'sets x reps with no weight');
   assert.equal(R.readSets('225 lb x 5', 'kg')[0].kg, '102.06', 'pounds converted to kg');
   assert.equal(R.parseLog('Notes: felt good', names).length, 0);
+    // A Liftosaur screenshot (dark theme), as the on-phone reader returned it after the contrast fix
+  const lifto = R.parseLog(readFileSync('tests/fixtures/liftosaur-ocr.txt', 'utf8'), ['Machine Chest Press', 'Seated Cable Row', 'Barbell Shoulder Press', 'Lying Leg Curls', 'Dumbbell Flyes'], 'lb');
+  assert.deepEqual(lifto.map((l) => [l.name, l.sets.map((x) => `${x.kg}x${x.reps}`).join(' ')]), [
+    ['Machine Chest Press', '100x10 100x10'], ['Machine Flye', '90x13 90x13'], ['Seated Cable Row', '236x16 236x15'],
+    ['Barbell Shoulder Press', '115x13 115x13 115x12'], ['Seated Hammer Curls', '30x25 30x25 30x25'], ['Single-Leg Leg Curl', '50x25']
+  ], 'name, then a WEIGHT / REPS table; muscle tags, equipment lines and icons ignored; weak matches keep the name as read');
+  // Same screenshot read at a smaller size, where one "115" came out as "15"
+  const lifto2 = R.parseLog(readFileSync('tests/fixtures/liftosaur-ocr-2.txt', 'utf8'), [], 'lb');
+  assert.equal(lifto2.find((l) => /Shoulder/.test(l.name)).sets.map((x) => x.kg).join(' '), '115 115 115', 'a dropped leading 1 is put back');
   console.log('ok photo log reader');
 }
