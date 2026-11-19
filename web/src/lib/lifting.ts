@@ -1,7 +1,7 @@
 // Lifting log: sets, estimated 1-rep max, weekly volume, and CSV import from other lifting apps.
 export type LiftSet = {
   id: string; day: string; exercise: string; set_no: number; reps: number; weight: number;
-  rir: number | null; warmup: boolean; note: string | null; source: string;
+  rir: number | null; warmup: boolean; note: string | null; source: string; activity_id?: string | null;
 };
 export type NewSet = Omit<LiftSet, 'id'>;
 

@@ -62,3 +62,13 @@ export async function fetchEvents(key, athleteId, oldest, newest) {
 export async function putWellness(key, athleteId, day, body) {
   return await icu(key, athletePath(athleteId) + '/wellness/' + day, 'PUT', { id: day, ...body });
 }
+
+// Upload an activity file (.fit, .gpx, .tcx; may be gzipped) to the athlete's intervals.icu, which processes it.
+export async function uploadActivity(key, athleteId, name, bytes) {
+  const form = new FormData();
+  form.append('file', new Blob([bytes]), name);
+  const res = await fetch(BASE + athletePath(athleteId) + '/activities', { method: 'POST', headers: { Authorization: 'Basic ' + btoa('API_KEY:' + key) }, body: form });
+  const text = await res.text();
+  if (!res.ok) throw new IntervalsError(res.status, 'intervals.icu could not take that file (' + res.status + '): ' + text.slice(0, 160));
+  return text ? JSON.parse(text) : null;
+}

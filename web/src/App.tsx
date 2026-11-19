@@ -23,7 +23,7 @@ import { Inbox } from '@/screens/Inbox';
 import { Menu } from '@/screens/Menu';
 import { Performance } from '@/screens/training/Performance';
 import { Sessions } from '@/screens/training/Sessions';
-import { Lifting } from '@/screens/training/Lifting';
+
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 
@@ -56,7 +56,7 @@ export default function App() {
         <Route path="/training/load" element={connected ? <Load /> : <Navigate to="/connect" replace />} />
         <Route path="/training/performance" element={connected ? <Performance /> : <Navigate to="/connect" replace />} />
         <Route path="/training/sessions" element={connected ? <Sessions /> : <Navigate to="/connect" replace />} />
-        <Route path="/training/lifting" element={<Lifting />} />
+        <Route path="/training/lifting" element={<Navigate to="/training/performance?sport=lift" replace />} />
         <Route path="/training" element={<Navigate to="/training/load" replace />} />
         <Route path="/load" element={<Navigate to="/training/load" replace />} />
         <Route path="/plan/schedule" element={<Schedule />} />

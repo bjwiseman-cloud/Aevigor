@@ -23,6 +23,8 @@ import { TimeZoneSelect } from './TimeZoneSelect';
 import { InviteTesters } from './InviteTesters';
 import { useHealthOn } from '@/hooks/plan';
 import { PhoneAlerts } from '@/components/PhoneAlerts';
+import { HelpQ } from '@/components/HelpQ';
+import { Chip, Chips } from '@/components/chips';
 import { ThemeChips } from '@/components/ThemeButton';
 
 const accountSchema = z.object({ display_name: z.string().trim().max(80), time_zone: z.string().min(1) });
@@ -47,6 +49,12 @@ export function Settings() {
     const { error } = await supabase.from('profiles').update({ display_name: v.display_name || null, time_zone: v.time_zone }).eq('user_id', profile.user_id);
     if (error) return toast.error(error.message);
     toast.success('Saved');
+    qc.invalidateQueries({ queryKey: ['profile'] });
+  }
+
+  async function saveSex(sex: 'female' | 'male' | 'unspecified') {
+    const { error } = await supabase.from('profiles').update({ sex }).eq('user_id', profile.user_id);
+    if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ['profile'] });
   }
 
@@ -119,6 +127,12 @@ export function Settings() {
               <Button type="submit" variant="outline" className="w-full">Save</Button>
             </form>
           </Form>
+          <div className="space-y-1.5 border-t pt-4">
+            <div className="flex items-center gap-2 text-sm font-medium">Sex <HelpQ text="Sets the body figure on the check-in body maps. Prefer not to say shows the male figure. Female also adds women's health options in later updates." /></div>
+            <Chips>{([['female', 'Female'], ['male', 'Male'], ['unspecified', 'Prefer not to say']] as const).map(([k, l]) => (
+              <Chip key={k} on={(profile.sex ?? 'unspecified') === k} onClick={() => void saveSex(k)}>{l}</Chip>
+            ))}</Chips>
+          </div>
           {providers.includes('email') && (
             <Form {...pw}>
               <form onSubmit={pw.handleSubmit(changePassword)} className="space-y-3 border-t pt-4">

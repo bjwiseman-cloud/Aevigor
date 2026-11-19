@@ -10,49 +10,46 @@ import { useActivities, useCurves, usePaceCurves } from '@/hooks/perf';
 import { BEST_SECS, bestEfforts, isRide, isRun, latestWeight, mmss, n, pace, paceRows, secsLabel, testResults, type Activity, type Curve, type PaceCurve } from '@/lib/perf';
 import { todayIn } from '@/lib/time';
 import { e1rmSeries, exercises, fromKg, showW, type LiftSet, type Unit } from '@/lib/lifting';
-import { Strength, UNIT_KEY, useSets } from '@/screens/training/Lifting';
+import { Strength } from '@/screens/training/liftCards';
+import { UNIT_KEY, useSets } from '@/hooks/lifting';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
-type Recent = '30' | '60' | '90';
-type Compare = 's0' | '1y' | 'all';
-const RECENT: { id: Recent; label: string }[] = [{ id: '30', label: '30 d' }, { id: '60', label: '60 d' }, { id: '90', label: '90 d' }];
-const COMPARE: { id: Compare; label: string }[] = [{ id: 's0', label: 'Season' }, { id: '1y', label: 'Year' }, { id: 'all', label: 'All-time' }];
+type Range = '30' | '90' | '1y';
+const RANGES: { id: Range; label: string; long: string }[] = [{ id: '30', label: '1M', long: 'Last month' }, { id: '90', label: '3M', long: 'Last 3 months' }, { id: '1y', label: '1Y', long: 'Last year' }];
 const TABLE_SECS = BEST_SECS.filter((s) => s <= 7200);
+type Pt = { watts: number; wkg: number | null; id: string | null; day: string | null };
 
-// Power curve: a recent curve (30/60/90 days, from each ride's bests) over a longer one (season, year, all time from intervals.icu).
-// The two can overlap: the longer range always includes the recent days, so where the recent line touches it, those are current bests.
+// Power curve: your best power over the last month, 3 months or year, drawn against your all-time best curve.
+// The table lists only all-time bests, each linked to the ride it came from.
 function PowerCurve({ rides, curves, today, weight, onOpen }: { rides: Activity[]; curves: Curve[]; today: string; weight: number | null; onOpen: (id: string) => void }) {
-  const [recent, setRecent] = useState<Recent>('90');
-  const [compare, setCompare] = useState<Compare>('1y');
+  const [range, setRange] = useState<Range>('90');
   const [wkg, setWkg] = useState(false);
-  const inRange = useMemo(() => rides.filter((r) => r.day >= addDays(today, -Number(recent))), [rides, today, recent]);
-  const efforts = useMemo(() => bestEfforts(inRange, weight), [inRange, weight]);
-  const api = curves.find((c) => c.sport === 'ride' && c.curve === compare);
   const dayOf = (id: string | null | undefined) => rides.find((r) => r.id === id);
-  const cmpAt = (s: number) => {
-    if (!api) return null;
-    const i = api.secs.indexOf(s); if (i < 0 || !api.watts[i]) return null;
-    const a = dayOf(api.activity_ids?.[i]);
-    return { watts: api.watts[i], wkg: api.wkg?.[i] ?? (weight ? +(api.watts[i] / weight).toFixed(2) : null), id: a?.id ?? null, day: a?.day ?? null };
+  const fromApi = (c: Curve | undefined) => (s: number): Pt | null => {
+    if (!c) return null;
+    const i = c.secs.indexOf(s); if (i < 0 || !c.watts[i]) return null;
+    const a = dayOf(c.activity_ids?.[i]);
+    return { watts: c.watts[i], wkg: c.wkg?.[i] ?? (weight ? +(c.watts[i] / weight).toFixed(2) : null), id: a?.id ?? c.activity_ids?.[i] ?? null, day: a?.day ?? null };
   };
-  const recAt = (s: number) => efforts.find((e) => e.secs === s)?.rank[0] ?? null;
+  const fromRides = (list: Activity[]) => { const ef = bestEfforts(list, weight); return (s: number): Pt | null => ef.find((e) => e.secs === s)?.rank[0] ?? null; };
+  const recentRides = useMemo(() => rides.filter((r) => r.day >= addDays(today, range === '1y' ? -365 : -Number(range))), [rides, today, range]);
+  const apiYear = curves.find((c) => c.sport === 'ride' && c.curve === '1y');
+  const apiAll = curves.find((c) => c.sport === 'ride' && c.curve === 'all');
+  const recAt = range === '1y' && apiYear ? fromApi(apiYear) : fromRides(recentRides);
+  const allAt = apiAll ? fromApi(apiAll) : fromRides(rides);
   const key = wkg ? 'wkg' : 'watts', unit = wkg ? ' W/kg' : ' W';
   // Evenly spaced standard durations (a log-scale chart does not draw reliably in Recharts)
-  const plot = BEST_SECS.map((s) => { const r = recAt(s), c = cmpAt(s); return { label: secsLabel(s), rec: r ? r[key] : null, cmp: c ? c[key] : null }; }).filter((p) => p.rec != null || p.cmp != null);
-  const cmpLabel = COMPARE.find((c) => c.id === compare)!.label, recLabel = `Last ${recent} days`;
-  const cell = (e: { watts: number; wkg: number | null; id: string | null; day: string | null } | null) => e ? (
-    <button type="button" disabled={!e.id} onClick={() => e.id && onOpen(e.id)} className="inline-flex items-baseline gap-1.5 font-mono enabled:underline enabled:decoration-dotted">
-      <span>{wkg ? e.wkg ?? '–' : e.watts}</span>{e.day && <span className="font-sans text-[11px] text-muted-foreground">{shortDay(e.day)}</span>}
-    </button>
-  ) : <span className="text-muted-foreground">–</span>;
+  const plot = BEST_SECS.map((s) => { const r = recAt(s), c = allAt(s); return { label: secsLabel(s), rec: r ? r[key] : null, all: c ? c[key] : null }; }).filter((p) => p.rec != null || p.all != null);
+  const recLabel = RANGES.find((r) => r.id === range)!.long;
   return (
     <Card>
       <CardHeader className="pb-2"><CardTitle help="power-curve">Power curve</CardTitle></CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2 text-xs"><span className="w-16 text-muted-foreground">Recent</span><Chips>{RECENT.map((r) => <Chip key={r.id} on={recent === r.id} onClick={() => setRecent(r.id)}>{r.label}</Chip>)}</Chips></div>
-        <div className="flex flex-wrap items-center gap-2 text-xs"><span className="w-16 text-muted-foreground">Compare</span><Chips>{COMPARE.map((r) => <Chip key={r.id} on={compare === r.id} onClick={() => setCompare(r.id)}>{r.label}</Chip>)}</Chips></div>
-        <Chips><Chip on={!wkg} onClick={() => setWkg(false)}>Watts</Chip><Chip on={wkg} onClick={() => setWkg(true)}>W/kg</Chip></Chips>
+        <div className="flex flex-wrap items-center gap-2">
+          <Chips>{RANGES.map((r) => <Chip key={r.id} on={range === r.id} onClick={() => setRange(r.id)}>{r.label}</Chip>)}</Chips>
+          <span className="ml-auto"><Chips><Chip on={!wkg} onClick={() => setWkg(false)}>Watts</Chip><Chip on={wkg} onClick={() => setWkg(true)}>W/kg</Chip></Chips></span>
+        </div>
         {plot.length ? (
           <div className="h-52">
             <ResponsiveContainer>
@@ -62,27 +59,28 @@ function PowerCurve({ rides, curves, today, weight, onOpen }: { rides: Activity[
                 <XAxis dataKey="label" {...axis} interval="preserveStartEnd" minTickGap={8} />
                 <YAxis {...axis} />
                 <Tooltip {...tooltipStyle} labelFormatter={(l) => String(l)} formatter={(v, name) => [`${v}${unit}`, String(name)]} />
-                <Line type="monotone" dataKey="cmp" name={cmpLabel} stroke={C.orange} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
+                <Line type="monotone" dataKey="all" name="All-time best" stroke={C.orange} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
                 <Area type="monotone" dataKey="rec" name={recLabel} stroke={C.cyan} strokeWidth={2.5} fill="url(#pc)" connectNulls isAnimationActive={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
         ) : <p className="text-sm text-muted-foreground">No rides with power yet. This fills in after the next sync.</p>}
-        <Legend items={[{ label: recLabel, color: C.cyan, area: true }, { label: cmpLabel, color: C.orange, dashed: true }]} />
-        <table className="w-full text-sm">
-          <thead className="text-xs text-muted-foreground"><tr><th className="text-left">Best efforts</th><th className="text-left">🥇 {recLabel}</th><th className="text-left">🥇 {cmpLabel}</th></tr></thead>
-          <tbody>{TABLE_SECS.map((s) => {
-            const r = recAt(s);
+        <Legend items={[{ label: recLabel, color: C.cyan, area: true }, { label: 'All-time best', color: C.orange, dashed: true }]} />
+        <div className="text-sm font-semibold">
+          <div className="grid grid-cols-3 gap-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground"><span>Effort</span><span>{wkg ? 'W/kg' : 'Watts'}</span><span>Activity</span></div>
+          {TABLE_SECS.map((s) => {
+            const b = allAt(s);
+            if (!b) return null;
             return (
-              <tr key={s} className="border-t">
-                <td className="py-1">{secsLabel(s)}</td>
-                <td>{cell(r ? { watts: r.watts, wkg: r.wkg, id: r.id, day: r.day } : null)}</td>
-                <td>{cell(cmpAt(s))}</td>
-              </tr>
+              <div key={s} className="grid grid-cols-3 gap-2 border-t py-1.5">
+                <span>{secsLabel(s)}</span>
+                <span>{wkg ? b.wkg ?? '–' : b.watts}</span>
+                {b.id ? <button type="button" onClick={() => onOpen(b.id!)} className="text-left underline decoration-dotted">{b.day ? shortDay(b.day) : 'Open ride'}</button> : <span className="text-muted-foreground">–</span>}
+              </div>
             );
-          })}</tbody>
-        </table>
-        <HowToRead>Your best average power for each length of effort. The shaded curve is the recent range you pick; the dashed curve is the longer range to compare against. They can overlap: the season, year and all-time ranges include the recent days, so where the two curves meet, that best was set recently. Only the top effort is listed; tap it to open that ride in Sessions. W/kg uses the weight saved on each ride in intervals.icu.</HowToRead>
+          })}
+        </div>
+        <HowToRead>Your best average power for each length of effort. The shaded curve is your best over the range you pick (1M, 3M or 1Y); the dashed curve is your all-time best. Where the two meet, that all-time best was set in the range you picked. The table lists your all-time bests; tap the date to open that ride. W/kg uses the weight saved on each ride in intervals.icu.</HowToRead>
       </CardContent>
     </Card>
   );
@@ -237,7 +235,7 @@ function LiftBests({ sets, unit }: { sets: LiftSet[]; unit: Unit }) {
               </tr>
             ))}</tbody>
           </table>
-        ) : <p className="text-sm text-muted-foreground">Log or import lifting sets in the Lifting tab to see your best lifts.</p>}
+        ) : <p className="text-sm text-muted-foreground">Log or import lifting sets in Post Activity (or Import Activity under Activities) to see your best lifts.</p>}
       </CardContent>
     </Card>
   );

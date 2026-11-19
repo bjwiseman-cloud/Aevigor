@@ -1,5 +1,6 @@
-// "After a session", ported from the live app: pick a session from the last 7 days, rate session RPE (copied to
-// intervals.icu), then the ride conditions checklist (rides) or top sets, sore muscles, joint pain and pump (lifting).
+// Post Activity: pick a session from the last 7 days (or a gym session with no watch activity), rate session RPE and
+// Feel, then the ride conditions checklist (rides) or lifts + sore / joint pain / pump body map (lifting and other).
+// Everything is sent to the intervals.icu activity. Answers the app filled in itself show an "Auto" tag.
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -8,9 +9,14 @@ import { callApi } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { niceDay, todayIn } from '@/lib/time';
 import { useProfile, useSessionLogs, useWellness, useCheckins } from '@/hooks/data';
+import { useSets, useUnit } from '@/hooks/lifting';
 import { useActivities } from '@/hooks/perf';
-import { isRide, isRun, n, type Activity } from '@/lib/perf';
-import { e1rm } from '@/lib/lifting';
+import { isRide, n, type Activity } from '@/lib/perf';
+import { e1rm, exercises, fromKg, showW, toKg } from '@/lib/lifting';
+import { HelpQ } from '@/components/HelpQ';
+import { BodyMapEditor, figureSex, type MapMode, type MapValue } from '@/components/BodyMap';
+import { ExercisePicker } from '@/components/ExercisePicker';
+import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,12 +27,12 @@ import { cn } from '@/lib/utils';
 import { CheckinSeg } from '@/screens/Checkin';
 
 const RPE_LABELS = ['', 'Very easy', 'Easy', 'Moderate', 'Somewhat hard', 'Hard', 'Hard+', 'Very hard', 'Very hard+', 'Near max', 'Max'];
-const PERF = ['Much worse', 'Worse', 'Usual', 'Better', 'Much better'];
-const MUSCLES = ['Chest', 'Back', 'Shoulders', 'Arms', 'Core', 'Glutes', 'Quads', 'Hamstrings', 'Calves'];
-const MUSCLE_LEVELS = ['None', 'Mild', 'Moderate', 'Very'];
-const JOINTS = ['Shoulder', 'Elbow', 'Wrist', 'Low back', 'Hip', 'Knee', 'Ankle', 'Other'];
-const PUMP = ['None', 'Some', 'Good', 'Great'];
-const LIFTS = ['Squat', 'Bench', 'Deadlift', 'Other'];
+// intervals.icu activity Feel: 1 Strong … 5 Weak (same words as intervals.icu)
+const FEEL = ['Strong', 'Good', 'Normal', 'Poor', 'Weak'];
+const LIFT_MODES: MapMode[] = [{ id: 'sore', label: 'Sore', scale: 'sore', target: 'muscle' }, { id: 'joint', label: 'Joint pain', scale: 'joint', target: 'joint' }, { id: 'pump', label: 'Pump', scale: 'pump', target: 'muscle' }];
+const OTHER_MODES = LIFT_MODES.slice(0, 2);
+const RPE_HELP = 'Session RPE (Foster CR-10): how hard the whole session felt, rated about 30 min after it ended. RPE × minutes gives the session load used for lifting and badminton. Saved to this activity in intervals.icu.';
+const FEEL_HELP = 'How your body felt during the session. Same five answers as Feel in intervals.icu (and Garmin\'s "How did you feel?"), saved to this activity.';
 const COND_KEYS = ['type', 'len', 'time', 'fan', 'strap', 'fuel', 'heat', 'hyd', 'ill', 'sleep', 'hard'];
 const COND_TEST_KEYS = ['caf', 'warm', 'zero', 'meal'];
 // [steady label, test label, why (steady), why (test)], as in the live app
@@ -49,7 +55,6 @@ const COND_INFO: Record<string, [string, string, string, string]> = {
 };
 const TEST_RE = /ftp|20.?min.*(test|tt)|vo2|5.?min.*test|durab|race|crit|\btt\b|time trial|fondo/i;
 const isLift = (a: Activity) => a.type === 'WeightTraining';
-const icon = (a: Activity) => (isRide(a) ? '🚴' : isLift(a) ? '🏋️' : isRun(a) ? '🏃' : /badminton/i.test(a.type + (a.name ?? '')) ? '🏸' : /walk/i.test(a.type) ? '🚶' : '•');
 const median = (a: (number | null | undefined)[]) => { const v = a.filter((x): x is number => typeof x === 'number' && isFinite(x)).sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : null; };
 const hourOf = (a: Activity) => Number(String(a.start_local ?? '').slice(11, 13)) || null;
 
@@ -63,35 +68,45 @@ function Opts({ opts, value, onPick, cols }: { opts: string[]; value: number | n
     </div>
   );
 }
-function Sec({ title, children }: { title: string; children: React.ReactNode }) {
-  return <Card><CardContent className="space-y-2 py-3"><b>{title}</b>{children}</CardContent></Card>;
+function Sec({ title, help, children }: { title: string; help?: string; children: React.ReactNode }) {
+  return <Card><CardContent className="space-y-2 py-3"><div className="flex items-center justify-between gap-2"><b>{title}</b>{help && <HelpQ text={help} />}</div>{children}</CardContent></Card>;
+}
+export function Auto({ on }: { on: boolean }) {
+  return on ? <span className="ml-1.5 rounded border border-primary/50 px-1 py-px align-middle text-[10px] font-semibold uppercase tracking-wide text-primary" title="Filled in automatically">Auto</span> : null;
 }
 
-type TopSet = { lift: string; kg: string; reps: string; rir: string };
+type SetRow = { kg: string; reps: string; rir: string };
+type Lift = { name: string; sets: SetRow[] };
+const blankSet: SetRow = { kg: '', reps: '', rir: '' };
 
 export function SessionCheckin() {
   const p = useProfile().data!;
   const today = todayIn(p.time_zone);
-  const acts = useActivities(p), logs = useSessionLogs(p), wellness = useWellness(p), checkins = useCheckins(p);
+  const acts = useActivities(p), logs = useSessionLogs(p), wellness = useWellness(p), checkins = useCheckins(p), lifted = useSets();
+  const [unit] = useUnit();
   const qc = useQueryClient();
   const recent = useMemo(() => (acts.data ?? []).filter((a) => a.day >= addDays(today, -6) && (a.moving_time ?? 0) >= 900)
     .sort((a, b) => String(b.start_local ?? b.day).localeCompare(String(a.start_local ?? a.day))), [acts.data, today]);
   const logged = (a: Activity) => (logs.data ?? []).some((l) => l.activity_id === a.id);
   const [id, setId] = useState<string | null>(null);
-  const a = recent.find((x) => x.id === id) ?? recent.find((x) => !logged(x)) ?? recent[0];
+  const manual = id === 'manual';
+  const a = manual ? undefined : recent.find((x) => x.id === id) ?? recent.find((x) => !logged(x)) ?? recent[0];
   const prev = (logs.data ?? []).find((l) => l.activity_id === a?.id);
-  const kind: 'ride' | 'lift' | 'other' = a ? (isRide(a) ? 'ride' : isLift(a) ? 'lift' : 'other') : 'other';
+  const kind: 'ride' | 'lift' | 'other' = manual ? 'lift' : a ? (isRide(a) ? 'ride' : isLift(a) ? 'lift' : 'other') : 'other';
 
   const [rpe, setRpe] = useState(5);
-  const [perf, setPerf] = useState<number | null>(null);
+  const [feel, setFeel] = useState<number | null>(null);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [note, setNote] = useState('');
   const [mode, setMode] = useState<'z2' | 'test'>('z2');
   const [cond, setCond] = useState<Record<string, boolean>>({});
   const [temp, setTemp] = useState(''), [carbs, setCarbs] = useState('');
-  const [sets, setSets] = useState<TopSet[]>([]);
-  const [sore, setSore] = useState<Record<string, number>>({});
-  const [joint, setJoint] = useState(0), [jointWhere, setJointWhere] = useState<string | null>(null), [pump, setPump] = useState<number | null>(null);
+  const [lifts, setLifts] = useState<Lift[]>([]);
+  const [manualDay, setManualDay] = useState(today);
+  const [body, setBody] = useState<MapValue>({});
+  const [picker, setPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
 
   // Guesses for each checklist line from intervals.icu and the check-in, as in the live app; a saved answer wins
   const guess = useMemo(() => {
@@ -137,150 +152,198 @@ export function SessionCheckin() {
     return { val, why, isTest, usualCarbs, temp: t === null ? '' : String(Math.round(t)) };
   }, [a?.id, kind, acts.data, logs.data, wellness.data, checkins.data]);
 
+  // What the app filled in by itself (from intervals.icu, the watch or other connectors) rather than the person
+  const autoRpe = !prev?.rpe && !!(a && n(a, 'icu_rpe'));
+  const autoFeel = !prev?.data.feel && !!(a && n(a, 'feel'));
+  const liftDay = manual ? manualDay : a?.day;
+
   useEffect(() => {
+    setTouched({});
+    if (manual) { setLifts(loadLifts(null)); setBody({}); return; }
     if (!a) return;
     const d = prev?.data ?? {};
     setRpe(prev?.rpe ?? (n(a, 'icu_rpe') ? Math.round(n(a, 'icu_rpe')!) : 5));
-    setPerf(d.perf ? d.perf - 1 : null); setNote(prev?.note ?? '');
+    const f = d.feel ?? n(a, 'feel');
+    setFeel(f && f >= 1 && f <= 5 ? Math.round(f) : null); setNote(prev?.note ?? '');
     setMode(d.mode ?? (guess.isTest ? 'test' : 'z2'));
     setCond({ ...guess.val, ...(d.c ?? {}) });
     setTemp(d.temp != null ? String(d.temp) : guess.temp); setCarbs(d.carbs != null ? String(d.carbs) : '');
-    setSets([0, 1, 2].map(() => ({ lift: '', kg: '', reps: '', rir: '' })));
-    setSore(d.sore ?? {}); setJoint(d.joint ?? 0); setJointWhere(d.jointWhere ?? null); setPump(d.pump ?? null);
-  }, [a?.id, prev, guess]);
+    setLifts(loadLifts(a));
+    setBody({ sore: d.body?.sore ?? {}, joint: d.body?.joint ?? {}, pump: d.body?.pump ?? {} });
+  }, [a?.id, manual, prev, guess, lifted.data]);
+
+  function loadLifts(x: Activity | null | undefined): Lift[] {
+    const all = lifted.data ?? [];
+    const mine = x ? all.filter((s) => s.activity_id === x.id || (!s.activity_id && s.source === 'session' && s.day === x.day))
+      : all.filter((s) => s.source === 'manual' && s.day === manualDay);
+    const out: Lift[] = exercises(mine).map((name) => ({
+      name, sets: mine.filter((s) => s.exercise === name).sort((p1, p2) => p1.set_no - p2.set_no)
+        .map((s) => ({ kg: showW(s.weight, unit), reps: String(s.reps), rir: s.rir == null ? '' : String(s.rir) }))
+    }));
+    return out;
+  }
+  useEffect(() => { if (manual) setLifts(loadLifts(null)); }, [manualDay]);
 
   if (acts.isLoading || logs.isLoading) return <><CheckinSeg on="session" /><p className="text-muted-foreground">Loading…</p></>;
-  if (!a) return (
-    <><CheckinSeg on="session" /><Card><CardContent className="py-4"><b>No sessions in the last 7 days</b><p className="text-xs text-muted-foreground">Sessions of 15 min or more from intervals.icu show here. Pull down to sync.</p></CardContent></Card></>
-  );
 
   const keys = [...COND_KEYS, ...(mode === 'test' ? COND_TEST_KEYS : [])];
-  const topSets = sets.filter((s) => s.lift && Number(s.kg) > 0 && Number(s.reps) >= 1);
-  const e1 = topSets.map((s) => { const t = Number(s.reps) + (Number(s.rir) || 0); const v = t <= 12 ? e1rm(Number(s.kg), t) : null; return `${s.lift}: ${v ? `e1RM ${Math.round(v * 2) / 2} kg` : 'over 12 reps, not estimated'}`; });
+  const recentNames = exercises(lifted.data ?? []);
+  const setLift = (i: number, l: Lift) => setLifts(lifts.map((x, j) => (j === i ? l : x)));
+  const bestE1 = (l: Lift) => {
+    let best: number | null = null;
+    for (const s of l.sets) { const r = Number(s.reps) + (Number(s.rir) || 0); const v = Number(s.kg) > 0 && Number(s.reps) >= 1 && r <= 12 ? e1rm(toKg(Number(s.kg), unit), r) : null; if (v && (!best || v > best)) best = v; }
+    return best;
+  };
 
   async function save(allGood = false) {
+    if (!manual && !a) return;
     setSaving(true);
     try {
-      const data: Record<string, unknown> = { perf: perf === null ? null : perf + 1 };
-      if (kind === 'ride') Object.assign(data, { mode, c: Object.fromEntries(keys.map((k) => [k, !!cond[k]])), temp, carbs: carbs === '' && allGood && cond.fuel && guess.usualCarbs !== null ? guess.usualCarbs : carbs });
-      if (kind === 'lift') Object.assign(data, { sore, joint, jointWhere, pump });
-      const r = await callApi<{ copied: boolean }>('session', { id: a.id, kind, rpe, note, data });
-      if (kind === 'lift' && topSets.length) {
-        await supabase.from('lift_sets').delete().eq('day', a.day).eq('source', 'session');
-        const { error } = await supabase.from('lift_sets').insert(topSets.map((s, i) => ({
-          day: a.day, exercise: s.lift, set_no: i + 1, reps: Math.round(Number(s.reps)), weight: Math.round(Number(s.kg) * 4) / 4,
-          rir: s.rir === '' ? null : Math.max(0, Math.min(10, Math.round(Number(s.rir)))), warmup: false, note: null, source: 'session'
-        })));
-        if (error) throw error;
+      let copied = false;
+      if (!manual && a) {
+        const data: Record<string, unknown> = { feel };
+        if (kind === 'ride') Object.assign(data, { mode, c: Object.fromEntries(keys.map((k) => [k, !!cond[k]])), temp, carbs: carbs === '' && allGood && cond.fuel && guess.usualCarbs !== null ? guess.usualCarbs : carbs });
+        else Object.assign(data, { body });
+        const r = await callApi<{ copied: boolean }>('session', { id: a.id, kind, rpe, note, data, lifts: kind === 'lift' ? liftSummary() : undefined });
+        copied = r.copied;
       }
-      toast.success(r.copied ? 'Saved. RPE copied to intervals.icu' : 'Saved to this session');
+      if (kind === 'lift' && liftDay) {
+        const rows = lifts.flatMap((l) => l.sets.filter((s) => Number(s.reps) >= 1).map((s, i) => ({
+          day: liftDay, exercise: l.name.slice(0, 80), set_no: i + 1, reps: Math.round(Number(s.reps)), weight: Math.round(toKg(Number(s.kg) || 0, unit) * 100) / 100,
+          rir: s.rir === '' ? null : Math.max(0, Math.min(10, Math.round(Number(s.rir)))), warmup: false, note: null,
+          source: manual ? 'manual' : 'session', activity_id: manual ? null : a!.id
+        })));
+        if (manual) await supabase.from('lift_sets').delete().eq('day', liftDay).eq('source', 'manual');
+        else {
+          await supabase.from('lift_sets').delete().eq('activity_id', a!.id);
+          await supabase.from('lift_sets').delete().eq('day', liftDay).eq('source', 'session').is('activity_id', null);
+        }
+        if (rows.length) { const { error } = await supabase.from('lift_sets').insert(rows); if (error) throw error; }
+      }
+      toast.success(manual ? 'Lifts saved' : copied ? 'Saved and sent to intervals.icu' : 'Saved to this session');
       await qc.invalidateQueries({ queryKey: ['session_logs'] }); await qc.invalidateQueries({ queryKey: ['lift_sets'] });
     } catch (e) { toast.error((e as Error).message); } finally { setSaving(false); }
   }
+  function liftSummary() {
+    return lifts.filter((l) => l.sets.some((s) => Number(s.reps) >= 1)).map((l) => `${l.name}: ${l.sets.filter((s) => Number(s.reps) >= 1).map((s) => `${s.kg || 0}${unit}×${s.reps}${s.rir !== '' ? ` @${s.rir} RIR` : ''}`).join(', ')}`).join('; ').slice(0, 1500);
+  }
 
   const item = (x: Activity) => (
-    <button key={x.id} type="button" onClick={() => setId(x.id)} className={cn('flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm', x.id === a.id ? 'border-primary bg-muted' : 'bg-card')}>
-      <span>{icon(x)} {x.name || x.type}<br /><small className="text-muted-foreground">{shortDay(x.day)} · {Math.round((x.moving_time ?? 0) / 60)} min</small></span>
+    <button key={x.id} type="button" onClick={() => setId(x.id)} className={cn('flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm', x.id === a?.id ? 'border-primary bg-muted' : 'bg-card')}>
+      <span>{x.name || x.type}<br /><small className="text-muted-foreground">{shortDay(x.day)} · {Math.round((x.moving_time ?? 0) / 60)} min</small></span>
       <small className="text-muted-foreground">{logged(x) ? '✓ logged' : 'not logged'}</small>
     </button>
   );
-  const ai = recent.indexOf(a), first = recent.slice(0, Math.max(3, ai + 1)), rest = recent.slice(first.length);
+  const ai = a ? recent.indexOf(a) : 0, first = recent.slice(0, Math.max(3, ai + 1)), rest = recent.slice(first.length);
+
+  const liftCard = (
+    <Sec title="Lifts" help="Log each exercise and its sets: weight, reps and RIR (reps in reserve, how many more reps you could have done). e1RM = weight × (1 + (reps + RIR) ÷ 30), the Epley formula, for 12 or fewer total reps. Hard sets (0-4 RIR) count toward weekly volume. Saved to your lifting log and this activity.">
+      {lifts.map((l, i) => {
+        const b = bestE1(l);
+        return (
+          <div key={i} className="space-y-1.5 rounded-md border p-2">
+            <div className="flex items-center gap-2"><b className="flex-1 text-sm">{l.name}</b>
+              <button type="button" aria-label={`Remove ${l.name}`} className="p-1 text-muted-foreground" onClick={() => setLifts(lifts.filter((_, j) => j !== i))}><X className="h-4 w-4" /></button></div>
+            <div className="grid grid-cols-[1.25rem_1fr_1fr_1fr_1.5rem] gap-1.5 text-[11px] text-muted-foreground"><span>#</span><span>{unit.toUpperCase()}</span><span>REPS</span><span>RIR</span><span /></div>
+            {l.sets.map((s, k) => (
+              <div key={k} className="grid grid-cols-[1.25rem_1fr_1fr_1fr_1.5rem] items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">{k + 1}</span>
+                {(['kg', 'reps', 'rir'] as const).map((f) => <Input key={f} type="number" inputMode="decimal" value={s[f]} aria-label={`${l.name} set ${k + 1} ${f}`}
+                  onChange={(e) => setLift(i, { ...l, sets: l.sets.map((x, j) => (j === k ? { ...x, [f]: e.target.value } : x)) })} />)}
+                {l.sets.length > 1 ? <button type="button" aria-label="Remove set" className="text-muted-foreground" onClick={() => setLift(i, { ...l, sets: l.sets.filter((_, j) => j !== k) })}><X className="h-3.5 w-3.5" /></button> : <span />}
+              </div>
+            ))}
+            <div className="flex items-center justify-between">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setLift(i, { ...l, sets: [...l.sets, { ...(l.sets.at(-1) ?? blankSet) }] })}><Plus className="mr-1 h-3.5 w-3.5" /> Add set</Button>
+              {b && <span className="font-mono text-xs">e1RM {Math.round(fromKg(b, unit) * 2) / 2} {unit}</span>}
+            </div>
+          </div>
+        );
+      })}
+      <Button type="button" variant="outline" className="w-full" onClick={() => setPicker(true)}><Plus className="mr-1 h-4 w-4" /> Add exercise</Button>
+      <ExercisePicker open={picker} onClose={() => setPicker(false)} recent={recentNames} onPick={(name) => setLifts([...lifts, { name, sets: [{ ...blankSet }] }])} />
+    </Sec>
+  );
 
   return (
     <div className="space-y-3">
       <CheckinSeg on="session" />
       <Sec title="Pick a session">
         <div className="space-y-1.5">{first.map(item)}</div>
+        {!recent.length && <p className="text-xs text-muted-foreground">No sessions of 15 min or more in the last 7 days. Pull down to sync.</p>}
         {rest.length > 0 && (
           <Accordion type="single" collapsible><AccordionItem value="r" className="border-b-0">
             <AccordionTrigger className="py-2 text-sm text-muted-foreground">Earlier this week ({rest.length})</AccordionTrigger>
             <AccordionContent className="space-y-1.5">{rest.map(item)}</AccordionContent>
           </AccordionItem></Accordion>
         )}
+        <button type="button" onClick={() => setId('manual')} className={cn('w-full rounded-md border border-dashed px-3 py-2 text-left text-sm', manual ? 'border-primary bg-muted' : 'text-muted-foreground')}>Log a lift without a watch activity</button>
       </Sec>
 
-      <Sec title={`${icon(a)} ${a.name || a.type}`}>
-        <p className="text-xs text-muted-foreground">{niceDay(a.day)} · {Math.round((a.moving_time ?? 0) / 60)} min{a.load != null ? ` · load ${Math.round(a.load)}` : ''}</p>
-        <div className="text-xs font-semibold uppercase tracking-wide">Session RPE · how hard was the whole session? (1-10)</div>
-        <Slider min={1} max={10} step={1} value={[rpe]} onValueChange={([v]) => setRpe(v)} aria-label="Session RPE" />
-        <p className="text-sm">{rpe} · {RPE_LABELS[rpe]}</p>
-        <p className="text-xs text-muted-foreground">Session RPE (Foster CR-10): how hard the whole session felt, rated about 30 min after it ended. RPE × minutes gives the session load used for lifting and badminton. Saved to this activity in intervals.icu.</p>
-      </Sec>
-
-      {kind === 'ride' && (
-        <Sec title="🚴 Ride conditions">
-          <p className="text-xs text-muted-foreground">Compare a ride only with rides done in similar conditions, so EF, decoupling, tests and durability stay fair. Each line is filled in from intervals.icu and your check-in. Tap a line to flip ✓ / ✕, then tap All good.</p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {(['z2', 'test'] as const).map((m) => <button key={m} type="button" onClick={() => setMode(m)} className={cn('rounded-md border px-2 py-1.5 text-sm', mode === m ? 'border-primary bg-primary text-primary-foreground' : 'bg-card')}>{m === 'z2' ? 'Zone 2 / steady' : 'Test or race'}</button>)}
-          </div>
-          {mode === 'test' && <p className="text-xs text-muted-foreground">Tests and races add 4 more checks.</p>}
-          <div className="divide-y">
-            {keys.map((k) => <CondRow key={k} on={!!cond[k]} label={COND_INFO[k][mode === 'test' ? 1 : 0]} why={guess.why[k]} info={COND_INFO[k][mode === 'test' ? 3 : 2]} onFlip={() => setCond({ ...cond, [k]: !cond[k] })} />)}
-          </div>
-          <Button type="button" variant="outline" className="w-full" disabled={saving} onClick={() => save(true)}>✓ All good: save checklist</Button>
-          <p className="text-xs text-muted-foreground">Saves every line as shown. Flip any that were different first.</p>
-          <div className="text-xs font-semibold uppercase tracking-wide">How did it go? (vs usual for this ride)</div>
-          <Opts cols={5} opts={PERF} value={perf} onPick={setPerf} />
-          <Accordion type="single" collapsible defaultValue={carbs || temp ? 'n' : undefined}><AccordionItem value="n" className="border-b-0">
-            <AccordionTrigger className="py-2 text-sm text-muted-foreground">Add numbers (optional)</AccordionTrigger>
-            <AccordionContent className="space-y-2">
-              <label className="block text-xs font-semibold uppercase">Room / outdoor temp (°C)<Input type="number" inputMode="decimal" value={temp} onChange={(e) => setTemp(e.target.value)} /></label>
-              <label className="block text-xs font-semibold uppercase">Carbs per hour (g)<Input type="number" inputMode="numeric" value={carbs} onChange={(e) => setCarbs(e.target.value)} /></label>
-            </AccordionContent>
-          </AccordionItem></Accordion>
-        </Sec>
-      )}
-
-      {kind === 'lift' && (
+      {manual && (
         <>
-          <Sec title="🏋️ Top sets">
-            <p className="text-xs text-muted-foreground">Your heaviest set of each main lift. RIR = reps in reserve. e1RM = kg × (1 + (reps + RIR) ÷ 30), the Epley formula, for 12 or fewer total reps. Saved to your lifting log.</p>
-            <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-1.5 text-[11px] text-muted-foreground"><span>LIFT</span><span>KG</span><span>REPS</span><span>RIR</span></div>
-            {sets.map((s, i) => (
-              <div key={i} className="grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-1.5">
-                <select className="h-9 rounded-md border bg-card px-1 text-sm" value={s.lift} onChange={(e) => setSets(sets.map((x, j) => (j === i ? { ...x, lift: e.target.value } : x)))} aria-label="Lift">
-                  <option value="" />{LIFTS.map((l) => <option key={l}>{l}</option>)}
-                </select>
-                {(['kg', 'reps', 'rir'] as const).map((f) => <Input key={f} type="number" inputMode="decimal" placeholder={f} value={s[f]} onChange={(e) => setSets(sets.map((x, j) => (j === i ? { ...x, [f]: e.target.value } : x)))} aria-label={f} />)}
-              </div>
-            ))}
-            <p className="text-xs">{e1.length ? e1.join(' · ') : 'Enter a top set to see its estimated 1-rep max.'}</p>
-          </Sec>
-          <Sec title="💪 Sore muscles">
-            <p className="text-xs text-muted-foreground">Tap a muscle to step through None, Mild, Moderate and Very.</p>
-            <div className="flex flex-wrap gap-1.5">
-              {MUSCLES.map((m) => { const l = sore[m] ?? 0; return (
-                <button key={m} type="button" onClick={() => { const nx = (l + 1) % 4; const s = { ...sore }; if (nx) s[m] = nx; else delete s[m]; setSore(s); }}
-                  className={cn('rounded-full border px-2.5 py-1 text-xs', l ? 'border-primary bg-muted' : 'bg-card')}>{m}{l ? ` · ${MUSCLE_LEVELS[l]}` : ''}</button>
-              ); })}
-            </div>
-          </Sec>
-          <Sec title="🦴 Joint pain">
-            <Slider min={0} max={10} step={1} value={[joint]} onValueChange={([v]) => setJoint(v)} aria-label="Joint pain" />
-            <p className="text-sm">{joint ? `${joint} / 10` : 'None'}</p>
-            {joint > 0 && <Opts cols={4} opts={JOINTS} value={jointWhere ? JOINTS.indexOf(jointWhere) : null} onPick={(i) => setJointWhere(JOINTS[i])} />}
-            <p className="text-xs text-muted-foreground">0 = none, 10 = worst. A log of how it felt. Not medical advice.</p>
-          </Sec>
-          <Sec title="🎈 Pump"><Opts cols={4} opts={PUMP} value={pump} onPick={setPump} /></Sec>
-          <Sec title="📈 How did it go?"><Opts cols={5} opts={PERF} value={perf} onPick={setPerf} /></Sec>
+          <Sec title="Gym session"><label className="block text-xs font-semibold uppercase">Date<Input type="date" value={manualDay} max={today} onChange={(e) => setManualDay(e.target.value)} /></label></Sec>
+          {liftCard}
         </>
       )}
 
-      {kind === 'other' && <Sec title="📈 How did it go?"><Opts cols={5} opts={PERF} value={perf} onPick={setPerf} /></Sec>}
+      {a && !manual && (
+        <>
+          <Sec title={a.name || a.type} help={RPE_HELP}>
+            <p className="text-xs text-muted-foreground">{niceDay(a.day)} · {Math.round((a.moving_time ?? 0) / 60)} min{a.load != null ? ` · load ${Math.round(a.load)}` : ''}</p>
+            <div className="text-xs font-semibold uppercase tracking-wide">Session RPE (1-10)<Auto on={autoRpe && !touched.rpe} /></div>
+            <Slider min={1} max={10} step={1} value={[rpe]} onValueChange={([v]) => { setRpe(v); touch('rpe'); }} aria-label="Session RPE" />
+            <p className="text-sm">{rpe} · {RPE_LABELS[rpe]}</p>
+          </Sec>
 
-      <Sec title="🗒️ Note"><Input type="text" maxLength={300} placeholder="Optional" value={note} onChange={(e) => setNote(e.target.value)} /></Sec>
-      <Button type="button" className="w-full" disabled={saving} onClick={() => save()}>{saving ? 'Saving…' : 'Save session'}</Button>
+          <Sec title="Feel" help={FEEL_HELP}>
+            <Opts cols={5} opts={FEEL} value={feel === null ? null : feel - 1} onPick={(i) => { setFeel(i + 1); touch('feel'); }} />
+            {autoFeel && !touched.feel && <p className="text-xs"><Auto on /></p>}
+          </Sec>
+
+          {kind === 'ride' && (
+            <Sec title="Ride conditions" help="Compare a ride only with rides done in similar conditions, so EF, decoupling, tests and durability stay fair. Lines marked Auto were filled in from intervals.icu and your check-in. Tap a line to flip ✓ / ✕, then tap All good. Tests and races add 4 more checks.">
+              <div className="grid grid-cols-2 gap-1.5">
+                {(['z2', 'test'] as const).map((m) => <button key={m} type="button" onClick={() => { setMode(m); touch('mode'); }} className={cn('rounded-md border px-2 py-1.5 text-sm', mode === m ? 'border-primary bg-primary text-primary-foreground' : 'bg-card')}>{m === 'z2' ? 'Zone 2 / steady' : 'Test or race'}</button>)}
+              </div>
+              <div className="divide-y">
+                {keys.map((k) => <CondRow key={k} on={!!cond[k]} auto={!!guess.why[k] && prev?.data.c?.[k] === undefined && !touched['c' + k]} label={COND_INFO[k][mode === 'test' ? 1 : 0]} why={guess.why[k]} info={COND_INFO[k][mode === 'test' ? 3 : 2]} onFlip={() => { setCond({ ...cond, [k]: !cond[k] }); touch('c' + k); }} />)}
+              </div>
+              <Button type="button" variant="outline" className="w-full" disabled={saving} onClick={() => save(true)}>✓ All good: save checklist</Button>
+              <Accordion type="single" collapsible defaultValue={carbs || temp ? 'n' : undefined}><AccordionItem value="n" className="border-b-0">
+                <AccordionTrigger className="py-2 text-sm text-muted-foreground">Add numbers (optional)</AccordionTrigger>
+                <AccordionContent className="space-y-2">
+                  <label className="block text-xs font-semibold uppercase">Room / outdoor temp (°C)<Auto on={!!guess.temp && prev?.data.temp == null && !touched.temp} /><Input type="number" inputMode="decimal" value={temp} onChange={(e) => { setTemp(e.target.value); touch('temp'); }} /></label>
+                  <label className="block text-xs font-semibold uppercase">Carbs per hour (g)<Input type="number" inputMode="numeric" value={carbs} onChange={(e) => setCarbs(e.target.value)} /></label>
+                </AccordionContent>
+              </AccordionItem></Accordion>
+            </Sec>
+          )}
+
+          {kind === 'lift' && liftCard}
+
+          {kind !== 'ride' && (
+            <Sec title={kind === 'lift' ? 'Sore muscles, joint pain and pump' : 'Sore muscles and joint pain'}>
+              <BodyMapEditor sex={figureSex(p.sex)} modes={kind === 'lift' ? LIFT_MODES : OTHER_MODES} value={body} onChange={setBody}
+                help="Pick a mode, then tap a muscle (or a joint for joint pain) and set the level. Saved to this activity only: your morning check-in still sets the day's soreness and injury. A log of how it felt, not medical advice." />
+            </Sec>
+          )}
+
+          <Sec title="Note"><Input type="text" maxLength={300} placeholder="Optional" value={note} onChange={(e) => setNote(e.target.value)} /></Sec>
+        </>
+      )}
+      {(a || manual) && <Button type="button" className="w-full" disabled={saving} onClick={() => save()}>{saving ? 'Saving…' : 'Save'}</Button>}
     </div>
   );
 }
 
-function CondRow({ on, label, why, info, onFlip }: { on: boolean; label: string; why?: string; info: string; onFlip: () => void }) {
+function CondRow({ on, auto, label, why, info, onFlip }: { on: boolean; auto: boolean; label: string; why?: string; info: string; onFlip: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="py-2">
       <div className="flex items-start gap-2">
         <button type="button" onClick={onFlip} aria-label="Flip" className={cn('h-7 w-7 shrink-0 rounded-full border text-sm font-bold', on ? 'border-green-600 text-green-600' : 'border-red-600 text-red-600')}>{on ? '✓' : '✕'}</button>
-        <button type="button" onClick={onFlip} className="flex-1 text-left text-sm">{label}{why && <small className="block text-xs text-muted-foreground">{why}</small>}</button>
+        <button type="button" onClick={onFlip} className="flex-1 text-left text-sm">{label}<Auto on={auto} />{why && <small className="block text-xs text-muted-foreground">{why}</small>}</button>
         <button type="button" aria-label="Why this matters" onClick={() => setOpen(!open)} className="h-6 w-6 shrink-0 rounded-full border text-xs text-muted-foreground">?</button>
       </div>
       {open && <p className="mt-1 pl-9 text-xs text-muted-foreground">{info}</p>}

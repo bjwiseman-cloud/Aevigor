@@ -1,0 +1,1 @@
+exercises.json is built from Free Exercise DB (https://github.com/yuhonas/free-exercise-db), released into the public domain under the Unlicense, with muscles renamed to the app's 20-muscle map and a few exercises added.
