@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HelpButton } from '@/components/Help';
 import { cn } from '@/lib/utils';
 import { CycleCard } from '@/components/Cycle';
+import { RangeBar, RangeKey, scale, type Range } from '@/components/RangeBar';
 
 export function SyncLine({ profile }: { profile: Profile }) {
   const t = profile.last_sync
@@ -28,13 +29,23 @@ function signalLines(s: Signals, checkedIn: boolean) {
   const hrv: Dot = s.hrv7 == null || s.hrvLow == null || s.hrvHigh == null ? 'none' : s.hrv7 < s.hrvLow || s.hrv7 > s.hrvHigh ? 'warn' : 'good';
   const sleep: Dot = s.sleepHours == null ? 'none' : s.sleepHours < 6 ? 'bad' : s.sleepHours < 7 ? 'warn' : 'good';
   const rhr: Dot = s.rhr7 == null || s.rhrHigh == null ? 'none' : s.rhr7 > s.rhrHigh ? 'warn' : 'good';
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  const feelR: Range | null = s.feel != null && s.feelNormal != null
+    ? { ...scale(s.feelNormal - 1, 25, s.feel, 0.6, 5, 25), lo: r1(s.feelNormal - 1), hi: 25, value: s.feel, label: `${fmt(s.feel)}/25` } : null;
+  const hrvR: Range | null = s.hrv7 != null && s.hrvLow != null && s.hrvHigh != null
+    ? { ...scale(s.hrvLow, s.hrvHigh, s.hrv7, 0.6, 0), lo: r1(s.hrvLow), hi: r1(s.hrvHigh), value: s.hrv7, label: fmt(s.hrv7, ' ms') } : null;
+  const sleepR: Range | null = s.sleepHours != null ? { ...scale(7, 9, s.sleepHours, 1.5, 0, 14), lo: 7, hi: 9, value: s.sleepHours, label: fmt(s.sleepHours, ' h') } : null;
+  const rhrNow = s.restingHR ?? s.rhr7;
+  const rhrLo = s.rhrNormal != null && s.rhrHigh != null ? s.rhrNormal - (s.rhrHigh - s.rhrNormal) : null;
+  const rhrR: Range | null = rhrNow != null && rhrLo != null && s.rhrHigh != null
+    ? { ...scale(rhrLo, s.rhrHigh, rhrNow, 0.6, 25), lo: r1(rhrLo), hi: r1(s.rhrHigh), value: rhrNow, label: fmt(rhrNow, ' bpm') } : null;
   return [
-    { k: 'Feel', dot: feel, v: s.feel == null
+    { k: 'Feel', dot: feel, range: feelR, sub: s.feelNormal != null ? `normal ${fmt(s.feelNormal)}` : null, v: s.feel == null
       ? (checkedIn ? 'Not enough answers' : <Link className="text-primary underline" to="/checkin">Do your check-in</Link>)
       : <>{fmt(s.feel)}/25 <span className="text-muted-foreground">(normal {fmt(s.feelNormal)})</span></> },
-    { k: 'HRV 7-day', dot: hrv, v: <>{fmt(s.hrv7, ' ms')} <span className="text-muted-foreground">(normal {fmt(s.hrvLow)}–{fmt(s.hrvHigh)})</span></> },
-    { k: 'Sleep', dot: sleep, v: fmt(s.sleepHours, ' h') },
-    { k: 'Resting HR', dot: rhr, v: <>{fmt(s.restingHR, ' bpm')} <span className="text-muted-foreground">(7-day {fmt(s.rhr7)})</span></> }
+    { k: 'HRV 7-day', dot: hrv, range: hrvR, sub: `normal ${fmt(s.hrvLow)}–${fmt(s.hrvHigh)}`, v: <>{fmt(s.hrv7, ' ms')} <span className="text-muted-foreground">(normal {fmt(s.hrvLow)}–{fmt(s.hrvHigh)})</span></> },
+    { k: 'Sleep', dot: sleep, range: sleepR, sub: 'target 7–9 h', v: fmt(s.sleepHours, ' h') },
+    { k: 'Resting HR', dot: rhr, range: rhrR, sub: `7-day ${fmt(s.rhr7)} · normal up to ${fmt(s.rhrHigh)}`, v: <>{fmt(s.restingHR, ' bpm')} <span className="text-muted-foreground">(7-day {fmt(s.rhr7)})</span></> }
   ];
 }
 
@@ -89,9 +100,9 @@ export function Today() {
   const wk = WEEKLY[r.weekly] ?? WEEKLY.OK;
   const s = r.signals;
   const lines = signalLines(s, !!checkin.data);
-  if (s.sick) lines.push({ k: 'Sickness', dot: s.sick === 'Yes' ? 'bad' : 'warn', v: s.sick === 'Yes' ? 'Below the neck' : 'Mild, above the neck' });
+  if (s.sick) lines.push({ k: 'Sickness', range: null, sub: null, dot: s.sick === 'Yes' ? 'bad' : 'warn', v: s.sick === 'Yes' ? 'Below the neck' : 'Mild, above the neck' });
   if (r.load && r.load.plan > 0) {
-    lines.push({ k: 'Load vs plan', dot: r.load.alert ? 'bad' : 'good',
+    lines.push({ k: 'Load vs plan', range: null, sub: null, dot: r.load.alert ? 'bad' : 'good',
       v: <>{r.load.act} / {r.load.plan} <span className="text-muted-foreground">(last 7 days)</span></> });
   }
 
@@ -140,13 +151,17 @@ export function Today() {
 
       <Card>
         <CardHeader className="pb-2"><CardTitle help="signals">Signals</CardTitle></CardHeader>
-        <CardContent className="divide-y">
+        <CardContent className="space-y-4">
           {lines.map((l) => (
-            <div key={l.k} className="flex justify-between gap-3 py-2.5">
-              <span className="flex items-center gap-2"><span className={cn('h-2.5 w-2.5 rounded-full', DOT[l.dot])} />{l.k}</span>
-              <span className="text-right">{l.v}</span>
+            <div key={l.k}>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="flex items-center gap-2 font-medium"><span className={cn('h-2.5 w-2.5 rounded-full', DOT[l.dot])} />{l.k}</span>
+                {l.range ? <span className="text-right text-xs text-muted-foreground">{l.sub}</span> : <span className="text-right">{l.v}</span>}
+              </div>
+              {l.range && <RangeBar r={l.range} />}
             </div>
           ))}
+          <RangeKey />
         </CardContent>
       </Card>
 
