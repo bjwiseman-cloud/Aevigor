@@ -1,9 +1,8 @@
 // Load tab, matching the live app's redesign (Ben 2026-11-18, Apps Script V16-V18):
-// sport picker (★ default, Combined, more sports) · Next test · Training status (dial, or a ribbon over a range) ·
+// sport chips (Cycling, Running, Lifting, Combined, More sports) · Next test · Training status (dial, or a ribbon over a range) ·
 // Fitness/Fatigue (shaded, no load bars) · Form · Ramp rate · one slider for all three · actual vs planned this week.
 import { useMemo, useState } from 'react';
 import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { toast } from 'sonner';
 import { addDays } from '@rules';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,15 +11,16 @@ import { Slider } from '@/components/ui/slider';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Chip, Chips } from '@/components/chips';
 import { HowToRead, axis, shortDay, tooltipStyle } from '@/components/charts';
-import { HelpButton } from '@/components/Help';
-import { useCalendar, useCheckins, useDailyLoad, usePlannedTests, usePref, useProfile, useWellness, LOAD_BACK } from '@/hooks/data';
+import { useCalendar, useCheckins, useDailyLoad, usePlannedTests, useProfile, useWellness, LOAD_BACK } from '@/hooks/data';
 import { useActivities } from '@/hooks/perf';
 import { pmc, type PmcPoint } from '@/lib/metrics';
 import { testResults } from '@/lib/perf';
 import { TS_ORDER, mergeDays, statusColor, trainingStatus, weekPct, type Status } from '@/lib/training-status';
 import { todayIn } from '@/lib/time';
 import { cn } from '@/lib/utils';
-import { useSets } from '@/screens/training/Lifting';
+import { useSets, useUnit } from '@/hooks/lifting';
+import { Volume } from '@/screens/training/liftCards';
+import { HelpQ } from '@/components/HelpQ';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 const FIT = '#14b8a6', FAT = '#fb7185', ACT = '#8b5cf6', PLAN = '#f59e0b';
@@ -104,7 +104,7 @@ export function Load() {
   const p = useProfile().data!;
   const today = todayIn(p.time_zone);
   const load = useDailyLoad(p), tests = usePlannedTests(p), cal = useCalendar(p), acts = useActivities(p), wellness = useWellness(p), checkins = useCheckins(p), lifts = useSets();
-  const pref = usePref<{ def: string; sports: string[] | null }>('load_sports', { def: 'ride', sports: null });
+  const [liftUnit] = useUnit();
   const [pick, setPick] = useState<string | null>(null);
   const [R, setR] = useState('t');
   const [cf, setCf] = useState(''), [ct, setCt] = useState('');
@@ -120,10 +120,11 @@ export function Load() {
     ['ride', 'run'].forEach((k) => { if (!keys.includes(k)) keys.push(k); });
     return { c, keys };
   }, [rows, today]);
-  const shown = (pref.value.sports ?? avail.keys).filter(Boolean);
-  const first = pref.value.def || 'ride';
-  const sport = pick ?? first;
-  const others = shown.filter((k) => k !== first);
+  // Fixed chips: Cycling, Running, Lifting, Combined (opens first). Every other intervals.icu sport sits under More sports.
+  const FIXED = ['ride', 'run', 'WeightTraining'];
+  const shown = avail.keys.filter(Boolean);
+  const sport = pick ?? 'mix';
+  const others = shown.filter((k) => !FIXED.includes(k));
 
   const ahead = useMemo(() => (cal.data ?? []).filter((c) => c.day > today && c.day <= addDays(today, 180)), [cal.data, today]);
   const defTarget = Math.max(0, ahead.findIndex((c) => c.kind !== 'Event'));
@@ -191,15 +192,16 @@ export function Load() {
     <div className="space-y-4">
       <SubTabs tabs={TRAINING_TABS} />
       <div className="flex flex-wrap items-center gap-1.5">
-        <Chip on={sport === first} onClick={() => setPick(first)}>★ {sportLabel(first)}</Chip>
-        {first !== 'mix' && shown.length > 1 && <Chip on={sport === 'mix'} onClick={() => setPick('mix')}>Combined</Chip>}
+        {FIXED.map((k) => <Chip key={k} on={sport === k} onClick={() => setPick(k)}>{sportLabel(k)}</Chip>)}
+        <Chip on={sport === 'mix'} onClick={() => setPick('mix')}>Combined</Chip>
         {others.length > 0 && (
           <select className="h-8 rounded-full border bg-card px-3 text-sm" value={others.includes(sport) ? sport : ''} onChange={(e) => e.target.value && setPick(e.target.value)} aria-label="More sports">
             <option value="">More sports ▾</option>{others.map((k) => <option key={k} value={k}>{sportLabel(k)}</option>)}
           </select>
         )}
+        <span className="ml-auto"><HelpQ text="Combined adds up all your sports. More sports lists every other sport in your intervals.icu history. Add more sports by creating them in intervals.icu > Settings > Sport Settings; they show up here after the next sync." /></span>
       </div>
-      <ChooseSports keys={avail.keys} counts={avail.c} shown={shown} def={first} onSave={async (v) => { try { await pref.save(v); setPick(null); toast.success('Saved'); } catch (e) { toast.error((e as Error).message); } }} />
+      {sport === 'WeightTraining' && <Volume sets={lifts.data ?? []} unit={liftUnit} ex={null} />}
 
       {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}
 
@@ -338,31 +340,6 @@ function ZoneChart({ title, help, data, keyA, keyP, zones, ticks, lo, hi, X, ext
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">{zones.map((z) => <span key={z[3]}><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: z[2] }} />{z[3]}</span>)}</div>
       </CardContent>
     </Card>
-  );
-}
-
-function ChooseSports({ keys, counts, shown, def, onSave }: { keys: string[]; counts: Record<string, number>; shown: string[]; def: string; onSave: (v: { def: string; sports: string[] }) => void }) {
-  const [on, setOn] = useState<string[] | null>(null);
-  const [d, setD] = useState<string | null>(null);
-  const picked = on ?? shown, dd = d ?? def;
-  return (
-    <Accordion type="single" collapsible className="rounded-lg border bg-card px-3">
-      <AccordionItem value="s" className="border-b-0">
-        <AccordionTrigger className="py-2 text-sm">⚙ Choose sports ({shown.length} on)</AccordionTrigger>
-        <AccordionContent className="space-y-2 text-sm">
-          <p className="text-xs text-muted-foreground">Ticked sports appear in the list above and count toward <b>Combined</b>. ★ = the tab that opens first. These are the activity types in your intervals.icu history. <HelpButton topic="load-vs-plan" /></p>
-          {[...keys, 'mix'].map((k) => (
-            <div key={k} className="grid grid-cols-[1.5rem_1fr_auto_2.5rem] items-center gap-2">
-              {k === 'mix' ? <span /> : <input type="checkbox" checked={picked.includes(k)} onChange={(e) => setOn(e.target.checked ? [...picked, k] : picked.filter((x) => x !== k))} aria-label={sportLabel(k)} />}
-              <span>{sportLabel(k)}</span>
-              <span className="text-xs text-muted-foreground">{k === 'mix' ? 'ticked sports added up' : `${counts[k] ?? 0} in 12 mo`}</span>
-              <label className="flex items-center gap-1 text-xs"><input type="radio" name="spDef" checked={dd === k} onChange={() => setD(k)} aria-label={`${sportLabel(k)} opens first`} />★</label>
-            </div>
-          ))}
-          <Button size="sm" onClick={() => { if (!picked.length) { toast.error('Pick at least one sport'); return; } onSave({ def: dd !== 'mix' && !picked.includes(dd) ? picked[0] : dd, sports: picked }); }}>Save</Button>
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
   );
 }
 

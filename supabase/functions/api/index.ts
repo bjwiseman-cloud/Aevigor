@@ -12,7 +12,7 @@
 //   /api/invites, /api/invite, /api/uninvite   admins only: list, add and remove testers
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { syncUser, todayIn } from '../_shared/sync.js';
-import { icu, athletePath, putWellness, IntervalsError } from '../_shared/intervals.js';
+import { icu, athletePath, putWellness, uploadActivity, IntervalsError } from '../_shared/intervals.js';
 import { encrypt, decrypt } from '../_shared/crypto.js';
 import { addDays } from '../_shared/rules.js';
 import { fetchStreams } from '../_shared/performance.js';
@@ -132,7 +132,23 @@ const ANSWERS = ['sleep_quality', 'fatigue', 'soreness', 'stress', 'mood', 'moti
 // Body map from the check-in: each part sore and/or injured, level 1 (light) to 4 (severe).
 type BodyMap = Record<string, { sore?: number; injury?: number }>;
 // Same parts, levels and comment wording as the live app, so either app can read the other's comments.
-const BODY_LABELS: Record<string, string> = { chest: 'Chest', shoulders: 'Shoulders', arms: 'Arms', abs: 'Abs', upperBack: 'Upper back/neck', lowerBack: 'Lower back', glutes: 'Glutes', quads: 'Quads', hamstrings: 'Hamstrings', calves: 'Calves' };
+// 20 muscles (same set as Garmin's muscle map); shoulders, arms and upperBack are the older broad parts, still read.
+const BODY_LABELS: Record<string, string> = {
+  neck: 'Neck', traps: 'Traps', lats: 'Lats', lowerBack: 'Lower back', frontDelts: 'Front delts', sideDelts: 'Side delts', rearDelts: 'Rear delts',
+  chest: 'Chest', abs: 'Abdominals', biceps: 'Biceps', triceps: 'Triceps', wristFlexors: 'Wrist flexors', wristExtensors: 'Wrist extensors',
+  glutes: 'Glutes', hamstrings: 'Hamstrings', quads: 'Quads', adductors: 'Hip adductors', abductors: 'Hip abductors', calves: 'Calves', shins: 'Shins',
+  shoulders: 'Shoulders', arms: 'Arms', upperBack: 'Upper back/neck'
+};
+const JOINT_LABELS: Record<string, string> = { neck: 'Neck', shoulders: 'Shoulders', elbows: 'Elbows', wrists: 'Wrists', lowerBack: 'Lower back', hips: 'Hips', knees: 'Knees', ankles: 'Ankles' };
+const FEEL_WORDS = ['Strong', 'Good', 'Normal', 'Poor', 'Weak'];
+// {key: level} limited to known keys and a level range
+function levels(v: unknown, labels: Record<string, string>, lo: number, hi: number) {
+  const out: Record<string, number> = {};
+  if (v && typeof v === 'object') for (const [k, x] of Object.entries(v as Record<string, unknown>).slice(0, 40)) {
+    const n = Number(x); if (labels[k] && Number.isInteger(n) && n >= lo && n <= hi) out[k] = n;
+  }
+  return out;
+}
 const SORE_LEVELS = ['Low', 'Average', 'High', 'Extreme'], INJURY_LEVELS = ['None', 'Niggle', 'Poor', 'Injured'];
 function cleanBody(v: unknown): BodyMap | null {
   if (!v || typeof v !== 'object') return null;
@@ -154,8 +170,36 @@ function bodySummary(b: BodyMap | null) {
 }
 
 const COND_KEYS = ['type', 'len', 'time', 'fan', 'strap', 'fuel', 'heat', 'hyd', 'ill', 'sleep', 'hard', 'caf', 'warm', 'zero', 'meal'];
-const MUSCLES = ['Chest', 'Back', 'Shoulders', 'Arms', 'Core', 'Glutes', 'Quads', 'Hamstrings', 'Calves'];
-const JOINTS = ['Shoulder', 'Elbow', 'Wrist', 'Low back', 'Hip', 'Knee', 'Ankle', 'Other'];
+
+const COND_LABELS: Record<string, string> = {
+  type: 'Steady / same format', len: 'Usual length and power', time: 'Usual time of day', fan: 'Same fan and room', strap: 'Chest strap and usual power meter',
+  fuel: 'Usual carbs', heat: 'Usual temperature', hyd: 'Usual drinking', ill: 'Not sick', sleep: 'Slept well', hard: 'No hard day before',
+  caf: 'Same caffeine', warm: 'Same warm-up and trainer mode', zero: 'Power meter zeroed', meal: 'Usual meal before'
+};
+// Plain-text summary of a Post Activity log for the intervals.icu activity description
+function postActivityBlock(kind: string, data: Record<string, any>, lifts: string, note: string | null) {
+  const lines: string[] = [];
+  if (data.feel) lines.push(`Feel: ${FEEL_WORDS[data.feel - 1]}`);
+  if (kind === 'ride') {
+    const c = (data.c ?? {}) as Record<string, boolean>;
+    const off = Object.keys(c).filter((k) => c[k] === false).map((k) => COND_LABELS[k] ?? k);
+    lines.push(`Ride conditions (${data.mode === 'test' ? 'test or race' : 'zone 2 / steady'}): ${off.length ? 'different: ' + off.join(', ') : 'all as usual'}`);
+    if (data.temp != null) lines.push(`Temperature: ${data.temp} °C`);
+    if (data.carbs != null) lines.push(`Carbs: ${data.carbs} g/h`);
+  }
+  if (lifts) lines.push(`Lifts: ${lifts}`);
+  const b = data.body as { sore?: Record<string, number>; joint?: Record<string, number>; pump?: Record<string, number> } | undefined;
+  const list = (v: Record<string, number> | undefined, labels: Record<string, string>, words: string[], from: number) =>
+    Object.entries(v ?? {}).map(([k, n]) => `${labels[k] ?? k} (${words[n - from] ?? n})`).join(', ');
+  if (b) {
+    const s = list(b.sore, BODY_LABELS, SORE_LEVELS, 1), j = list(b.joint, JOINT_LABELS, ['Mild', 'Moderate', 'Severe'], 1), p = list(b.pump, BODY_LABELS, ['Light', 'Good', 'Great'], 1);
+    if (s) lines.push(`Sore: ${s}`);
+    if (j) lines.push(`Joint pain: ${j}`);
+    if (p) lines.push(`Pump: ${p}`);
+  }
+  if (note) lines.push(`Note: ${note}`);
+  return lines.join('\n');
+}
 
 const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
   async connect(req, body) {
@@ -243,7 +287,7 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     return { ok: true, copied, sync };
   },
 
-  // "After a session": session RPE (copied onto the intervals.icu activity), ride conditions or lifting extras.
+  // "Post Activity": session RPE (copied onto the intervals.icu activity), ride conditions or lifting extras.
   async session(req, body) {
     const { user, profile } = await currentUser(req); needConsent(profile);
     const id = String(body.id ?? '');
@@ -252,27 +296,35 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     const kind = ['ride', 'lift', 'other'].includes(body.kind) ? body.kind : 'other';
     const rpe = Number.isInteger(Number(body.rpe)) && Number(body.rpe) >= 1 && Number(body.rpe) <= 10 ? Number(body.rpe) : null;
     const int = (v: unknown, lo: number, hi: number) => { const n = Math.round(Number(v)); return v !== '' && v !== null && v !== undefined && Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
-    const pick = <T,>(v: unknown, list: readonly T[]) => (list.includes(v as T) ? (v as T) : null);
     const d = (body.data ?? {}) as Record<string, any>;
-    const data: Record<string, unknown> = { perf: int(d.perf, 1, 5) };
+    const data: Record<string, unknown> = { feel: int(d.feel, 1, 5) };
     if (kind === 'ride') {
       const c: Record<string, boolean> = {};
       for (const k of COND_KEYS) if (typeof d.c?.[k] === 'boolean') c[k] = d.c[k];
       Object.assign(data, { mode: d.mode === 'test' ? 'test' : 'z2', c, temp: int(d.temp, -30, 50), carbs: int(d.carbs, 0, 200) });
-    } else if (kind === 'lift') {
-      const sore: Record<string, number> = {};
-      for (const m of MUSCLES) { const v = int(d.sore?.[m], 1, 3); if (v) sore[m] = v; }
-      const joint = int(d.joint, 0, 10) ?? 0;
-      Object.assign(data, { sore, joint, jointWhere: joint ? pick(d.jointWhere, JOINTS) : null, pump: int(d.pump, 0, 3) });
+    } else {
+      // Post Activity body map: sore muscles 1-4, joint pain 1-3, pump 1-3 (lifting). Saved to this activity only.
+      data.body = { sore: levels(d.body?.sore, BODY_LABELS, 1, 4), joint: levels(d.body?.joint, JOINT_LABELS, 1, 3), pump: kind === 'lift' ? levels(d.body?.pump, BODY_LABELS, 1, 3) : {} };
     }
     const row = { user_id: user.id, activity_id: id, day: act.day, kind, rpe, note: typeof body.note === 'string' ? body.note.slice(0, 300) : null, data, updated_at: new Date().toISOString() };
     const { error } = await admin.from('session_logs').upsert(row);
     if (error) throw error;
+    // Send everything to the intervals.icu activity: RPE and Feel in their own fields, the rest as one block in the
+    // description (replaced on every save, the person's own description text is kept).
     let copied = false;
-    if (rpe) {
-      try { await icu(await keyFor(user.id), '/activity/' + encodeURIComponent(id), 'PUT', { icu_rpe: rpe }); copied = true; }
-      catch (e) { console.warn('session RPE copy failed', e); }
-    }
+    try {
+      const key = await keyFor(user.id);
+      const path = '/activity/' + encodeURIComponent(id);
+      const cur = await icu(key, path) as Record<string, unknown>;
+      const lifts = typeof body.lifts === 'string' ? body.lifts.slice(0, 1500) : '';
+      const block = postActivityBlock(kind, data, lifts, row.note);
+      const own = String(cur?.description ?? '').replace(/\n*\[Aevigor Post Activity\][\s\S]*?\[\/Aevigor\]/, '').trimEnd();
+      const put: Record<string, unknown> = { description: block ? `${own}${own ? '\n\n' : ''}[Aevigor Post Activity]\n${block}\n[/Aevigor]` : own };
+      if (rpe) put.icu_rpe = rpe;
+      if (data.feel) put.feel = data.feel;
+      await icu(key, path, 'PUT', put);
+      copied = true;
+    } catch (e) { console.warn('post activity copy failed', e); }
     return { ok: true, copied };
   },
 
@@ -306,6 +358,20 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     const { data } = await admin.from('activities').select('id').eq('user_id', user.id).eq('id', id).maybeSingle();
     if (!data) throw new HttpError(404, 'That activity was not found. Try syncing first.');
     return { streams: await fetchStreams(await keyFor(user.id), id) };
+  },
+
+  // Import Activity: a ride / run / other file goes to the person's intervals.icu; the next sync brings it back here.
+  async 'upload-activity'(req, body) {
+    const { user, profile } = await currentUser(req); needConsent(profile);
+    const name = String(body.name ?? '').slice(0, 120);
+    if (!/\.(fit|gpx|tcx)(\.gz)?$/i.test(name)) throw new HttpError(400, 'Pick a .fit, .gpx or .tcx file.');
+    const b64 = String(body.data ?? '');
+    if (!b64 || b64.length > 14_000_000) throw new HttpError(400, 'That file is empty or over 10 MB.');
+    let bytes: Uint8Array;
+    try { bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)); } catch { throw new HttpError(400, 'That file could not be read.'); }
+    const r = await uploadActivity(await keyFor(user.id), profile.intervals_athlete_id ?? '0', name, bytes);
+    try { await runSync(user.id, profile, await keyFor(user.id)); } catch (e) { console.warn('sync after upload failed', e); }
+    return { ok: true, id: (r as { id?: string } | null)?.id ?? null };
   },
 
   // Phone alerts

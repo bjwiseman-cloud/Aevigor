@@ -12,6 +12,7 @@ export type Profile = {
   is_admin?: boolean;
   health_consent_at?: string | null;
   libido_log?: boolean;
+  sex?: 'female' | 'male' | 'unspecified' | null;
 };
 
 export type Signals = {

@@ -13,7 +13,9 @@ import { useSearchParams } from 'react-router-dom';
 import { addDays } from '@rules';
 import { todayIn } from '@/lib/time';
 import { e1rm, type LiftSet } from '@/lib/lifting';
-import { useSets } from '@/screens/training/Lifting';
+import { useSets, useUnit } from '@/hooks/lifting';
+import { LiftImport } from '@/screens/training/liftCards';
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 import { useActivities, useStreams } from '@/hooks/perf';
 import { MEDALS, METRICS, RUN_DIST, duration, isRace, isRide, isRun, n, secsLabel, wbal, workSplit, type Activity } from '@/lib/perf';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
@@ -93,7 +95,7 @@ function Detail({ a, badges, sets, onClose }: { a: Activity; badges: string[]; s
           {isLift(a) && (sets.length ? (
             <table className="w-full text-sm"><thead className="text-xs text-muted-foreground"><tr><th className="text-left">Exercise</th><th>Set</th><th>Reps</th><th>kg</th><th>e1RM</th></tr></thead>
               <tbody>{sets.map((x) => <tr key={x.id} className="border-t"><td className="py-1">{x.exercise}{x.warmup ? ' (warm-up)' : ''}</td><td className="text-center">{x.set_no}</td><td className="text-center">{x.reps}</td><td className="text-center font-mono">{x.weight}</td><td className="text-center font-mono">{x.warmup ? '–' : e1rm(x.weight, x.reps) ? Math.round(e1rm(x.weight, x.reps)!) : '–'}</td></tr>)}</tbody></table>
-          ) : <p className="text-sm text-muted-foreground">No sets logged for this day. Add them in the Lifting tab or the After a session check-in.</p>)}
+          ) : <p className="text-sm text-muted-foreground">No sets logged for this day. Add them in Post Activity.</p>)}
           {s.isLoading && <p className="text-sm text-muted-foreground">Loading the ride data…</p>}
           {s.error && <p className="text-sm text-muted-foreground">{(s.error as Error).message}</p>}
           {chart.length > 0 && (
@@ -145,13 +147,20 @@ export function Sessions() {
   const [kind, setKind] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [more, setMore] = useState(30);
+  const [range, setRange] = useState<{ y: string | null; m: string | null; all?: boolean }>({ y: null, m: null });
+  const [unit] = useUnit();
   const all = acts.data ?? [];
   const openId = params.get('open');
   const open = openId ? all.find((a) => a.id === openId) ?? null : null;
   const setOpen = (a: Activity | null) => setParams(a ? { open: a.id } : {}, { replace: !a });
   const badges = useBadges(all, paceCurves.data ?? [], today);
   const endurance = filter === 'ride' || filter === 'run';
+  const from30 = addDays(today, -29);
+  const years = [...new Set(all.map((a) => a.day.slice(0, 4)))].sort().reverse();
+  const months = range.y ? [...new Set(all.filter((a) => a.day.startsWith(range.y!)).map((a) => a.day.slice(5, 7)))].sort() : [];
   const list = all.filter((a) => {
+    if (!range.all && !range.y && a.day < from30) return false;
+    if (range.y && !a.day.startsWith(range.m ? `${range.y}-${range.m}` : range.y)) return false;
     if (filter === 'ride' && !isRide(a)) return false;
     if (filter === 'run' && !isRun(a)) return false;
     if (filter === 'lift' && !isLift(a)) return false;
@@ -183,14 +192,19 @@ export function Sessions() {
         </Card>
       )}
       <Card>
-        <CardHeader className="pb-2"><CardTitle help="sessions">Sessions</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="sessions">Activities</CardTitle></CardHeader>
         <CardContent className="space-y-3">
+          <Chips>
+            <Chip on={!range.y && !range.all} onClick={() => setRange({ y: null, m: null })}>Last 30 days</Chip>
+            {years.map((y) => <Chip key={y} on={range.y === y} onClick={() => setRange({ y, m: null })}>{y}</Chip>)}
+            <Chip on={!!range.all} onClick={() => setRange({ y: null, m: null, all: true })}>All</Chip>
+          </Chips>
+          {range.y && months.length > 1 && <Chips>{months.map((m) => <Chip key={m} on={range.m === m} className="text-xs" onClick={() => setRange({ y: range.y, m: range.m === m ? null : m })}>{MONTHS[Number(m) - 1]}</Chip>)}</Chips>}
           <Chips>{FILTERS.map((f) => <Chip key={f.id} on={filter === f.id} onClick={() => pickFilter(f.id)}>{f.label}</Chip>)}</Chips>
           {endurance && (
             <div className="space-y-1.5 rounded-md border p-2">
-              <Chips><Chip on={race} onClick={() => setRace(!race)} className="text-xs">🏁 Races</Chip>{LENGTHS.map((l) => <Chip key={l.id} on={len === l.id} onClick={() => setLen(len === l.id ? null : l.id)} className="text-xs">{l.label}</Chip>)}</Chips>
+              <Chips><Chip on={race} onClick={() => setRace(!race)} className="text-xs">Races</Chip>{LENGTHS.map((l) => <Chip key={l.id} on={len === l.id} onClick={() => setLen(len === l.id ? null : l.id)} className="text-xs">{l.label}</Chip>)}</Chips>
               <Chips>{KINDS.map((k) => <Chip key={k} on={kind === k} onClick={() => setKind(kind === k ? null : k)} className="text-xs">{k}</Chip>)}</Chips>
-              <p className="text-[11px] text-muted-foreground">Session type comes from the workout name, else from its intensity (a best guess).</p>
             </div>
           )}
           <p className="text-xs text-muted-foreground">Tap a session for its analysis. Tick 2 to 4 to compare them side by side.</p>
@@ -206,12 +220,13 @@ export function Sessions() {
                 <Button variant="ghost" size="sm" className="text-xs" onClick={() => setPicked([a.id, ...similar(a).map((b) => b.id)])}>Similar</Button>
               </div>
             ))}
-            {!list.length && <p className="p-3 text-sm text-muted-foreground">{acts.isLoading ? 'Loading…' : 'No sessions yet. They appear after the next sync.'}</p>}
+            {!list.length && <p className="p-3 text-sm text-muted-foreground">{acts.isLoading ? 'Loading…' : 'No activities in this period.'}</p>}
           </div>
           {list.length > more && <Button variant="outline" className="w-full" onClick={() => setMore(more + 30)}>Show more</Button>}
         </CardContent>
       </Card>
-      {open && <Detail a={open} badges={badges[open.id] ?? []} sets={(lifts.data ?? []).filter((x) => x.day === open.day)} onClose={() => setOpen(null)} />}
+      <LiftImport sets={lifts.data ?? []} unit={unit} />
+      {open && <Detail a={open} badges={badges[open.id] ?? []} sets={(lifts.data ?? []).filter((x) => x.activity_id ? x.activity_id === open.id : x.day === open.day)} onClose={() => setOpen(null)} />}
     </div>
   );
 }
