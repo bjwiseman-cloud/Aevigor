@@ -19,13 +19,13 @@ import { PHASES, phaseRuns, showsPhases } from '@/lib/cycle';
 import { LoadTrendCards } from '@/screens/Load';
 
 const ALL: [string, string][] = [
-  ['feel', 'Feel · check-in score'], ['hrv', 'HRV · 7-day trend'], ['cv', 'HRV day-to-day variation (CV)'], ['sleep', 'Sleep'], ['rhr', 'Resting HR'],
-  ['clarity', 'Mental clarity'], ['libido', 'Libido (optional log)'], ['caffeine', 'Caffeine'], ['alcohol', 'Alcohol'], ['bodyTemp', 'Body temperature'], ['rpe', 'Daily RPE'], ['load', 'Training load'],
-  ['pmc', 'Fitness · Fatigue'], ['form', 'Form zones'], ['plan', 'Actual vs planned load'],
-  ['weight', 'Body weight'], ['bodyFat', 'Body fat'], ['vo2max', 'VO2 max (watch estimate)'], ['steps', 'Steps'], ['sleepScore', 'Sleep score'],
-  ['spO2', 'Blood oxygen (SpO2)'], ['respiration', 'Breathing rate'], ['hydration', 'Hydration']
+  ['feel', 'Feel · check-in score'], ['hrv', 'HRV · 7-day trend'], ['cv', 'HRV day-to-day variation (CV)'], ['sleep', 'Sleep'], ['sleepScore', 'Sleep score'], ['rhr', 'Resting HR'],
+  ['spO2', 'Blood oxygen (SpO2)'], ['respiration', 'Breathing rate'],
+  ['clarity', 'Mental clarity'], ['libido', 'Libido (optional log)'], ['caffeine', 'Caffeine'], ['alcohol', 'Alcohol'], ['bodyTemp', 'Body temperature'], ['rpe', 'Daily RPE'],
+  ['weight', 'Body weight'], ['bodyFat', 'Body fat'], ['vo2max', 'VO2 max (watch estimate)'], ['steps', 'Steps'], ['hydration', 'Hydration'],
+  ['load', 'Training load'], ['pmc', 'Fitness · Fatigue'], ['form', 'Form zones'], ['plan', 'Actual vs planned load']
 ];
-const GROUPS: Record<string, string> = { feel: 'Readiness signals', clarity: 'Check-in logs', pmc: 'Training load (same as the Load tab)', weight: 'From intervals.icu or your watch' };
+const GROUPS: Record<string, string> = { feel: 'Readiness signals', clarity: 'Daily logs', load: 'Training load (same as the Load tab)' };
 const DEFAULT = ['feel', 'hrv', 'cv', 'sleep', 'rhr', 'clarity', 'libido', 'rpe', 'load'];
 const FATIGUE = 'rgba(255,176,46,0.22)';
 const H = 140;

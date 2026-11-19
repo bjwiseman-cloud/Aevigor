@@ -8,7 +8,7 @@
 //   /api/streams         one activity's second-by-second data (Sessions, W′ battery)
 //   /api/push-key, /api/push-test   phone alerts set-up; /api/push-due runs every 5 minutes (database job)
 //   /api/delete-account  delete the account and every row of the person's data
-//   /api/cron            nightly sync of everyone (needs the x-cron-secret header)
+//   /api/cron            sync of everyone (x-cron-token header = the push_cron_token in app_secrets)
 //   /api/invites, /api/invite, /api/uninvite   admins only: list, add and remove testers
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { syncUser, todayIn } from '../_shared/sync.js';
@@ -440,7 +440,8 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     const bearer = (req.headers.get('authorization') ?? '').replace(/^Bearer /i, '');
     const okSecret = !!CRON_SECRET && req.headers.get('x-cron-secret') === CRON_SECRET;
     const okService = !!SERVICE_KEY && bearer === SERVICE_KEY;
-    if (!okSecret && !okService) throw new HttpError(401, 'Not allowed');
+    const okToken = !okSecret && !okService && await checkToken(admin, req.headers.get('x-cron-token'));
+    if (!okSecret && !okService && !okToken) throw new HttpError(401, 'Not allowed');
     const { data: people } = await admin.from('profiles').select('*').not('intervals_connected_at', 'is', null).not('consent_at', 'is', null);
     const results: Record<string, string> = {};
     const queue = [...(people ?? [])];

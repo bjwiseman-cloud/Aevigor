@@ -61,20 +61,36 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: supabase functions deploy api --yes --project-ref "$PROJECT_REF" --no-verify-jwt
+      - name: Sync all testers
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          # The sync password lives in the database (app_secrets), read through the Management API.
+          jq -n --arg q "select value from public.app_secrets where name = 'push_cron_token'" '{query: $q}' > /tmp/q.json
+          TOKEN=$(curl -sS --fail-with-body -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H 'content-type: application/json' --data @/tmp/q.json | jq -r '.[0].value')
+          echo "::add-mask::$TOKEN"
+          test -n "$TOKEN" && test "$TOKEN" != null
+          curl -sS --fail-with-body -X POST "https://$PROJECT_REF.supabase.co/functions/v1/api/cron" \
+            -H "x-cron-token: $TOKEN" -H "content-type: application/json" -d '{}' > /tmp/sync.json
+          jq -c '{ok, synced}' /tmp/sync.json
 
   sync-everyone:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: supabase/setup-cli@v1
-        with: { version: latest }
       - name: Sync all testers
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          KEY=$(supabase projects api-keys --project-ref "$PROJECT_REF" -o json | jq -r '.[] | select(.name == "service_role") | .api_key')
-          echo "::add-mask::$KEY"
-          test -n "$KEY"
+          set -euo pipefail
+          # The sync password lives in the database (app_secrets), read through the Management API.
+          jq -n --arg q "select value from public.app_secrets where name = 'push_cron_token'" '{query: $q}' > /tmp/q.json
+          TOKEN=$(curl -sS --fail-with-body -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H 'content-type: application/json' --data @/tmp/q.json | jq -r '.[0].value')
+          echo "::add-mask::$TOKEN"
+          test -n "$TOKEN" && test "$TOKEN" != null
           curl -sS --fail-with-body -X POST "https://$PROJECT_REF.supabase.co/functions/v1/api/cron" \
-            -H "Authorization: Bearer $KEY" -H "content-type: application/json" -d '{}' \
-            | head -c 300
+            -H "x-cron-token: $TOKEN" -H "content-type: application/json" -d '{}' > /tmp/sync.json
+          jq -c '{ok, synced}' /tmp/sync.json
