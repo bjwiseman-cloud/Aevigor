@@ -15,6 +15,7 @@ import { isRide, n, type Activity } from '@/lib/perf';
 import { e1rm, exercises, fromKg, showW, toKg } from '@/lib/lifting';
 import { HelpQ } from '@/components/HelpQ';
 import { BodyMapEditor, figureSex, type MapMode, type MapValue } from '@/components/BodyMap';
+import { PhotoLogButton } from '@/components/PhotoLog';
 import { ExercisePicker } from '@/components/ExercisePicker';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -76,7 +77,7 @@ export function Auto({ on }: { on: boolean }) {
 }
 
 type SetRow = { kg: string; reps: string; rir: string };
-type Lift = { name: string; sets: SetRow[] };
+type Lift = { name: string; sets: SetRow[]; auto?: boolean };
 const blankSet: SetRow = { kg: '', reps: '', rir: '' };
 
 export function SessionCheckin() {
@@ -242,7 +243,7 @@ export function SessionCheckin() {
         const b = bestE1(l);
         return (
           <div key={i} className="space-y-1.5 rounded-md border p-2">
-            <div className="flex items-center gap-2"><b className="flex-1 text-sm">{l.name}</b>
+            <div className="flex items-center gap-2"><b className="flex-1 text-sm">{l.name}<Auto on={!!l.auto} /></b>
               <button type="button" aria-label={`Remove ${l.name}`} className="p-1 text-muted-foreground" onClick={() => setLifts(lifts.filter((_, j) => j !== i))}><X className="h-4 w-4" /></button></div>
             <div className="grid grid-cols-[1.25rem_1fr_1fr_1fr_1.5rem] gap-1.5 text-[11px] text-muted-foreground"><span>#</span><span>{unit.toUpperCase()}</span><span>REPS</span><span>RIR</span><span /></div>
             {l.sets.map((s, k) => (
@@ -261,6 +262,8 @@ export function SessionCheckin() {
         );
       })}
       <Button type="button" variant="outline" className="w-full" onClick={() => setPicker(true)}><Plus className="mr-1 h-4 w-4" /> Add exercise</Button>
+      <PhotoLogButton unit={unit} onRead={(read) => setLifts([...lifts.filter((l) => l.sets.some((x) => x.reps !== '' || x.kg !== '')), ...read.map((r) => ({ name: r.name, sets: r.sets, auto: true }))])} />
+      <p className="text-xs text-muted-foreground">Take a photo or pick a screenshot of your workout log. It is read on your phone; rows it fills in are tagged Auto.</p>
       <ExercisePicker open={picker} onClose={() => setPicker(false)} recent={recentNames} onPick={(name) => setLifts([...lifts, { name, sets: [{ ...blankSet }] }])} />
     </Sec>
   );

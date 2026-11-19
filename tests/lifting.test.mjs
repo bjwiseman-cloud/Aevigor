@@ -35,3 +35,18 @@ const sets = [
 assert.deepEqual(L.weeklyVolume(sets, null).map((w) => [w.week, w.volume, w.sets]), [['2026-11-09', 500, 1], ['2026-11-16', 330, 1]]);
 assert.deepEqual(L.e1rmSeries(sets, 'Squat').map((p) => p.day), ['2026-11-10', '2026-11-16']);
 console.log('ok lifting');
+
+// Photo of my log: text from the photo reader turned into exercises and sets
+{
+  const R = await import('../web/src/lib/logreader.ts');
+  const names = ['Barbell Squat', 'Barbell Bench Press - Medium Grip', 'Barbell Deadlift', 'Pullups', 'Dumbbell Bicep Curl'];
+  const out = R.parseLog('Back squat\n100 x 5, 105 x 5, 110kg x 3\nBench 80 x 8 RIR 2\nDeadlift 3x5 140kg\nPull ups 3 x 8\nDB curl 12kg x 10 x 3', names);
+  assert.deepEqual(out.map((l) => l.name), ['Barbell Squat', 'Barbell Bench Press - Medium Grip', 'Barbell Deadlift', 'Pullups', 'Dumbbell Bicep Curl']);
+  assert.deepEqual(out[0].sets.map((s) => s.kg + 'x' + s.reps), ['100x5', '105x5', '110x3']);
+  assert.deepEqual(out[1].sets[0], { kg: '80', reps: '8', rir: '2' });
+  assert.equal(out[2].sets.length, 3);
+  assert.equal(out[3].sets[0].kg, '', 'sets x reps with no weight');
+  assert.equal(R.readSets('225 lb x 5', 'kg')[0].kg, '102.06', 'pounds converted to kg');
+  assert.equal(R.parseLog('Notes: felt good', names).length, 0);
+  console.log('ok photo log reader');
+}
