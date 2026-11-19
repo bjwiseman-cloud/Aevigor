@@ -10,6 +10,7 @@ import { useTheme } from '@/lib/theme';
 import { useProfile } from '@/hooks/data';
 import { callApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { ConnectPrompt } from '@/components/ConnectPrompt';
 
 export function Brand() {
   return (
@@ -71,11 +72,23 @@ export function Layout() {
   const profile = useProfile().data;
   const loc = useLocation();
   const sync = useMutation({
-    mutationFn: () => callApi('sync'),
-    onSuccess: () => { qc.invalidateQueries(); toast.success('Synced'); },
-    onError: (e: Error) => toast.error(e.message)
+    mutationFn: (_auto: boolean = false) => (profile?.intervals_connected_at ? callApi('sync') : Promise.resolve(null)),
+    onSuccess: (_r, auto) => { qc.invalidateQueries(); if (!auto) toast.success('Synced'); },
+    onError: (e: Error, auto) => { if (!auto) toast.error(e.message); }
   });
-  const pull = usePullToRefresh(() => sync.mutate(), sync.isPending);
+  // Sync on its own when the app opens or comes back to the screen, if the last sync is over 5 minutes old,
+  // so a session that just reached intervals.icu shows up without pulling down (Ben 2026-11-19).
+  const lastSync = profile?.last_sync, linked = !!profile?.intervals_connected_at;
+  useEffect(() => {
+    const maybe = () => {
+      if (!linked || document.visibilityState !== 'visible' || sync.isPending) return;
+      if (!lastSync || Date.now() - Date.parse(lastSync) > 5 * 60_000) sync.mutate(true);
+    };
+    maybe();
+    document.addEventListener('visibilitychange', maybe);
+    return () => document.removeEventListener('visibilitychange', maybe);
+  }, [linked, lastSync]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pull = usePullToRefresh(() => sync.mutate(false), sync.isPending);
   const { theme } = useTheme();   // charts read their colours on render, so the page re-renders on a theme change
 
   return (
@@ -90,9 +103,9 @@ export function Layout() {
             <Button asChild variant="ghost" size="icon" aria-label="Settings"><Link to="/settings"><Cog /></Link></Button>
           </div>
         </div>
-        <button type="button" onClick={() => sync.mutate()} disabled={sync.isPending}
+        <button type="button" onClick={() => sync.mutate(false)} disabled={sync.isPending}
           className="block w-full text-center text-[11px] text-muted-foreground">
-          {sync.isPending ? 'Syncing…' : `Last sync ${lastSyncText(profile?.last_sync)} · pull down to refresh`}
+          {sync.isPending ? 'Syncing with intervals.icu…' : linked ? `Last sync ${lastSyncText(profile?.last_sync)} · tap or pull down to sync` : 'Not connected to intervals.icu'}
         </button>
       </header>
       {pull > 0 && (
@@ -100,6 +113,7 @@ export function Layout() {
           {pull > 70 ? 'Release to sync' : 'Pull to sync'}
         </div>
       )}
+      {profile && <ConnectPrompt connected={!!profile.intervals_connected_at} />}
       <main className="mx-auto max-w-lg p-4">
         <ReminderBanner />
         <div key={theme}><Outlet /></div>

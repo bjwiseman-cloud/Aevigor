@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { BookOpen, GraduationCap, LogOut, Settings as Gear, UserPlus } from 'lucide-react';
+import { BookOpen, GraduationCap, LogOut, Settings as Gear } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthProvider';
 import { useProfile } from '@/hooks/data';
@@ -21,9 +21,8 @@ export function Menu() {
         <Link className={item} to="/guide"><BookOpen className="h-5 w-5" /> Guide</Link>
         <a className={item} href="/learn/" target="_blank" rel="noopener"><GraduationCap className="h-5 w-5" /> Learn (aevigor.com)</a>
         <Link className={item} to="/settings"><Gear className="h-5 w-5" /> Settings</Link>
-        {p.is_admin && <a className={item} href="#invite"><UserPlus className="h-5 w-5" /> Invite testers</a>}
       </CardContent></Card>
-      {p.is_admin && <div id="invite"><InviteTesters /></div>}
+      {p.is_admin && <InviteTesters />}
       <Button variant="outline" className="w-full" onClick={() => supabase.auth.signOut()}><LogOut /> Log out</Button>
     </div>
   );

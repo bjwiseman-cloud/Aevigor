@@ -47,16 +47,15 @@ export default function App() {
   const p = profile.data;
   if (!p.consent_at || p.consent_version !== CONSENT_VERSION) return <Consent />;
 
-  const connected = !!p.intervals_connected_at;
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/today" element={connected ? <Today /> : <Navigate to="/connect" replace />} />
-        <Route path="/checkin" element={connected ? <CheckinPage /> : <Navigate to="/connect" replace />} />
-        <Route path="/checkin/session" element={connected ? <SessionCheckin /> : <Navigate to="/connect" replace />} />
-        <Route path="/training/load" element={connected ? <Load /> : <Navigate to="/connect" replace />} />
-        <Route path="/training/performance" element={connected ? <Performance /> : <Navigate to="/connect" replace />} />
-        <Route path="/training/sessions" element={connected ? <Sessions /> : <Navigate to="/connect" replace />} />
+        <Route path="/today" element={<Today />} />
+        <Route path="/checkin" element={<CheckinPage />} />
+        <Route path="/checkin/session" element={<SessionCheckin />} />
+        <Route path="/training/load" element={<Load />} />
+        <Route path="/training/performance" element={<Performance />} />
+        <Route path="/training/sessions" element={<Sessions />} />
         <Route path="/training/lifting" element={<Navigate to="/training/performance?sport=lift" replace />} />
         <Route path="/training" element={<Navigate to="/training/load" replace />} />
         <Route path="/load" element={<Navigate to="/training/load" replace />} />
@@ -66,13 +65,13 @@ export default function App() {
         <Route path="/plan" element={<Navigate to="/plan/schedule" replace />} />
         <Route path="/inbox" element={<Inbox />} />
         <Route path="/menu" element={<Menu />} />
-        <Route path="/trends" element={connected ? <Trends /> : <Navigate to="/connect" replace />} />
+        <Route path="/trends" element={<Trends />} />
         <Route path="/guide" element={<Guide />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
       <Route path="/connect" element={<Connect />} />
-      <Route path="*" element={<Navigate to={connected ? '/today' : '/connect'} replace />} />
+      <Route path="*" element={<Navigate to="/today" replace />} />
     </Routes>
   );
 }

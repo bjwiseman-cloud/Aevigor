@@ -6,7 +6,7 @@ import { icu, athletePath } from './intervals.js';
 export const BEST_SECS = [1, 5, 15, 30, 60, 180, 300, 480, 720, 1200, 1800, 3600, 5400, 7200, 10800];
 export const CURVE_IDS = ['s0', '1y', 'all'];   // 30/60/90 days are worked out in the app from each ride's bests
 export const CURVE_FETCH_CAP = 25;              // per-ride power curves fetched per sync (older rides fill in over later syncs)
-const RIDE = /ride/i;
+const RIDE = /ride/i, RUN = /run/i;
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
@@ -26,8 +26,25 @@ export function activityRow(a, userId) {
     user_id: userId, id: String(a.id), day: start.slice(0, 10), start_local: start || null,
     type: a.type ? String(a.type) : 'Other', name: a.name ? String(a.name).slice(0, 200) : null,
     moving_time: num(a.moving_time), distance: num(a.distance), load: num(a.icu_training_load),
-    raw: scalars(a)
+    raw: { ...scalars(a), ...zoneTimes(a) }
   };
+}
+
+// Time in each zone (seconds), as intervals.icu worked it out with the athlete's own zones. Stored as
+// comma-separated text because the activity row keeps scalar fields only. Sweet spot (SS) overlaps zones, so it is left out.
+export function zoneTimes(a) {
+  const out = {};
+  const secsOf = (x) => (typeof x === 'number' ? x : typeof x?.secs === 'number' ? x.secs : null);
+  const put = (key, list) => {
+    if (!Array.isArray(list) || !list.length) return;
+    const v = list.filter((x) => !(x && typeof x === 'object' && /^SS$/i.test(String(x.id ?? '')))).map(secsOf);
+    if (v.some((x) => x == null) || !v.some((x) => x > 0)) return;
+    out[key] = v.map((x) => Math.round(x)).join(',');
+  };
+  put('zt_power', a?.icu_zone_times);
+  put('zt_hr', a?.icu_hr_zone_times);
+  put('zt_pace', a?.pace_zone_times);
+  return out;
 }
 
 // Picks watts at the standard durations from a curve given as { secs: [], watts|values: [] }.
@@ -47,18 +64,25 @@ export async function fetchActivityCurve(key, id) {
   return bestFromCurve(Array.isArray(r) ? r[0] : r) ?? {};
 }
 
+// Ride power curves, then running power curves (from a running power meter such as Stryd or a Garmin watch)
 export async function fetchAthleteCurves(key, athleteId, userId) {
-  const get = (ids) => icu(key, athletePath(athleteId) + '/power-curves?type=Ride&curves=' + ids.join(','));
+  const ride = await fetchCurves(key, athleteId, userId, 'Ride', 'ride');
+  const run = await fetchCurves(key, athleteId, userId, 'Run', 'run').catch(() => []);
+  return [...ride, ...run];
+}
+
+async function fetchCurves(key, athleteId, userId, type, sport) {
+  const get = (ids) => icu(key, athletePath(athleteId) + '/power-curves?type=' + type + '&curves=' + ids.join(','));
   const r = await get(CURVE_IDS).catch(() => get(['1y', 'all']));
   const list = Array.isArray(r?.list) ? r.list : Array.isArray(r) ? r : [];
   return list.filter((c) => Array.isArray(c?.secs) && Array.isArray(c?.values ?? c?.watts)).map((c) => ({
-    user_id: userId, sport: 'ride', curve: String(c.id ?? c.label ?? ''),
+    user_id: userId, sport, curve: String(c.id ?? c.label ?? ''),
     label: c.label ? String(c.label).slice(0, 60) : null,
     secs: c.secs.map(Number), watts: (c.values ?? c.watts).map((x) => Math.round(Number(x) || 0)),
     wkg: Array.isArray(c.watts_per_kg) ? c.watts_per_kg.map((x) => Math.round((Number(x) || 0) * 100) / 100) : null,
     activity_ids: Array.isArray(c.activity_id) ? c.activity_id.map((x) => (x == null ? null : String(x))) : null,
     synced_at: new Date().toISOString()
-  })).filter((c) => c.curve);
+  })).filter((c) => c.curve && c.watts.some((w) => w > 0));
 }
 
 // Running pace curves: best time for each distance (intervals.icu pace-curves, real pace, not grade-adjusted).
@@ -88,7 +112,7 @@ export async function syncPerformance({ userId, key, athleteId, acts, from, to, 
   if (!store.upsertActivities) return { activities: 0 };
   const rows = acts.filter((a) => a?.id && a.start_date_local).map((a) => activityRow(a, userId));
   const have = await store.knownBests(userId, rows.map((r) => r.id));
-  const need = rows.filter((r) => RIDE.test(r.type) && !have.has(r.id) && (r.raw.icu_average_watts || r.raw.average_watts))
+  const need = rows.filter((r) => (RIDE.test(r.type) || RUN.test(r.type)) && !have.has(r.id) && (r.raw.icu_average_watts || r.raw.average_watts))
     .sort((a, b) => b.day.localeCompare(a.day)).slice(0, CURVE_FETCH_CAP);
   for (const r of need) {
     try { r.best = await fetchActivityCurve(key, r.id); } catch { /* try again next sync */ }

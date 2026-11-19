@@ -1,3 +1,4 @@
+import { Arrange } from '@/components/Arrange';
 import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useProfile } from '@/hooks/data';
@@ -206,6 +207,8 @@ export function MyLog() {
   return (
     <div className="space-y-4">
       <SubTabs tabs={PLAN_TABS} />
+      <Arrange page="mylog" cards={[
+        { id: 'summary', label: 'My log', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="my-log">My log</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -218,7 +221,8 @@ export function MyLog() {
           <p className="text-xs text-muted-foreground">Not medical advice.</p>
         </CardContent>
       </Card>
-
+        ) },
+        { id: 'groups', label: 'Reminder groups', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="my-log">Reminder groups</CardTitle></CardHeader>
         <CardContent className="divide-y">
@@ -238,11 +242,11 @@ export function MyLog() {
           <button type="button" className="w-full py-2.5 text-left text-sm text-primary" onClick={() => setGroupSheet({ g: null, key: Date.now() })}>+ New group (one reminder for several items)</button>
         </CardContent>
       </Card>
-
-      {CATEGORIES.map((c) => {
+        ) },
+        ...CATEGORIES.map((c) => {
         const its = items.filter((i) => i.category === c.id);
         if (!its.length) return null;
-        return (
+        const node = (
           <Card key={c.id}>
             <CardHeader className="pb-2"><CardTitle>{c.label}</CardTitle></CardHeader>
             <CardContent className="divide-y">
@@ -268,7 +272,9 @@ export function MyLog() {
             </CardContent>
           </Card>
         );
-      })}
+        return { id: c.id as string, label: c.label, node };
+            }).filter((x) => x !== null)
+      ]} />
 
       {sheet && <ItemSheet key={sheet.key} open onOpenChange={(o) => !o && setSheet(null)} initial={sheet.draft} items={items} groups={groups} />}
       {groupSheet && <GroupSheet key={groupSheet.key} open onOpenChange={(o) => !o && setGroupSheet(null)} group={groupSheet.g} today={d.today} />}

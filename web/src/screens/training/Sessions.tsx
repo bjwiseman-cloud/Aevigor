@@ -18,6 +18,7 @@ import { LiftImport } from '@/screens/training/liftCards';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 import { useActivities, useStreams } from '@/hooks/perf';
 import { MEDALS, METRICS, RUN_DIST, duration, isRace, isRide, isRun, n, secsLabel, wbal, workSplit, type Activity } from '@/lib/perf';
+import { Arrange } from '@/components/Arrange';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 type Filter = 'all' | 'ride' | 'run' | 'lift' | 'other';
@@ -191,6 +192,8 @@ export function Sessions() {
           </CardContent>
         </Card>
       )}
+      <Arrange page="sessions" cards={[
+        { id: 'list', label: 'Activities', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="sessions">Activities</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -225,7 +228,9 @@ export function Sessions() {
           {list.length > more && <Button variant="outline" className="w-full" onClick={() => setMore(more + 30)}>Show more</Button>}
         </CardContent>
       </Card>
-      <LiftImport sets={lifts.data ?? []} unit={unit} />
+        ) },
+        { id: 'import', label: 'Import Activity', node: <LiftImport sets={lifts.data ?? []} unit={unit} /> }
+      ]} />
       {open && <Detail a={open} badges={badges[open.id] ?? []} sets={(lifts.data ?? []).filter((x) => x.activity_id ? x.activity_id === open.id : x.day === open.day)} onClose={() => setOpen(null)} />}
     </div>
   );

@@ -11,6 +11,8 @@ import { HelpButton } from '@/components/Help';
 import { cn } from '@/lib/utils';
 import { CycleCard } from '@/components/Cycle';
 import { RangeBar, RangeKey, scale, type Range } from '@/components/RangeBar';
+import { Arrange } from '@/components/Arrange';
+import { ConnectSteps } from '@/components/ConnectPrompt';
 
 export function SyncLine({ profile }: { profile: Profile }) {
   const t = profile.last_sync
@@ -90,8 +92,15 @@ export function Today() {
       <>
         <h1 className="mb-3 font-serif text-xl font-bold tracking-wide">Today</h1>
         <Card><CardContent className="space-y-2 pt-5">
-          <p className="font-semibold">Not enough history yet.</p>
-          <p className="text-sm text-muted-foreground">The status needs a couple of weeks of HRV or resting heart rate from intervals.icu to learn your normal. Keep wearing your watch overnight and doing the check-in; it fills in on its own.</p>
+          {profile.intervals_connected_at ? <>
+            <p className="font-semibold">Not enough history yet.</p>
+            <p className="text-sm text-muted-foreground">The status needs a couple of weeks of HRV or resting heart rate from intervals.icu to learn your normal. Keep wearing your watch overnight and doing the check-in; it fills in on its own.</p>
+          </> : <>
+            <p className="font-semibold">Connect intervals.icu to see your daily status.</p>
+            <p className="text-sm text-muted-foreground">Today's status reads your watch's HRV, resting heart rate and sleep through intervals.icu. Everything else (check-ins, lifting, your log and records) works without it.</p>
+            <ConnectSteps />
+            <Button asChild className="w-full"><Link to="/connect">Connect now</Link></Button>
+          </>}
         </CardContent></Card>
         <SyncLine profile={profile} />
       </>
@@ -114,6 +123,8 @@ export function Today() {
         {niceDay(r.day)}{r.day !== day && <> · <b className="text-status-caution">latest available</b></>}
       </p>
 
+      <Arrange page="today" cards={[
+        { id: 'status', label: 'Daily status', node: (
       <Card className={cn('relative border-2 text-center', st.cls.split(' ').filter((c) => c.startsWith('border-')).join(' '))}>
         <div className="absolute right-4 top-4"><HelpButton topic="daily-status" /></div>
         <CardContent className="pt-5">
@@ -127,7 +138,8 @@ export function Today() {
           </dl>
         </CardContent>
       </Card>
-
+        ) },
+        { id: 'why', label: 'Why', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="daily-status">Why</CardTitle></CardHeader>
         <CardContent>
@@ -136,7 +148,8 @@ export function Today() {
           </ul>
         </CardContent>
       </Card>
-
+        ) },
+        { id: 'weekly', label: 'Weekly check', node: (
       <Card className={wk.cls.split(' ')[1]}>
         <CardHeader className="pb-2"><CardTitle help="weekly-check">Weekly check</CardTitle></CardHeader>
         <CardContent>
@@ -150,7 +163,8 @@ export function Today() {
           )}
         </CardContent>
       </Card>
-
+        ) },
+        { id: 'signals', label: 'Signals', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="signals">Signals</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -166,11 +180,13 @@ export function Today() {
           <RangeKey />
         </CardContent>
       </Card>
+        ) },
+        { id: 'cycle', label: 'Cycle (if turned on)', node: <CycleCard /> }
+      ]} />
 
       {!checkin.data && !checkin.isLoading && (
         <Button asChild className="w-full"><Link to="/checkin">Do today&apos;s check-in</Link></Button>
       )}
-      <CycleCard />
       <SyncLine profile={profile} />
       <p className="text-center text-sm text-muted-foreground">Training guidance, not medical advice.</p>
     </div>

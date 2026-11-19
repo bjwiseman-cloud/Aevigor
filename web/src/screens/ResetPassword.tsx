@@ -22,7 +22,8 @@ export function ResetPassword() {
     doneRecovering();
   }
   return (
-    <Message title="Choose a new password">
+    <Message title="Choose a password">
+      <p className="mb-4 text-sm">Pick a password for signing in to Aevigor (8 characters or more). Continue with Google also works with the same email.</p>
       <Card><CardContent className="pt-5">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

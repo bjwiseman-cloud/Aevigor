@@ -13,6 +13,7 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Message } from './Message';
+import { notNow } from '@/components/ConnectPrompt';
 import { TimeZoneSelect } from './TimeZoneSelect';
 
 const schema = z.object({
@@ -70,7 +71,10 @@ export function Connect() {
       <p className="mt-4 text-sm">Your key is encrypted before it is saved and is never shown again. You can disconnect any time in Settings.</p>
       {profile?.intervals_connected_at
         ? <Button variant="outline" className="mt-4 w-full" onClick={() => navigate('/settings')}>Cancel</Button>
-        : <Button variant="outline" className="mt-4 w-full" onClick={() => supabase.auth.signOut()}>Sign out</Button>}
+        : <>
+          <Button variant="outline" className="mt-4 w-full" onClick={() => { notNow(); navigate('/today'); }}>Not now, use Aevigor without it</Button>
+          <Button variant="ghost" className="mt-2 w-full" onClick={() => supabase.auth.signOut()}>Sign out</Button>
+        </>}
     </Message>
   );
 }
