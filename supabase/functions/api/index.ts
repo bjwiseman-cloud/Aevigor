@@ -12,7 +12,7 @@
 //   /api/invites, /api/invite, /api/uninvite   admins only: list, add and remove testers
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { syncUser, todayIn } from '../_shared/sync.js';
-import { icu, athletePath, putWellness, uploadActivity, IntervalsError } from '../_shared/intervals.js';
+import { icu, athletePath, putWellness, uploadActivity, IntervalsError, sportSettingsBody, putSportSettings, fetchAthlete } from '../_shared/intervals.js';
 import { encrypt, decrypt } from '../_shared/crypto.js';
 import { addDays } from '../_shared/rules.js';
 import { fetchStreams } from '../_shared/performance.js';
@@ -375,6 +375,20 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
   },
 
   // Phone alerts
+  // Send own thresholds and zones to one intervals.icu Sport Settings block (sport-settings id, or the activity type
+  // when the sport has none yet), then read the athlete back so Profile shows what intervals.icu now holds.
+  async zones(req, body) {
+    const { user, profile } = await currentUser(req); needConsent(profile);
+    const put = sportSettingsBody(body.values ?? {});
+    if (!Object.keys(put).length) throw new HttpError(400, 'Nothing to send yet. Fill in at least one number.');
+    const key = await keyFor(user.id);
+    const athleteId = profile.intervals_athlete_id ?? '0';
+    await putSportSettings(key, athleteId, body.id ?? body.type, put);
+    const athlete = await fetchAthlete(key, athleteId).catch(() => null);
+    if (athlete) await admin.from('profiles').update({ athlete }).eq('user_id', user.id);
+    return { ok: true, sent: Object.keys(put) };
+  },
+
   async 'push-key'(req) { await currentUser(req); return { publicKey: await publicKey(admin) }; },
   async 'push-test'(req) {
     const { user } = await currentUser(req);

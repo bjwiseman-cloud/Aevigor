@@ -105,3 +105,13 @@ import('../supabase/functions/_shared/intervals.js').then(({ extraOf }) => {
   assert.equal(m['2026-11-11'].sick, 'No', 'the check-in answer wins');
   console.log('ok sync, merge, extras, errors and encryption');
 });
+
+// Own zones sent to intervals.icu: only known fields, sane numbers, rising zones
+{
+  const { sportSettingsBody } = await import('../supabase/functions/_shared/intervals.js');
+  const b = sportSettingsBody({ ftp: '285', lthr: 168, max_hr: 400, threshold_pace: 4.2, w_prime: 21000, junk: 5,
+    power_zones: [55, 75, 90, 105, 120, 150, 999], hr_zones: [140, 130, 160] });
+  assert.deepEqual(b, { ftp: 285, w_prime: 21000, lthr: 168, threshold_pace: 4.2, power_zones: [55, 75, 90, 105, 120, 150, 999] });
+  assert.deepEqual(sportSettingsBody({}), {});
+  console.log('ok own zones body');
+}
