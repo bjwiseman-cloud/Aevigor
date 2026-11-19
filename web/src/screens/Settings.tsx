@@ -11,7 +11,6 @@ import { useAuth } from '@/auth/AuthProvider';
 import { useProfile } from '@/hooks/data';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -22,8 +21,11 @@ import {
 import { TimeZoneSelect } from './TimeZoneSelect';
 import { InviteTesters } from './InviteTesters';
 import { useHealthOn } from '@/hooks/plan';
+import { useUnit } from '@/hooks/lifting';
+import { Section } from '@/components/Section';
+import { CycleSettingsSection } from '@/components/Cycle';
+import { Landmarks } from '@/components/Landmarks';
 import { PhoneAlerts } from '@/components/PhoneAlerts';
-import { HelpQ } from '@/components/HelpQ';
 import { Chip, Chips } from '@/components/chips';
 import { ThemeChips } from '@/components/ThemeButton';
 
@@ -37,6 +39,7 @@ export function Settings() {
   const navigate = useNavigate();
   const [confirmText, setConfirmText] = useState('');
   const healthOn = useHealthOn(profile);
+  const [unit, setUnit] = useUnit();
   const providers: string[] = session?.user.app_metadata?.providers ?? [session?.user.app_metadata?.provider].filter(Boolean);
 
   const account = useForm<z.infer<typeof accountSchema>>({
@@ -52,10 +55,16 @@ export function Settings() {
     qc.invalidateQueries({ queryKey: ['profile'] });
   }
 
-  async function saveSex(sex: 'female' | 'male' | 'unspecified') {
-    const { error } = await supabase.from('profiles').update({ sex }).eq('user_id', profile.user_id);
-    if (error) return toast.error(error.message);
-    qc.invalidateQueries({ queryKey: ['profile'] });
+  async function resetAll() {
+    try {
+      const a = await supabase.from('user_prefs').delete().not('key', 'is', null);
+      if (a.error) throw a.error;
+      const b = await supabase.from('ui_layout').delete().not('page', 'is', null);
+      if (b.error) throw b.error;
+      setUnit('kg');
+      await qc.invalidateQueries();
+      toast.success('Settings reset to default');
+    } catch (e) { toast.error((e as Error).message); }
   }
 
   async function changePassword(v: z.infer<typeof passwordSchema>) {
@@ -102,19 +111,23 @@ export function Settings() {
     <div className="space-y-4">
       <h1 className="font-serif text-xl font-bold tracking-wide">Settings</h1>
 
-      <Card>
-        <CardHeader className="pb-3"><CardTitle>Appearance</CardTitle></CardHeader>
-        <CardContent className="space-y-2 text-sm">
+      <Section title="Appearance">
           <ThemeChips />
           <p className="text-muted-foreground">Auto matches your phone or computer. Light is rice paper and ink; Dark is charcoal and gold. Same choice as aevigor.com.</p>
-        </CardContent>
-      </Card>
+      </Section>
+
+      <Section title="Units">
+        <div className="flex items-center gap-2"><span className="w-28">Lifting weights</span><Chips><Chip on={unit === 'kg'} onClick={() => setUnit('kg')}>kg</Chip><Chip on={unit === 'lb'} onClick={() => setUnit('lb')}>lb</Chip></Chips></div>
+        <p className="text-muted-foreground">Distance, pace and body weight follow your intervals.icu settings.</p>
+      </Section>
+
+      <Section title="Weekly volume landmarks"><Landmarks /></Section>
+
+      {profile.sex !== 'male' && <Section title="Women's health"><CycleSettingsSection /></Section>}
 
       {profile.is_admin && <InviteTesters />}
 
-      <Card>
-        <CardHeader className="pb-3"><CardTitle>Account</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
+      <Section title="Account">
           <p className="flex flex-wrap items-center gap-2">{session?.user.email} <Badge variant="outline">{providers.join(', ') || 'email'}</Badge></p>
           <Form {...account}>
             <form onSubmit={account.handleSubmit(saveAccount)} className="space-y-4">
@@ -127,12 +140,6 @@ export function Settings() {
               <Button type="submit" variant="outline" className="w-full">Save</Button>
             </form>
           </Form>
-          <div className="space-y-1.5 border-t pt-4">
-            <div className="flex items-center gap-2 text-sm font-medium">Sex <HelpQ text="Sets the body figure on the check-in body maps. Prefer not to say shows the male figure. Female also adds women's health options in later updates." /></div>
-            <Chips>{([['female', 'Female'], ['male', 'Male'], ['unspecified', 'Prefer not to say']] as const).map(([k, l]) => (
-              <Chip key={k} on={(profile.sex ?? 'unspecified') === k} onClick={() => void saveSex(k)}>{l}</Chip>
-            ))}</Chips>
-          </div>
           {providers.includes('email') && (
             <Form {...pw}>
               <form onSubmit={pw.handleSubmit(changePassword)} className="space-y-3 border-t pt-4">
@@ -143,12 +150,9 @@ export function Settings() {
               </form>
             </Form>
           )}
-        </CardContent>
-      </Card>
+      </Section>
 
-      <Card>
-        <CardHeader className="pb-3"><CardTitle>intervals.icu</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+      <Section title="intervals.icu">
           {profile.intervals_connected_at ? (
             <>
               <p>Connected as athlete <b>{profile.intervals_athlete_id}</b>.</p>
@@ -173,12 +177,9 @@ export function Settings() {
               <Button variant="outline" className="w-full" onClick={() => navigate('/connect')}>Connect</Button>
             </>
           )}
-        </CardContent>
-      </Card>
+      </Section>
 
-      <Card>
-        <CardHeader className="pb-3"><CardTitle help="health-log">Health log</CardTitle></CardHeader>
-        <CardContent className="space-y-3 text-sm">
+      <Section title="Health log">
           <p className="text-muted-foreground">{healthOn ? 'On. My log, Schedule and Records keep what you enter, only for you.' : 'Off. Turn it on from Plan.'}</p>
           {healthOn && <PhoneAlerts />}
           {healthOn && (
@@ -196,12 +197,9 @@ export function Settings() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-        </CardContent>
-      </Card>
+      </Section>
 
-      <Card>
-        <CardHeader className="pb-3"><CardTitle>Privacy</CardTitle></CardHeader>
-        <CardContent className="space-y-3 text-sm">
+      <Section title="Privacy">
           <p className="text-muted-foreground">
             <a className="text-primary underline" href="/legal/beta-privacy.html" target="_blank">Beta privacy notice</a> · <a className="text-primary underline" href="/legal/beta-terms.html" target="_blank">Beta terms</a>
             {profile.consent_at && <> · You agreed on {new Date(profile.consent_at).toLocaleDateString()}.</>}
@@ -225,9 +223,16 @@ export function Settings() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-        </CardContent>
-      </Card>
+      </Section>
 
+      <AlertDialog>
+        <AlertDialogTrigger asChild><Button variant="outline" className="w-full">Reset all settings</Button></AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>Reset all settings?</AlertDialogTitle>
+            <AlertDialogDescription>Chart choices, card order, volume landmarks and units go back to the defaults. Your logged data, check-ins and health log are not touched.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={resetAll}>Reset</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Button variant="outline" className="w-full" onClick={() => supabase.auth.signOut()}>Sign out</Button>
     </div>
   );

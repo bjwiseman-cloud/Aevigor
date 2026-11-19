@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HelpButton } from '@/components/Help';
 import { cn } from '@/lib/utils';
+import { CycleCard } from '@/components/Cycle';
 
 export function SyncLine({ profile }: { profile: Profile }) {
   const t = profile.last_sync
@@ -152,6 +153,7 @@ export function Today() {
       {!checkin.data && !checkin.isLoading && (
         <Button asChild className="w-full"><Link to="/checkin">Do today&apos;s check-in</Link></Button>
       )}
+      <CycleCard />
       <SyncLine profile={profile} />
       <p className="text-center text-sm text-muted-foreground">Training guidance, not medical advice.</p>
     </div>

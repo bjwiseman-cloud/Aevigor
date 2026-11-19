@@ -15,6 +15,7 @@ import { Guide } from '@/screens/Guide';
 import { Load } from '@/screens/Load';
 import { Trends } from '@/screens/Trends';
 import { Settings } from '@/screens/Settings';
+import { Profile } from './screens/Profile';
 import { Message } from '@/screens/Message';
 import { Schedule } from '@/screens/plan/Schedule';
 import { MyLog } from '@/screens/plan/MyLog';
@@ -68,6 +69,7 @@ export default function App() {
         <Route path="/trends" element={connected ? <Trends /> : <Navigate to="/connect" replace />} />
         <Route path="/guide" element={<Guide />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/profile" element={<Profile />} />
       </Route>
       <Route path="/connect" element={<Connect />} />
       <Route path="*" element={<Navigate to={connected ? '/today' : '/connect'} replace />} />

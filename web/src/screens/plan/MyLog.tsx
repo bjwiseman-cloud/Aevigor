@@ -105,7 +105,7 @@ function ItemSheet({ open, onOpenChange, initial, items, groups }: {
           </Field>
 
           <Field label="Type">
-            <Chips>{CATEGORIES.map((c) => <Chip key={c.id} on={d.category === c.id} onClick={() => set({ category: c.id })}>{c.icon} {c.label}</Chip>)}</Chips>
+            <Chips>{CATEGORIES.map((c) => <Chip key={c.id} on={d.category === c.id} onClick={() => set({ category: c.id })}>{c.label}</Chip>)}</Chips>
           </Field>
 
           <Field label="Amount you take" hint="strength from the label is optional">
@@ -209,17 +209,18 @@ export function MyLog() {
       <Card>
         <CardHeader className="pb-2"><CardTitle help="my-log">My log</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">Things you take or do on a schedule. You set them and their reminders; Aevigor keeps the log. {NOT_MEDICAL}</p>
+          <p className="text-sm text-muted-foreground">Add things you do or take on a schedule</p>
           <div className="grid grid-cols-2 gap-2 text-center">
             <div className="rounded-md border p-2"><div className="font-mono text-lg">{monthDoses.filter((x) => x.status === 'taken').length}</div><div className="text-xs text-muted-foreground">Logged as taken this month</div></div>
             <div className="rounded-md border p-2"><div className="font-mono text-lg">{monthDoses.filter((x) => x.status === 'skipped').length}</div><div className="text-xs text-muted-foreground">Logged as skipped this month</div></div>
           </div>
           <Button className="w-full" onClick={() => open(null)}><Plus /> Add an item</Button>
+          <p className="text-xs text-muted-foreground">Not medical advice.</p>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle help="my-log">⏰ Reminder groups</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="my-log">Reminder groups</CardTitle></CardHeader>
         <CardContent className="divide-y">
           {groups.map((g) => {
             const its = items.filter((i) => i.group_id === g.id && i.active);
@@ -243,7 +244,7 @@ export function MyLog() {
         if (!its.length) return null;
         return (
           <Card key={c.id}>
-            <CardHeader className="pb-2"><CardTitle>{c.icon} {c.label}</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle>{c.label}</CardTitle></CardHeader>
             <CardContent className="divide-y">
               {its.map((i) => {
                 const g = groups.find((x) => x.id === i.group_id);

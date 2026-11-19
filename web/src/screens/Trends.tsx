@@ -14,6 +14,8 @@ import { C, HowToRead, Legend, axis, shortDay, tooltipStyle } from '@/components
 import { useCheckins, useDailyLoad, usePref, useProfile, useWellness } from '@/hooks/data';
 import { EXTRA_METRICS, flagRuns, trends, type TrendPoint } from '@/lib/metrics';
 import { todayIn } from '@/lib/time';
+import { useCycle } from '@/hooks/cycle';
+import { PHASES, phaseRuns, showsPhases } from '@/lib/cycle';
 import { LoadTrendCards } from '@/screens/Load';
 
 const ALL: [string, string][] = [
@@ -81,6 +83,7 @@ export function Trends() {
     return trends(wellness.data, checkins.data, load.data.filter((r) => r.day <= today), from, today);
   }, [wellness.data, checkins.data, load.data, from, today]);
 
+  const cyc = useCycle(p);
   const [idx, setIdx] = useState(0);
   useEffect(() => { setIdx(data.length - 1); }, [data.length]);
   const sel: TrendPoint | undefined = data[idx];
@@ -89,6 +92,9 @@ export function Trends() {
   const hasData = data.some((d) => d.hrv !== null || d.rhr !== null || d.feel !== null || d.sleep !== null);
   const runs = flagRuns(data);
   const fatigueShade = runs.map(([a, b]) => <ReferenceArea key={a} x1={a} x2={b} fill={FATIGUE} fillOpacity={1} stroke="none" ifOverflow="hidden" />);
+  // Estimated cycle phases behind the charts (only when cycle tracking is on and cycling)
+  const phases = showsPhases(cyc.settings) ? phaseRuns(from, today, cyc.days) : [];
+  const phaseShade = phases.map((r) => <ReferenceArea key={'ph' + r.x1} x1={r.x1} x2={r.x2} fill={PHASES[r.phase].color} fillOpacity={0.2} stroke="none" ifOverflow="hidden" />);
   const marker = sel ? <ReferenceLine x={sel.day} stroke={C.text} strokeOpacity={0.6} /> : null;
   const x = <XAxis dataKey="day" {...axis} tickFormatter={shortDay} minTickGap={30} />;
   const grid = <CartesianGrid stroke={C.grid} vertical={false} />;
@@ -98,7 +104,7 @@ export function Trends() {
   const sleepMin = Math.min(3, Math.floor(Math.min(3, ...sleepVals)));
   const chart = (children: ReactNode, height = H) => (
     <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart data={data} margin={margin} syncId="trends">{children}</ComposedChart>
+      <ComposedChart data={data} margin={margin} syncId="trends">{phaseShade}{children}</ComposedChart>
     </ResponsiveContainer>
   );
 
@@ -270,6 +276,12 @@ export function Trends() {
         <Card><CardContent className="pt-6 text-sm text-muted-foreground">
           No data yet. Trends fill in once your watch's HRV, resting HR and sleep reach intervals.icu, and as you do the morning check-in. Pull down to sync.
         </CardContent></Card>
+      )}
+      {phases.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span>Cycle phases (estimated):</span>
+          {Object.values(PHASES).map((x) => <span key={x.label} className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: x.color }} />{x.label}</span>)}
+        </div>
       )}
 
       {ALL.filter(([k]) => on(k)).map(([k]) => (

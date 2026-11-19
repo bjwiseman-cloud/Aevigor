@@ -20,6 +20,7 @@ globalThis.fetch = async (url, opts) => {
   else if (u.pathname.endsWith('/activity/i9/power-curve')) body = { secs: [1, 5, 300, 301], watts: [950, 900, 320, 319] };
   else if (u.pathname.endsWith('/power-curves')) body = { list: [{ id: 'all', label: 'All time', secs: [5, 300], values: [1000, 350], watts_per_kg: [13.3, 4.67] }] };
   else if (u.pathname.endsWith('/pace-curves')) body = { list: [{ id: '1y-f1', label: '1 year', distance: [400, 1000.4], values: [80, 230], activity_id: ['i7', 'i8'], paceModels: [{ type: 'CS', criticalSpeed: 3.9, dPrime: 210 }] }, { id: 'bad' }] };
+  else if (u.pathname === '/api/v1/athlete/0') body = { icu_weight: 75.2, icu_resting_hr: 44, secret: 'x', sportSettings: [{ types: ['Ride', 'VirtualRide'], ftp: 280, w_prime: 21000, lthr: 165, max_hr: 188, power_zones: [55, 75, 90, 105, 120, 150, 999], power_zone_names: ['Z1', 'Z2'], hr_zones: [130, 150, 165, 175, 188], notes: 'drop me' }, { types: [] }] };
   else if (u.pathname.endsWith('/events')) body = [
     { start_date_local: addDays(day, -2) + 'T00:00:00', type: 'Ride', category: 'WORKOUT', icu_training_load: 100 },
     { id: 1, start_date_local: addDays(day, 9) + 'T00:00:00', type: 'VirtualRide', category: 'WORKOUT', name: 'FTP test 20 min', icu_training_load: 90 },
@@ -53,8 +54,13 @@ assert.equal(res.today.status, 'GO EASY', 'worst-level fatigue answer from the c
 assert.ok(res.today.reasons.includes('Mild sickness (above the neck)'));
 assert.equal(res.today.load.alert, true, '300 vs 100 planned -> load alert');
 assert.ok(calls.every((c) => c.auth === 'Basic ' + btoa('API_KEY:abc123')));
-assert.ok(calls.every((c) => c.url.includes('/athlete/0/') || c.url.includes('/activity/i9/')), 'athlete calls use the key owner');
+assert.ok(calls.every((c) => c.url.includes('/athlete/0/') || c.url.endsWith('/athlete/0') || c.url.includes('/activity/i9/')), 'athlete calls use the key owner');
 assert.equal(db.profile.last_sync_error, null);
+assert.equal(db.profile.athlete.sports.length, 1, 'sport settings saved, empty ones dropped');
+assert.equal(db.profile.athlete.sports[0].ftp, 280);
+assert.equal(db.profile.athlete.resting_hr, 44);
+assert.equal(db.profile.athlete.secret, undefined, 'only known fields kept');
+assert.equal(db.profile.athlete.sports[0].notes, undefined);
 // Load page data
 const ride2 = db.load.rows.find((r) => r.day === addDays(day, -2) && r.sport === 'ride');
 assert.deepEqual([ride2.actual, ride2.planned, ride2.sessions], [300, 100, 1]);
