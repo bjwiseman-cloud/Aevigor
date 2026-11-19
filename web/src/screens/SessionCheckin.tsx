@@ -2,7 +2,11 @@
 // Feel, then the ride conditions checklist (rides) or lifts + sore / joint pain / pump body map (lifting and other).
 // Everything is sent to the intervals.icu activity. Answers the app filled in itself show an "Auto" tag.
 import { useEffect, useMemo, useRef, useState } from 'react';
+<<<<<<< HEAD
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+=======
+import { useLocation, useNavigate } from 'react-router-dom';
+>>>>>>> 3bd1317d8d92cb67c34c4c4123a4db6dc4db6bdd
 import type { ReadLift } from '@/lib/logreader';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
