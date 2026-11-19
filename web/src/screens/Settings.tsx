@@ -25,6 +25,7 @@ import { Section } from '@/components/Section';
 import { CycleSettingsSection } from '@/components/Cycle';
 import { Landmarks } from '@/components/Landmarks';
 import { PhoneAlerts } from '@/components/PhoneAlerts';
+import { Reminders } from '@/components/ReminderSettings';
 import { Chip, Chips } from '@/components/chips';
 import { ThemeChips } from '@/components/ThemeButton';
 
@@ -176,6 +177,8 @@ export function Settings() {
             </>
           )}
       </Section>
+
+      <Section title="Reminders"><Reminders email={profile.email ?? null} /></Section>
 
       <Section title="Health log">
           <p className="text-muted-foreground">{healthOn ? 'On. My log, Schedule and Records keep what you enter, only for you.' : 'Off. Turn it on from Plan.'}</p>

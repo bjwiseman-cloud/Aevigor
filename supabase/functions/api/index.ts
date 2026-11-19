@@ -6,7 +6,9 @@
 //   /api/session         after-a-session log (RPE to intervals.icu, ride conditions, lifting extras)
 //   /api/libido          turn the optional libido log on/off, or delete every entry
 //   /api/streams         one activity's second-by-second data (Sessions, W′ battery)
-//   /api/push-key, /api/push-test   phone alerts set-up; /api/push-due runs every 5 minutes (database job)
+//   /api/push-key, /api/push-test   phone alerts set-up; /api/push-due runs every 5 minutes (database job):
+//                        My log and event alerts, plus morning check-in and Post Activity reminders (email + phone)
+//   /api/notify-test     send the person a test reminder email
 //   /api/delete-account  delete the account and every row of the person's data
 //   /api/cron            sync of everyone (x-cron-token header = the push_cron_token in app_secrets)
 //   /api/invites, /api/invite, /api/uninvite   admins only: list, add and remove testers
@@ -17,6 +19,8 @@ import { encrypt, decrypt } from '../_shared/crypto.js';
 import { addDays } from '../_shared/rules.js';
 import { fetchStreams } from '../_shared/performance.js';
 import { checkToken, publicKey, pushDue, sendTo } from './push.ts';
+import { notifyDue, sendEmail } from './notify.ts';
+import { reminderEmail } from '../_shared/notify.js';
 
 // The encryption key and the cron password default to values derived from the project's own service-role key,
 // which Supabase gives every function automatically, so no hand-made secrets are needed. Setting
@@ -439,7 +443,21 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
   },
   async 'push-due'(req) {
     if (!(await checkToken(admin, req.headers.get('x-push-token')))) throw new HttpError(401, 'Not allowed');
-    return await pushDue(admin);
+    const push = await pushDue(admin);
+    const reminders = await notifyDue(admin, keyFor);
+    return { ...push, reminders };
+  },
+  // Settings > Reminders > "Send me a test email"
+  async 'notify-test'(req) {
+    const { user, profile } = await currentUser(req);
+    const to = profile.email ?? user.email;
+    if (!to) throw new HttpError(400, 'Your account has no email address.');
+    const recent = await admin.from('push_sent').select('key').eq('user_id', user.id).like('key', 'test-email:%').gte('sent_at', new Date(Date.now() - 600000).toISOString());
+    if ((recent.data ?? []).length >= 3) throw new HttpError(429, 'Three test emails in ten minutes is the limit. Try again soon.');
+    await admin.from('push_sent').insert({ user_id: user.id, key: 'test-email:' + Date.now() });
+    const ok = await sendEmail(to, '✅ Aevigor test email', reminderEmail({ heading: 'Reminders are working', lines: ['This is what your Aevigor reminder emails look like. Morning check-in and Post Activity reminders come from this address.'], button: 'Open Aevigor', url: 'https://aevigor.com/beta/' }));
+    if (!ok) throw new HttpError(502, 'The email could not be sent. The app is not set up to send email yet.');
+    return { ok: true, to };
   },
 
   async 'delete-account'(req, body) {

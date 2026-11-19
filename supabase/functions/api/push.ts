@@ -28,7 +28,7 @@ export function occursOn(rule: string, start: string, day: string, end?: string 
   } catch { return false; }
 }
 
-function local(tz: string, at = new Date()) {
+export function local(tz: string, at = new Date()) {
   const f = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(at);
   const g = (t: string) => f.find((p) => p.type === t)?.value ?? '';
   return { day: `${g('year')}-${g('month')}-${g('day')}`, mins: (+g('hour') % 24) * 60 + +g('minute') };
