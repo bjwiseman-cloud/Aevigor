@@ -115,3 +115,12 @@ import('../supabase/functions/_shared/intervals.js').then(({ extraOf }) => {
   assert.deepEqual(sportSettingsBody({}), {});
   console.log('ok own zones body');
 }
+
+// Time in zones kept as text on the activity row
+{
+  const { zoneTimes } = await import('../supabase/functions/_shared/performance.js');
+  const z = zoneTimes({ icu_zone_times: [{ id: 'Z1', secs: 600.4 }, { id: 'Z2', secs: 1200 }, { id: 'SS', secs: 300 }], icu_hr_zone_times: [100, 0, 50], pace_zone_times: [0, 0] });
+  assert.deepEqual(z, { zt_power: '600,1200', zt_hr: '100,0,50' }, 'sweet spot and empty lists left out');
+  assert.deepEqual(zoneTimes({}), {});
+  console.log('ok zone times');
+}

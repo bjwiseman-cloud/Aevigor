@@ -1,5 +1,5 @@
 // Load tab, matching the live app's redesign (Ben 2026-11-18, Apps Script V16-V18):
-// sport chips (Cycling, Running, Lifting, Combined, More sports) · Next test · Training status (dial, or a ribbon over a range) ·
+// sport chips (Cycling, Running, Lifting, Combined, More sports) · Next test · Training status (glowing word, or a ribbon over a range) ·
 // Fitness/Fatigue (shaded, no load bars) · Form · Ramp rate · one slider for all three · actual vs planned this week.
 import { useMemo, useState } from 'react';
 import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { useSets, useUnit } from '@/hooks/lifting';
 import { Volume } from '@/screens/training/liftCards';
 import { HelpQ } from '@/components/HelpQ';
+import { Arrange } from '@/components/Arrange';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 const FIT = '#14b8a6', FAT = '#fb7185', ACT = '#8b5cf6', PLAN = '#f59e0b';
@@ -50,25 +51,18 @@ function ZoneGradient({ id, values, zones }: { id: string; values: (number | nul
   return <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">{stops.map((s, i) => <stop key={i} offset={Math.min(1, Math.max(0, s.o))} stopColor={s.c} />)}</linearGradient>;
 }
 
-function Dial({ st }: { st: Status }) {
-  const N = TS_ORDER.length, cx = 120, cy = 112, r = 92, w = 18;
+// Today's training status as one large word glowing in its status colour (Ben 2026-11-19, replaces the dial)
+function StatusWord({ st }: { st: Status }) {
   const idx = TS_ORDER.findIndex((t) => t[0] === st.word);
-  const pt = (a: number, rr: number) => [cx - rr * Math.cos(a), cy - rr * Math.sin(a)];
+  const col = idx >= 0 ? TS_ORDER[idx][1] : undefined;
   const desc = idx >= 0 ? TS_ORDER[idx][2] : st.word === 'Paused' ? 'You logged being sick, so training status is paused until you are well.' : 'Needs about 6 weeks of training history.';
-  const tip = idx >= 0 ? pt((Math.PI * (idx + 0.5)) / N, r - w - 6) : null;
   return (
-    <div className="space-y-2">
-      <svg viewBox="0 0 240 134" role="img" aria-label={`Training status: ${st.word}`} className="mx-auto block w-full max-w-xs">
-        {TS_ORDER.map((t, i) => {
-          const a0 = (Math.PI * i) / N + 0.012, a1 = (Math.PI * (i + 1)) / N - 0.012, p0 = pt(a0, r), p1 = pt(a1, r), q1 = pt(a1, r - w), q0 = pt(a0, r - w);
-          return <path key={t[0]} d={`M${p0} A${r},${r} 0 0 1 ${p1} L${q1} A${r - w},${r - w} 0 0 0 ${q0}Z`} fill={t[1]} opacity={i === idx ? 1 : 0.5} />;
-        })}
-        {tip && <line x1={cx} y1={cy} x2={tip[0]} y2={tip[1]} stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" />}
-        <circle cx={cx} cy={cy} r={6} fill="currentColor" />
-        <text x={14} y={128} fontSize={10} className="fill-muted-foreground">Easing off</text>
-        <text x={226} y={128} fontSize={10} textAnchor="end" className="fill-muted-foreground">Strained</text>
-      </svg>
-      <div className="text-center font-serif text-2xl font-bold" style={{ color: idx >= 0 ? TS_ORDER[idx][1] : undefined }}>{st.word}</div>
+    <div className="space-y-3 py-2">
+      <div className="relative mx-auto w-fit px-6 py-3">
+        {col && <div aria-hidden className="absolute inset-0 rounded-full opacity-25 blur-2xl" style={{ background: col }} />}
+        <div role="img" aria-label={`Training status: ${st.word}`} className="relative text-center font-serif text-5xl font-bold tracking-wide"
+          style={col ? { color: col, textShadow: `0 0 10px ${col}, 0 0 28px ${col}99, 0 0 56px ${col}55` } : undefined}>{st.word}</div>
+      </div>
       <p className="text-center text-sm text-muted-foreground">{desc}</p>
       <StatusLegend on={(w) => w === st.word} />
       <div className="flex flex-wrap justify-center gap-1.5">{st.chips.map(([t, flag]) => <span key={t} className={cn('rounded-full border px-2 py-0.5 text-xs', flag && 'border-status-caution text-status-caution')}>{t}</span>)}</div>
@@ -205,6 +199,8 @@ export function Load() {
 
       {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}
 
+      <Arrange page="load" cards={[
+        { id: 'next', label: 'Next test', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="next-test">Next test</CardTitle></CardHeader>
         <CardContent className="text-sm">
@@ -219,16 +215,18 @@ export function Load() {
           ) : <p className="text-muted-foreground">No test in your intervals.icu plan yet. Name a workout "FTP test", "VO2 test" or "Durability test".</p>}
         </CardContent>
       </Card>
-
+        ) },
+        { id: 'status', label: 'Training status', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="training-status">Training status</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {chipsRow}
-          {R === 't' ? <Dial st={status} /> : <Ribbon hist={hist} days={ribbonDays} sel={Math.min(sel - a0, ribbonDays.length - 1)} />}
+          {R === 't' ? <StatusWord st={status} /> : <Ribbon hist={hist} days={ribbonDays} sel={Math.min(sel - a0, ribbonDays.length - 1)} />}
           <p className="text-xs text-muted-foreground">Uses all your sports. Training guidance, not medical advice.</p>
         </CardContent>
       </Card>
-
+        ) },
+        { id: 'pmc', label: 'Fitness · Fatigue', node: (
       <Card>
         <CardHeader className="pb-1"><CardTitle help="fitness-fatigue-form">Fitness · Fatigue</CardTitle><p className="text-xs text-muted-foreground">{sport === 'mix' ? `Combined: ${shown.map(sportLabel).join(' + ')}` : sportLabel(sport)}</p></CardHeader>
         <CardContent className="space-y-2">
@@ -261,23 +259,14 @@ export function Load() {
           <div className="flex flex-wrap gap-3 text-xs"><span><i className="mr-1 inline-block h-1 w-4 rounded align-middle" style={{ background: FIT }} />Fitness</span><span><i className="mr-1 inline-block h-1 w-4 rounded align-middle" style={{ background: FAT }} />Fatigue</span>{ahead.length > 0 && <span><i className="mr-1 inline-block h-0.5 w-4 rounded align-middle" style={{ background: FIT + '80' }} />Projected</span>}<span>🎯 test 🏁 race 📅 event</span></div>
         </CardContent>
       </Card>
-
-      <ZoneChart title="Form" help="form-zones" data={data} keyA="formA" keyP="formP" zones={FORM_Z} ticks={[-30, -10, 5, 20]} lo={-40} hi={25} X={X} extra={<>{marksEls}{selLine}</>} />
-      <ZoneChart title="Ramp rate" help="ramp-rate" data={data} keyA="rampA" keyP="rampP" zones={RAMP_Z} ticks={[0, 3, 8]} lo={-4} hi={12} X={X} extra={<>{marksEls}{selLine}</>} />
-
-      <Card>
-        <CardContent className="space-y-3 pt-5">
-          <Slider min={a0} max={Math.max(a0, a1)} step={1} value={[sel]} onValueChange={([v]) => setSelDay(all[v]?.day ?? null)} aria-label="Pick a day" />
-          {cur && (
-            <p className="text-sm">
-              <b>{shortDay(cur.day)}</b>{sel > iToday ? ' · projected' : sel === iToday ? ' · today' : ''}<br />
-              <span style={{ color: FIT }}>Fitness <b>{Math.round(cur.ctl)}</b></span> · <span style={{ color: FAT }}>Fatigue <b>{Math.round(cur.atl)}</b></span> · <span style={{ color: fz?.[2] }}>Form <b>{Math.round(cur.form)}</b> {fz?.[3]}</span><br />
-              <span style={{ color: rz?.[2] }}>Ramp <b>{cur.ramp == null ? '–' : cur.ramp}</b>/wk {rz?.[3]}</span> · <span style={{ color: ACT }}>Load <b>{sel > iToday ? '–' : Math.round(cur.actual ?? 0)}</b></span> · <span style={{ color: PLAN }}>planned <b>{Math.round(cur.planned) || '–'}</b></span>
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
+        ) },
+        { id: 'form', label: 'Form', node: (
+        <ZoneChart title="Form" help="form-zones" data={data} keyA="formA" keyP="formP" zones={FORM_Z} ticks={[-30, -10, 5, 20]} lo={-40} hi={25} X={X} extra={<>{marksEls}{selLine}</>} />
+        ) },
+        { id: 'ramp', label: 'Ramp rate', node: (
+        <ZoneChart title="Ramp rate" help="ramp-rate" data={data} keyA="rampA" keyP="rampP" zones={RAMP_Z} ticks={[0, 3, 8]} lo={-4} hi={12} X={X} extra={<>{marksEls}{selLine}</>} />
+        ) },
+        { id: 'plan', label: 'Actual vs planned load', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="load-vs-plan">Actual vs planned load</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm">
@@ -309,6 +298,20 @@ export function Load() {
           <HowToRead>This week day by day: what you did next to what intervals.icu has planned. Within 10% of plan is green, within 20% gold. The only load alert on Today is the last 7 days running more than 20% above plan.</HowToRead>
         </CardContent>
       </Card>
+        ) }
+      ]} />
+
+      {/* Day picker for the charts: pinned to the bottom of the screen while you scroll (Ben 2026-11-19) */}
+      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-[5] -mx-4 space-y-2 border-t bg-background/95 px-4 py-2 backdrop-blur">
+          <Slider min={a0} max={Math.max(a0, a1)} step={1} value={[sel]} onValueChange={([v]) => setSelDay(all[v]?.day ?? null)} aria-label="Pick a day" />
+          {cur && (
+            <p className="text-xs">
+              <b>{shortDay(cur.day)}</b>{sel > iToday ? ' · projected' : sel === iToday ? ' · today' : ''}<br />
+              <span style={{ color: FIT }}>Fitness <b>{Math.round(cur.ctl)}</b></span> · <span style={{ color: FAT }}>Fatigue <b>{Math.round(cur.atl)}</b></span> · <span style={{ color: fz?.[2] }}>Form <b>{Math.round(cur.form)}</b> {fz?.[3]}</span><br />
+              <span style={{ color: rz?.[2] }}>Ramp <b>{cur.ramp == null ? '–' : cur.ramp}</b>/wk {rz?.[3]}</span> · <span style={{ color: ACT }}>Load <b>{sel > iToday ? '–' : Math.round(cur.actual ?? 0)}</b></span> · <span style={{ color: PLAN }}>planned <b>{Math.round(cur.planned) || '–'}</b></span>
+            </p>
+          )}
+      </div>
     </div>
   );
 }
@@ -361,7 +364,7 @@ export function LoadTrendCards({ from, to, show, selDay }: { from: string; to: s
   }
   if (load.isLoading) return null;
   return (
-    <>
+    <div className="space-y-4">
       {show.includes('pmc') && (
         <Card>
           <CardHeader className="pb-1"><CardTitle help="fitness-fatigue-form">Fitness · Fatigue</CardTitle><p className="text-xs text-muted-foreground">All sports · same as the Load tab</p></CardHeader>
@@ -406,6 +409,6 @@ export function LoadTrendCards({ from, to, show, selDay }: { from: string; to: s
           </CardContent>
         </Card>
       )}
-    </>
+    </div>
   );
 }

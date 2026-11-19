@@ -1,3 +1,6 @@
+import { useNavigate } from 'react-router-dom';
+import { PhotoLogButton } from '@/components/PhotoLog';
+import type { ReadLift } from '@/lib/logreader';
 // Lifting cards used on other tabs: e1RM (Performance > Lifting), weekly volume (Load > Lifting), file import (Activities).
 import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -130,6 +133,8 @@ export function Volume({ sets, unit, ex }: { sets: LiftSet[]; unit: Unit; ex: st
 }
 
 export function LiftImport({ sets, unit }: { sets: LiftSet[]; unit: Unit }) {
+  const navigate = useNavigate();
+  const [read, setRead] = useState<ReadLift[] | null>(null);
   const qc = useQueryClient();
   const file = useRef<HTMLInputElement>(null);
   const [fileUnit, setFileUnit] = useState<Unit>(unit);
@@ -169,6 +174,25 @@ export function LiftImport({ sets, unit }: { sets: LiftSet[]; unit: Unit }) {
       <CardContent className="space-y-3 text-sm">
         <input ref={file} type="file" accept=".csv,text/csv,.fit,.gpx,.tcx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); }} />
         <Button variant="outline" size="sm" disabled={busy} onClick={() => file.current?.click()}><Upload className="mr-1 h-3.5 w-3.5" /> {busy ? 'Sending…' : 'Choose file (.csv, .fit, .gpx, .tcx)'}</Button>
+        <PhotoLogButton unit={unit} onRead={setRead} />
+        <p className="text-xs text-muted-foreground">Photo of my log: take a photo or pick a screenshot of a lifting log. It is read on your phone; you check it, then add the time, duration, heart rate, RPE and Feel, the same as in Post Activity.</p>
+        {read && (
+          <div className="space-y-2 rounded-md border border-primary/60 p-3">
+            <div className="font-semibold">Does this match your log?</div>
+            <ul className="space-y-1">
+              {read.map((l, i) => (
+                <li key={i}><b>{l.name}</b>{!l.matched && <span className="text-xs text-status-caution"> (new name, check it)</span>}
+                  <div className="text-xs text-muted-foreground">{l.sets.map((x) => `${x.kg || '–'} ${unit} × ${x.reps}${x.rir ? ` @${x.rir} RIR` : ''}`).join(' · ')}</div>
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-2">
+              <Button size="sm" className="flex-1" onClick={() => navigate('/checkin/session', { state: { photo: read } })}>Yes, add the details</Button>
+              <Button size="sm" variant="outline" onClick={() => setRead(null)}>Not right</Button>
+            </div>
+            <p className="text-xs text-muted-foreground">You can fix any set on the next screen before saving. Not right? Try a sharper, straight-on photo.</p>
+          </div>
+        )}
         {shown && (shown.error ? <p className="text-status-warn">{shown.error}</p> : <>
           <p>Found <b>{shown.sets.length}</b> sets{shown.app !== 'CSV' ? ` (looks like ${shown.app})` : ''}{shown.skipped ? `, ${shown.skipped} rows skipped` : ''}. <b>{fresh.length}</b> are new.</p>
           {!shown.unitFound && <div className="flex items-center gap-2"><span>Weights in the file are in</span><Chips><Chip on={fileUnit === 'kg'} onClick={() => setFileUnit('kg')}>kg</Chip><Chip on={fileUnit === 'lb'} onClick={() => setFileUnit('lb')}>lb</Chip></Chips></div>}

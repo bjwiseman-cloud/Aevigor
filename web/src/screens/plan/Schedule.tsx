@@ -1,3 +1,4 @@
+import { Arrange } from '@/components/Arrange';
 import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useProfile, usePlannedTests } from '@/hooks/data';
@@ -143,6 +144,9 @@ export function Schedule() {
   return (
     <div className="space-y-4">
       <SubTabs tabs={PLAN_TABS} />
+      <Arrange page="schedule" cards={[
+        { id: 'calendar', label: 'Schedule', node: (
+          <div className="space-y-4">
       <Card>
         <CardHeader className="pb-2"><CardTitle help="schedule">Schedule</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -161,9 +165,10 @@ export function Schedule() {
           <p className="text-xs text-muted-foreground">Tests come from your intervals.icu calendar. Google and iPhone calendar sync come with phone alerts.</p>
         </CardContent>
       </Card>
-
-      <Button className="w-full" onClick={() => setSheet({ ev: null, key: Date.now() })}><Plus /> Add appointment, test or event</Button>
-
+            <Button className="w-full" onClick={() => setSheet({ ev: null, key: Date.now() })}><Plus /> Add appointment, test or event</Button>
+          </div>
+        ) },
+        { id: 'upcoming', label: 'Coming up', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle>{view === 'quarter' ? 'Coming up in the next 3 months' : `Coming up this ${view}`}</CardTitle></CardHeader>
         <CardContent className="divide-y">
@@ -175,6 +180,8 @@ export function Schedule() {
           )) : <p className="text-sm text-muted-foreground">Nothing coming up.</p>}
         </CardContent>
       </Card>
+        ) }
+      ]} />
       {sheet && <EventSheet key={sheet.key} open onOpenChange={(o) => !o && setSheet(null)} ev={sheet.ev} tz={tz} today={today} />}
     </div>
   );

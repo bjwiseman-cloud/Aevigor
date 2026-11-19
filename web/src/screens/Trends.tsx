@@ -15,6 +15,7 @@ import { useCheckins, useDailyLoad, usePref, useProfile, useWellness } from '@/h
 import { EXTRA_METRICS, flagRuns, trends, type TrendPoint } from '@/lib/metrics';
 import { todayIn } from '@/lib/time';
 import { useCycle } from '@/hooks/cycle';
+import { Arrange } from '@/components/Arrange';
 import { PHASES, phaseRuns, showsPhases } from '@/lib/cycle';
 import { LoadTrendCards } from '@/screens/Load';
 
@@ -284,14 +285,15 @@ export function Trends() {
         </div>
       )}
 
-      {ALL.filter(([k]) => on(k)).map(([k]) => (
+      {/* Press and hold a chart to move it (the chart list itself is chosen above) */}
+      <Arrange page="trends" chooser={false} cards={ALL.filter(([k]) => on(k) && (!['pmc', 'form', 'plan'].includes(k) || k === loadKeys[0])).map(([k, label]) => (
         ['pmc', 'form', 'plan'].includes(k)
-          ? (k === loadKeys[0] ? <LoadTrendCards key="load" from={from} to={today} show={loadKeys} selDay={sel?.day} /> : null)
-          : <div key={k}>{cards[k]}</div>
-      ))}
+          ? { id: 'load', label: 'Training load', node: <LoadTrendCards from={from} to={today} show={loadKeys} selDay={sel?.day} /> }
+          : { id: k, label, node: cards[k] }
+      ))} />
 
       {hasData && sel && (
-        <div className="sticky bottom-16 z-[5] -mx-4 border-t bg-background/95 px-4 py-2 backdrop-blur">
+        <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-[5] -mx-4 border-t bg-background/95 px-4 py-2 backdrop-blur">
           <Slider min={0} max={Math.max(0, data.length - 1)} step={1} value={[idx]} onValueChange={(v) => setIdx(v[0])} aria-label="Day" className="mb-2" />
           <p className="text-xs">
             <b>{shortDay(sel.day)} morning</b> · {parts.join(' · ')}<br />

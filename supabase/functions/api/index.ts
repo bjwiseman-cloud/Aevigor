@@ -328,6 +328,47 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     return { ok: true, copied };
   },
 
+  // A lifting session logged without a watch activity (Post Activity > Log a lift, or Import Activity > Photo of my log).
+  // Creates (or updates) a manual WeightTraining activity in intervals.icu, so it counts toward Load, and saves the
+  // session log here. Without intervals.icu it is saved here only.
+  async 'manual-session'(req, body) {
+    const { user, profile } = await currentUser(req); needConsent(profile);
+    const day = String(body.day ?? '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new HttpError(400, 'Pick the day of the session.');
+    const start = /^\d{2}:\d{2}$/.test(String(body.start ?? '')) ? String(body.start) : '12:00';
+    const int = (v: unknown, lo: number, hi: number) => { const n = Math.round(Number(v)); return v !== '' && v !== null && v !== undefined && Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
+    const minutes = int(body.minutes, 1, 600), hr = int(body.hr, 30, 230), rpe = int(body.rpe, 1, 10), feel = int(body.feel, 1, 5);
+    const note = typeof body.note === 'string' ? body.note.slice(0, 300) : null;
+    const lifts = typeof body.lifts === 'string' ? body.lifts.slice(0, 1500) : '';
+    const d = (body.data ?? {}) as Record<string, any>;
+    const data: Record<string, unknown> = { feel, manual: { start, minutes, hr },
+      body: { sore: levels(d.body?.sore, BODY_LABELS, 1, 4), joint: levels(d.body?.joint, JOINT_LABELS, 1, 3), pump: levels(d.body?.pump, BODY_LABELS, 1, 3) } };
+    const external = `aevigor-${user.id.slice(0, 8)}-${day}-${start.replace(':', '')}`;
+    let id = `aev-${day}-${start.replace(':', '')}`, copied = false;
+    try {
+      const key = await keyFor(user.id);
+      const block = postActivityBlock('lift', data, lifts, note);
+      const act: Record<string, unknown> = {
+        external_id: external, type: 'WeightTraining', name: 'Lifting', start_date_local: `${day}T${start}:00`,
+        description: block ? `[Aevigor Post Activity]\n${block}\n[/Aevigor]` : undefined
+      };
+      if (minutes) { act.moving_time = minutes * 60; act.elapsed_time = minutes * 60; }
+      if (rpe) act.icu_rpe = rpe;
+      if (feel) act.feel = feel;
+      if (hr) act.average_heartrate = hr;
+      const r = await icu(key, athletePath(profile.intervals_athlete_id ?? '0') + '/activities/manual/bulk', 'POST', [act]) as Record<string, unknown>[] | Record<string, unknown>;
+      const made = Array.isArray(r) ? r[0] : r;
+      if (made?.id) { id = String(made.id); copied = true; }
+    } catch (e) { if (!(e instanceof HttpError && e.status === 409)) console.warn('manual session copy failed', e); }
+    // Show it in Activities straight away; the next sync replaces it with intervals.icu's own copy
+    await admin.from('activities').upsert({ user_id: user.id, id, day, start_local: `${day}T${start}:00`, type: 'WeightTraining', name: 'Lifting',
+      moving_time: minutes ? minutes * 60 : null, distance: null, load: rpe && minutes ? rpe * minutes : null,
+      raw: { ...(rpe ? { icu_rpe: rpe } : {}), ...(feel ? { feel } : {}), ...(hr ? { average_heartrate: hr } : {}), source: 'aevigor' } });
+    const { error } = await admin.from('session_logs').upsert({ user_id: user.id, activity_id: id, day, kind: 'lift', rpe, note, data, updated_at: new Date().toISOString() });
+    if (error) throw error;
+    return { ok: true, id, copied };
+  },
+
   // Libido log: optional, off by default. Turning it off keeps past entries; deleteAll removes every entry here and in intervals.icu.
   async libido(req, body) {
     const { user, profile } = await currentUser(req); needConsent(profile);
@@ -410,18 +451,44 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     return { ok: true };
   },
 
+  // Public: the beta page's sign-up form. Saved for the admin to approve; nothing is sent to the person yet.
+  async 'beta-request'(_req, body) {
+    if (body.website) return { ok: true };   // honeypot field that people never see
+    const email = String(body.email ?? '').trim().toLowerCase();
+    if (!EMAIL_RE.test(email) || email.length > 254) throw new HttpError(400, 'Please enter a valid email address.');
+    const name = typeof body.name === 'string' ? body.name.trim().slice(0, 80) || null : null;
+    const note = typeof body.note === 'string' ? body.note.trim().slice(0, 300) || null : null;
+    const { count } = await admin.from('beta_requests').select('email', { count: 'exact', head: true }).eq('status', 'pending');
+    if ((count ?? 0) >= 500) throw new HttpError(429, 'The beta list is full for now. Please try again later.');
+    const { error } = await admin.from('beta_requests').upsert({ email, name, note }, { onConflict: 'email', ignoreDuplicates: true });
+    if (error) throw error;
+    return { ok: true };
+  },
+
+  async 'request-decide'(req, body) {
+    const { profile } = await currentUser(req); needAdmin(profile);
+    const email = String(body.email ?? '').trim().toLowerCase();
+    if (body.decision !== 'declined') throw new HttpError(400, 'Approve by sending the invite.');
+    const { error } = await admin.from('beta_requests').update({ status: 'declined', decided_at: new Date().toISOString() }).eq('email', email);
+    if (error) throw error;
+    return { ok: true };
+  },
+
   async invites(req) {
     const { profile } = await currentUser(req); needAdmin(profile);
-    const [{ data: inv, error }, { data: people }] = await Promise.all([
+    const [{ data: inv, error }, { data: people }, { data: requests }] = await Promise.all([
       admin.from('invites').select('email, note, invited_at, is_admin').order('invited_at', { ascending: false }),
-      admin.from('profiles').select('email, created_at, intervals_connected_at, last_sync')
+      admin.from('profiles').select('email, created_at, consent_at, intervals_connected_at, last_sync'),
+      admin.from('beta_requests').select('email, name, note, created_at').eq('status', 'pending').order('created_at')
     ]);
     if (error) throw error;
     const byEmail = new Map((people ?? []).map((p) => [p.email, p]));
     return {
+      requests: requests ?? [],
       invites: (inv ?? []).map((i) => {
         const p = byEmail.get(i.email);
-        return { ...i, joined_at: p?.created_at ?? null, connected: !!p?.intervals_connected_at, last_sync: p?.last_sync ?? null };
+        // The invite email creates the account straight away, so someone counts as joined once they accept the privacy notice
+        return { ...i, joined_at: p?.consent_at ? p.created_at : null, emailed: !!p && !p.consent_at, connected: !!p?.intervals_connected_at, last_sync: p?.last_sync ?? null };
       })
     };
   },
@@ -436,15 +503,35 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     const { error } = await admin.from('invites').insert({ email, note, invited_by: user.id });
     if (error?.code === '23505') throw new HttpError(409, 'That person is already invited.');
     if (error) throw error;
-    return { ok: true, email };
+    // Sends the invite email (Supabase Auth, through the beta's email sender). The template links to
+    // aevigor.com/beta with a one-time token; the app then asks for a password.
+    const sent = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: 'https://aevigor.com/beta/' });
+    await admin.from('beta_requests').update({ status: 'approved', decided_at: new Date().toISOString() }).eq('email', email);
+    return { ok: true, email, emailed: !sent.error, email_error: sent.error ? sent.error.message : null };
+  },
+
+  // Send the invite email again (for someone invited before emails were sent, or who lost it)
+  async 'invite-resend'(req, body) {
+    const { profile } = await currentUser(req); needAdmin(profile);
+    const email = String(body.email ?? '').trim().toLowerCase();
+    const { data: inv } = await admin.from('invites').select('email').eq('email', email).maybeSingle();
+    if (!inv) throw new HttpError(404, 'That email is not on the invite list.');
+    const { data: joined } = await admin.from('profiles').select('user_id, consent_at').eq('email', email).maybeSingle();
+    if (joined?.consent_at) throw new HttpError(409, 'This person has already joined.');
+    // An invited account that was never opened is removed and invited again, which sends a fresh link
+    if (joined) { const del = await admin.auth.admin.deleteUser(joined.user_id); if (del.error) throw new HttpError(400, del.error.message); }
+    const sent = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: 'https://aevigor.com/beta/' });
+    if (sent.error) throw new HttpError(400, 'The email could not be sent: ' + sent.error.message);
+    return { ok: true };
   },
 
   async uninvite(req, body) {
     const { profile } = await currentUser(req); needAdmin(profile);
     const email = String(body.email ?? '').trim().toLowerCase();
     if (email === profile.email) throw new HttpError(400, 'You cannot remove your own invite.');
-    const { data: joined } = await admin.from('profiles').select('user_id').eq('email', email).maybeSingle();
-    if (joined) throw new HttpError(409, 'This person has already signed up. They can delete their account in Settings, or you can remove them in Supabase > Authentication > Users.');
+    const { data: joined } = await admin.from('profiles').select('user_id, consent_at').eq('email', email).maybeSingle();
+    if (joined && !joined.consent_at) { const del = await admin.auth.admin.deleteUser(joined.user_id); if (del.error) throw new HttpError(400, del.error.message); }
+    else if (joined) throw new HttpError(409, 'This person has already signed up. They can delete their account in Settings, or you can remove them in Supabase > Authentication > Users.');
     const { error } = await admin.from('invites').delete().eq('email', email);
     if (error) throw error;
     return { ok: true };

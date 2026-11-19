@@ -387,6 +387,65 @@
       ]
     },
     {
+      "id": "zones",
+      "field": "cycling",
+      "title": "Time in zones",
+      "short": "How long you spent in each power, heart rate or pace zone over the last 4 weeks, 12 weeks or year, for any sport with zones.",
+      "why": "Most endurance plans aim for a lot of easy time and a little hard time. This shows whether your training actually matched that.",
+      "calc": [
+        "intervals.icu works out each session's time in zones with the zones in your Sport Settings on that day. The app adds them up for the range you pick.",
+        "Power zones are a percentage of FTP, pace zones a percentage of threshold pace, heart rate zones are beats per minute. Your Profile shows the limits."
+      ],
+      "refs": [],
+      "coach": [],
+      "extra": [
+        {
+          "text": "Seiler S. What is best practice for training intensity and duration distribution in endurance athletes? Int J Sports Physiol Perform. 2010.",
+          "url": "https://doi.org/10.1123/ijspp.5.3.276"
+        }
+      ]
+    },
+    {
+      "id": "lactate-threshold",
+      "field": "cycling",
+      "title": "Lactate threshold",
+      "short": "Roughly the hardest effort you can hold steady for 30 to 60 minutes: threshold power (FTP) on the bike, threshold pace on foot, and the heart rate that goes with it.",
+      "why": "Training zones are set from it, and a rising threshold is one of the clearest signs your endurance is improving.",
+      "calc": [
+        "Cycling: your FTP from Profile, intervals.icu's eFTP estimate, and each month's best 20-minute power × 0.95.",
+        "Running: your threshold pace from Profile and the critical speed from your pace curve, which sits close to threshold for most runners.",
+        "LT1 heart rate is your own number if you set one, otherwise the top of zone 2. Only a lab test measures blood lactate."
+      ],
+      "refs": [],
+      "coach": [],
+      "extra": [
+        {
+          "text": "Jones AM et al. The maximal metabolic steady state: redefining the gold standard. Physiol Rep. 2019.",
+          "url": "https://doi.org/10.14814/phy2.14098"
+        }
+      ]
+    },
+    {
+      "id": "vo2max",
+      "field": "cycling",
+      "title": "VO2max",
+      "short": "How much oxygen your body can use at full effort, in ml per kg per minute. Shown from your watch and as an estimate from your best efforts.",
+      "why": "It sets the ceiling for endurance performance and is linked with long-term health.",
+      "calc": [
+        "Cycling estimate: 16.6 + 8.87 × your best 5-minute power per kg (Sitko 2021).",
+        "Running estimate: the VDOT from your best 5 km (or 3 or 10 km) time (Daniels and Gilbert).",
+        "The watch value comes from your wellness data in intervals.icu. All of these are estimates, not a lab test."
+      ],
+      "refs": [],
+      "coach": [],
+      "extra": [
+        {
+          "text": "Sitko S et al. Five-Minute Power-Based Test to Predict Maximal Oxygen Consumption in Road Cycling. Int J Sports Physiol Perform. 2022;17(1):9-15.",
+          "url": "https://doi.org/10.1123/ijspp.2020-0923"
+        }
+      ]
+    },
+    {
       "id": "durability",
       "field": "cycling",
       "title": "Durability",

@@ -19,7 +19,6 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { TimeZoneSelect } from './TimeZoneSelect';
-import { InviteTesters } from './InviteTesters';
 import { useHealthOn } from '@/hooks/plan';
 import { useUnit } from '@/hooks/lifting';
 import { Section } from '@/components/Section';
@@ -125,7 +124,6 @@ export function Settings() {
 
       {profile.sex !== 'male' && <Section title="Women's health"><CycleSettingsSection /></Section>}
 
-      {profile.is_admin && <InviteTesters />}
 
       <Section title="Account">
           <p className="flex flex-wrap items-center gap-2">{session?.user.email} <Badge variant="outline">{providers.join(', ') || 'email'}</Badge></p>

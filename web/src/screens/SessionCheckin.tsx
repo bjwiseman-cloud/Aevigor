@@ -1,7 +1,9 @@
 // Post Activity: pick a session from the last 7 days (or a gym session with no watch activity), rate session RPE and
 // Feel, then the ride conditions checklist (rides) or lifts + sore / joint pain / pump body map (lifting and other).
 // Everything is sent to the intervals.icu activity. Answers the app filled in itself show an "Auto" tag.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import type { ReadLift } from '@/lib/logreader';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { addDays } from '@rules';
@@ -104,10 +106,22 @@ export function SessionCheckin() {
   const [temp, setTemp] = useState(''), [carbs, setCarbs] = useState('');
   const [lifts, setLifts] = useState<Lift[]>([]);
   const [manualDay, setManualDay] = useState(today);
+  const [mStart, setMStart] = useState(''), [mMin, setMMin] = useState(''), [mHr, setMHr] = useState('');
   const [body, setBody] = useState<MapValue>({});
   const [picker, setPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
+  // "Photo of my log" from Import Activity opens this form as a lifting log with the lifts it read
+  const loc = useLocation(), nav = useNavigate();
+  const photo = (loc.state as { photo?: ReadLift[] } | null)?.photo;
+  const photoHold = useRef(false);
+  useEffect(() => {
+    if (!photo || !lifted.data) return;
+    photoHold.current = true;
+    setId('manual'); setRpe(5); setFeel(null); setNote('');
+    setLifts(photo.map((r) => ({ name: r.name, sets: r.sets, auto: true })));
+    nav('.', { replace: true, state: null });
+  }, [photo, lifted.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Guesses for each checklist line from intervals.icu and the check-in, as in the live app; a saved answer wins
   const guess = useMemo(() => {
@@ -160,7 +174,7 @@ export function SessionCheckin() {
 
   useEffect(() => {
     setTouched({});
-    if (manual) { setLifts(loadLifts(null)); setBody({}); return; }
+    if (manual) { if (!photoHold.current) { setLifts(loadLifts(null)); setBody({}); } return; }
     if (!a) return;
     const d = prev?.data ?? {};
     setRpe(prev?.rpe ?? (n(a, 'icu_rpe') ? Math.round(n(a, 'icu_rpe')!) : 5));
@@ -169,7 +183,7 @@ export function SessionCheckin() {
     setMode(d.mode ?? (guess.isTest ? 'test' : 'z2'));
     setCond({ ...guess.val, ...(d.c ?? {}) });
     setTemp(d.temp != null ? String(d.temp) : guess.temp); setCarbs(d.carbs != null ? String(d.carbs) : '');
-    setLifts(loadLifts(a));
+    if (!photoHold.current) setLifts(loadLifts(a));
     setBody({ sore: d.body?.sore ?? {}, joint: d.body?.joint ?? {}, pump: d.body?.pump ?? {} });
   }, [a?.id, manual, prev, guess, lifted.data]);
 
@@ -183,7 +197,7 @@ export function SessionCheckin() {
     }));
     return out;
   }
-  useEffect(() => { if (manual) setLifts(loadLifts(null)); }, [manualDay]);
+  useEffect(() => { if (manual && !photoHold.current) setLifts(loadLifts(null)); }, [manualDay]);
 
   if (acts.isLoading || logs.isLoading) return <><CheckinSeg on="session" /><p className="text-muted-foreground">Loading…</p></>;
 
@@ -200,7 +214,11 @@ export function SessionCheckin() {
     if (!manual && !a) return;
     setSaving(true);
     try {
-      let copied = false;
+      let copied = false, manualId: string | null = null;
+      if (manual) {
+        const r = await callApi<{ id: string; copied: boolean }>('manual-session', { day: manualDay, start: mStart, minutes: mMin, hr: mHr, rpe, feel, note, data: { body }, lifts: liftSummary() });
+        manualId = r.id; copied = r.copied;
+      }
       if (!manual && a) {
         const data: Record<string, unknown> = { feel };
         if (kind === 'ride') Object.assign(data, { mode, c: Object.fromEntries(keys.map((k) => [k, !!cond[k]])), temp, carbs: carbs === '' && allGood && cond.fuel && guess.usualCarbs !== null ? guess.usualCarbs : carbs });
@@ -212,7 +230,7 @@ export function SessionCheckin() {
         const rows = lifts.flatMap((l) => l.sets.filter((s) => Number(s.reps) >= 1).map((s, i) => ({
           day: liftDay, exercise: l.name.slice(0, 80), set_no: i + 1, reps: Math.round(Number(s.reps)), weight: Math.round(toKg(Number(s.kg) || 0, unit) * 100) / 100,
           rir: s.rir === '' ? null : Math.max(0, Math.min(10, Math.round(Number(s.rir)))), warmup: false, note: null,
-          source: manual ? 'manual' : 'session', activity_id: manual ? null : a!.id
+          source: manual ? 'manual' : 'session', activity_id: manual ? manualId : a!.id
         })));
         if (manual) await supabase.from('lift_sets').delete().eq('day', liftDay).eq('source', 'manual');
         else {
@@ -221,8 +239,8 @@ export function SessionCheckin() {
         }
         if (rows.length) { const { error } = await supabase.from('lift_sets').insert(rows); if (error) throw error; }
       }
-      toast.success(manual ? 'Lifts saved' : copied ? 'Saved and sent to intervals.icu' : 'Saved to this session');
-      await qc.invalidateQueries({ queryKey: ['session_logs'] }); await qc.invalidateQueries({ queryKey: ['lift_sets'] });
+      toast.success(manual ? (copied ? 'Saved, and added to intervals.icu' : 'Saved') : copied ? 'Saved and sent to intervals.icu' : 'Saved to this session');
+      await qc.invalidateQueries({ queryKey: ['session_logs'] }); await qc.invalidateQueries({ queryKey: ['lift_sets'] }); if (manual) await qc.invalidateQueries({ queryKey: ['activities'] });
     } catch (e) { toast.error((e as Error).message); } finally { setSaving(false); }
   }
   function liftSummary() {
@@ -230,7 +248,7 @@ export function SessionCheckin() {
   }
 
   const item = (x: Activity) => (
-    <button key={x.id} type="button" onClick={() => setId(x.id)} className={cn('flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm', x.id === a?.id ? 'border-primary bg-muted' : 'bg-card')}>
+    <button key={x.id} type="button" onClick={() => { photoHold.current = false; setId(x.id); }} className={cn('flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm', x.id === a?.id ? 'border-primary bg-muted' : 'bg-card')}>
       <span>{x.name || x.type}<br /><small className="text-muted-foreground">{shortDay(x.day)} · {Math.round((x.moving_time ?? 0) / 60)} min</small></span>
       <small className="text-muted-foreground">{logged(x) ? '✓ logged' : 'not logged'}</small>
     </button>
@@ -280,13 +298,32 @@ export function SessionCheckin() {
             <AccordionContent className="space-y-1.5">{rest.map(item)}</AccordionContent>
           </AccordionItem></Accordion>
         )}
-        <button type="button" onClick={() => setId('manual')} className={cn('w-full rounded-md border border-dashed px-3 py-2 text-left text-sm', manual ? 'border-primary bg-muted' : 'text-muted-foreground')}>Log a lift without a watch activity</button>
+        <button type="button" onClick={() => { if (!manual) { setRpe(5); setFeel(null); setNote(''); } setId('manual'); }} className={cn('w-full rounded-md border border-dashed px-3 py-2 text-left text-sm', manual ? 'border-primary bg-muted' : 'text-muted-foreground')}>Log a lift without a watch activity</button>
       </Sec>
 
       {manual && (
         <>
-          <Sec title="Gym session"><label className="block text-xs font-semibold uppercase">Date<Input type="date" value={manualDay} max={today} onChange={(e) => setManualDay(e.target.value)} /></label></Sec>
+          <Sec title="Gym session" help={RPE_HELP}>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block text-xs font-semibold uppercase">Date<Input type="date" value={manualDay} max={today} onChange={(e) => setManualDay(e.target.value)} /></label>
+              <label className="block text-xs font-semibold uppercase">Start time<Input type="time" value={mStart} onChange={(e) => setMStart(e.target.value)} /></label>
+              <label className="block text-xs font-semibold uppercase">Duration (min)<Input type="number" inputMode="numeric" min={1} max={600} value={mMin} onChange={(e) => setMMin(e.target.value)} /></label>
+              <label className="block text-xs font-semibold uppercase">Average HR (optional)<Input type="number" inputMode="numeric" min={30} max={230} value={mHr} onChange={(e) => setMHr(e.target.value)} /></label>
+            </div>
+            <div className="text-xs font-semibold uppercase tracking-wide">Session RPE (1-10)</div>
+            <Slider min={1} max={10} step={1} value={[rpe]} onValueChange={([v]) => setRpe(v)} aria-label="Session RPE" />
+            <p className="text-sm">{rpe} · {RPE_LABELS[rpe]}{mMin ? <span className="text-muted-foreground"> · session load about {rpe * Number(mMin)}</span> : null}</p>
+          </Sec>
+          <Sec title="Feel" help={FEEL_HELP}>
+            <Opts cols={5} opts={FEEL} value={feel === null ? null : feel - 1} onPick={(i) => setFeel(i + 1)} />
+          </Sec>
           {liftCard}
+          <Sec title="Sore muscles, joint pain and pump">
+            <BodyMapEditor sex={figureSex(p.sex)} modes={LIFT_MODES} value={body} onChange={setBody}
+              help="Pick a mode, then tap a muscle (or a joint for joint pain) and set the level. Saved to this session only. A log of how it felt, not medical advice." />
+          </Sec>
+          <Sec title="Note"><Input type="text" maxLength={300} placeholder="Optional" value={note} onChange={(e) => setNote(e.target.value)} /></Sec>
+          <p className="text-xs text-muted-foreground">Saving adds this session to intervals.icu (as a weight training activity) when you are connected, so it counts toward your Load.</p>
         </>
       )}
 
