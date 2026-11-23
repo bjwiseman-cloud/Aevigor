@@ -10,7 +10,6 @@ import { useTheme } from '@/lib/theme';
 import { useProfile } from '@/hooks/data';
 import { callApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { ConnectPrompt } from '@/components/ConnectPrompt';
 
 export function Brand() {
   return (
@@ -113,7 +112,6 @@ export function Layout() {
           {pull > 70 ? 'Release to sync' : 'Pull to sync'}
         </div>
       )}
-      {profile && <ConnectPrompt connected={!!profile.intervals_connected_at} />}
       <main className="mx-auto max-w-lg p-4">
         <ReminderBanner />
         <div key={theme}><Outlet /></div>
