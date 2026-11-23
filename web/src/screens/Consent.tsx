@@ -37,7 +37,7 @@ export function Consent() {
               <li>Your email and name.</li>
               <li>From your intervals.icu account: HRV, resting heart rate, sleep, and your recent and planned workouts.</li>
               <li>Your daily check-in answers, including whether you feel sick.</li>
-              <li>Your intervals.icu API key, encrypted.</li>
+              <li>Your intervals.icu connection (sign-in token or API key), encrypted.</li>
             </ul></section>
           <section><CardTitle className="mb-2">Why</CardTitle>
             <p>Only to work out your daily training status and show it to you. Your data is not sold, shared or used for ads.</p></section>

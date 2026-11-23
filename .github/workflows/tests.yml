@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - name: Status rules and sync
-        run: node tests/rules.test.mjs && node tests/sync.test.mjs && node tests/learn.test.mjs && node tests/notify.test.mjs && node --experimental-strip-types tests/lifting.test.mjs
+        run: node tests/rules.test.mjs && node tests/sync.test.mjs && node tests/learn.test.mjs && node tests/notify.test.mjs && node tests/icu-oauth.test.mjs && node --experimental-strip-types tests/lifting.test.mjs
       - name: Beta app type-checks and builds
         working-directory: web
         run: npm ci && npm run build

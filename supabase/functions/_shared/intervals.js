@@ -1,5 +1,28 @@
-// intervals.icu API helpers. Each person uses their own API key; athlete "0" means "the owner of this key".
+// intervals.icu API helpers. Each person connects with "Connect with intervals.icu" (OAuth, saved as "bearer:<token>")
+// or their own API key; athlete "0" means "the owner of this key".
 const BASE = 'https://intervals.icu/api/v1';
+export const OAUTH_PREFIX = 'bearer:';
+
+export function authHeader(key) {
+  return String(key).startsWith(OAUTH_PREFIX) ? 'Bearer ' + String(key).slice(OAUTH_PREFIX.length) : 'Basic ' + btoa('API_KEY:' + key);
+}
+
+// Swap the one-time code from the intervals.icu consent page for an access token (public client + PKCE: no secret).
+export async function exchangeCode({ clientId, code, verifier, secret }) {
+  const form = new URLSearchParams({ client_id: clientId, code, code_verifier: verifier });
+  if (secret) form.set('client_secret', secret);
+  const res = await fetch('https://intervals.icu/api/oauth/token', { method: 'POST', body: form });
+  const text = await res.text();
+  let data = null; try { data = text ? JSON.parse(text) : null; } catch { /* not JSON */ }
+  if (!res.ok || !data?.access_token) throw new IntervalsError(400, 'intervals.icu did not finish the sign-in (' + res.status + '). Please try Connect again.');
+  return data;
+}
+
+// Tell intervals.icu to forget an OAuth token (best effort).
+export async function revokeToken(key) {
+  if (!String(key).startsWith(OAUTH_PREFIX)) return;
+  try { await fetch(BASE + '/disconnect-app', { method: 'DELETE', headers: { Authorization: authHeader(key) } }); } catch { /* ignore */ }
+}
 
 export class IntervalsError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -9,7 +32,7 @@ export async function icu(key, path, method = 'GET', body) {
   const res = await fetch(BASE + path, {
     method,
     headers: {
-      Authorization: 'Basic ' + btoa('API_KEY:' + key),
+      Authorization: authHeader(key),
       ...(body ? { 'Content-Type': 'application/json' } : {})
     },
     body: body ? JSON.stringify(body) : undefined
@@ -17,7 +40,9 @@ export async function icu(key, path, method = 'GET', body) {
   const text = await res.text();
   if (!res.ok) {
     const msg = res.status === 401 || res.status === 403
-      ? 'intervals.icu did not accept the API key. Check it in intervals.icu > Settings > Developer Settings.'
+      ? (String(key).startsWith(OAUTH_PREFIX)
+        ? 'intervals.icu did not accept Aevigor\'s access. Connect again in Settings > intervals.icu.'
+        : 'intervals.icu did not accept the API key. Check it in intervals.icu > Settings > Developer Settings.')
       : 'intervals.icu error ' + res.status + ': ' + text.slice(0, 160);
     throw new IntervalsError(res.status, msg);
   }
@@ -67,7 +92,7 @@ export async function putWellness(key, athleteId, day, body) {
 export async function uploadActivity(key, athleteId, name, bytes) {
   const form = new FormData();
   form.append('file', new Blob([bytes]), name);
-  const res = await fetch(BASE + athletePath(athleteId) + '/activities', { method: 'POST', headers: { Authorization: 'Basic ' + btoa('API_KEY:' + key) }, body: form });
+  const res = await fetch(BASE + athletePath(athleteId) + '/activities', { method: 'POST', headers: { Authorization: authHeader(key) }, body: form });
   const text = await res.text();
   if (!res.ok) throw new IntervalsError(res.status, 'intervals.icu could not take that file (' + res.status + '): ' + text.slice(0, 160));
   return text ? JSON.parse(text) : null;

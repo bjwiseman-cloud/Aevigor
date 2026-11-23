@@ -1,5 +1,6 @@
 // Aevigor beta API (one Supabase edge function). Routes, all POST:
 //   /api/connect         save and test the person's intervals.icu API key, then sync
+//   /api/oauth-connect   "Connect with intervals.icu": swap the consent-page code (PKCE) for a token, save it, then sync
 //   /api/disconnect      forget the key
 //   /api/sync            the Sync button
 //   /api/checkin         save the daily check-in, copy it to intervals.icu, recompute today
@@ -14,7 +15,7 @@
 //   /api/invites, /api/invite, /api/uninvite   admins only: list, add and remove testers
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { syncUser, todayIn } from '../_shared/sync.js';
-import { icu, athletePath, putWellness, uploadActivity, IntervalsError, sportSettingsBody, putSportSettings, fetchAthlete } from '../_shared/intervals.js';
+import { icu, athletePath, exchangeCode, revokeToken, OAUTH_PREFIX, putWellness, uploadActivity, IntervalsError, sportSettingsBody, putSportSettings, fetchAthlete } from '../_shared/intervals.js';
 import { encrypt, decrypt } from '../_shared/crypto.js';
 import { addDays } from '../_shared/rules.js';
 import { fetchStreams } from '../_shared/performance.js';
@@ -27,6 +28,8 @@ import { reminderEmail } from '../_shared/notify.js';
 // BETA_ENCRYPTION_KEY / BETA_CRON_SECRET still overrides them. (Rotating the service-role key means testers reconnect intervals.icu.)
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const ENC = Deno.env.get('BETA_ENCRYPTION_KEY') || (SERVICE_KEY ? 'aevigor-intervals-v1:' + SERVICE_KEY : '');
+const ICU_CLIENT_ID = Deno.env.get('INTERVALS_CLIENT_ID') || '1967';
+const ICU_CLIENT_SECRET = Deno.env.get('INTERVALS_CLIENT_SECRET') ?? '';   // not needed: the app is a public client using PKCE
 const CRON_SECRET = Deno.env.get('BETA_CRON_SECRET') ?? '';
 const ORIGINS = (Deno.env.get('BETA_ALLOWED_ORIGINS') ?? 'https://aevigor.com,https://www.aevigor.com').split(',').map((s) => s.trim());
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
@@ -111,6 +114,15 @@ async function keyFor(userId: string) {
   const { data } = await admin.from('intervals_secrets').select('key_cipher').eq('user_id', userId).maybeSingle();
   if (!data) throw new HttpError(409, 'Connect your intervals.icu account first (Settings).');
   return await decrypt(data.key_cipher, ENC);
+}
+
+async function saveConnection(userId: string, profile: any, key: string, athleteId: string, name: string | null, timeZone: unknown) {
+  await admin.from('intervals_secrets').upsert({ user_id: userId, key_cipher: await encrypt(key, ENC), updated_at: new Date().toISOString() });
+  const tz = validTz(timeZone) ?? profile.time_zone;
+  const patch = { intervals_athlete_id: athleteId, intervals_connected_at: new Date().toISOString(), time_zone: tz };
+  await admin.from('profiles').update(patch).eq('user_id', userId);
+  const sync = await runSync(userId, { ...profile, ...patch }, key);
+  return { ok: true, athlete: { id: athleteId, name }, sync };
 }
 
 async function runSync(userId: string, profile: { intervals_athlete_id: string | null; time_zone: string }, key?: string) {
@@ -212,17 +224,28 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     if (!/^[A-Za-z0-9]{10,100}$/.test(key)) throw new HttpError(400, 'That API key does not look right. Copy it again from intervals.icu.');
     const wanted = String(body.athlete_id ?? '').trim() || '0';
     const athlete = await icu(key, athletePath(wanted));          // proves the key works
-    const athleteId = String(athlete?.id ?? wanted);
-    await admin.from('intervals_secrets').upsert({ user_id: user.id, key_cipher: await encrypt(key, ENC), updated_at: new Date().toISOString() });
-    const tz = validTz(body.time_zone) ?? profile.time_zone;
-    const patch = { intervals_athlete_id: athleteId, intervals_connected_at: new Date().toISOString(), time_zone: tz };
-    await admin.from('profiles').update(patch).eq('user_id', user.id);
-    const sync = await runSync(user.id, { ...profile, ...patch }, key);
-    return { ok: true, athlete: { id: athleteId, name: athlete?.name ?? null }, sync };
+    return await saveConnection(user.id, profile, key, String(athlete?.id ?? wanted), athlete?.name ?? null, body.time_zone);
+  },
+
+  // "Connect with intervals.icu": the app sends the one-time code from the consent page plus its PKCE verifier.
+  async 'oauth-connect'(req, body) {
+    const { user, profile } = await currentUser(req); needConsent(profile);
+    const code = String(body.code ?? '').trim(), verifier = String(body.code_verifier ?? '').trim();
+    if (!/^[A-Za-z0-9._~-]{8,200}$/.test(code)) throw new HttpError(400, 'The intervals.icu sign-in code is missing. Please try Connect again.');
+    if (!/^[A-Za-z0-9._~-]{43,128}$/.test(verifier)) throw new HttpError(400, 'The sign-in check is missing. Please try Connect again.');
+    const t = await exchangeCode({ clientId: ICU_CLIENT_ID, code, verifier, secret: ICU_CLIENT_SECRET });
+    const key = OAUTH_PREFIX + String(t.access_token);
+    const athlete = t.athlete ?? await icu(key, athletePath('0'));
+    const old = await keyFor(user.id).catch(() => null);
+    const r = await saveConnection(user.id, profile, key, String(athlete?.id ?? '0'), athlete?.name ?? null, body.time_zone);
+    if (old && old !== key) await revokeToken(old);
+    return { ...r, scope: t.scope ?? null };
   },
 
   async disconnect(req) {
     const { user } = await currentUser(req);
+    const old = await keyFor(user.id).catch(() => null);
+    if (old) await revokeToken(old);
     await admin.from('intervals_secrets').delete().eq('user_id', user.id);
     await admin.from('profiles').update({ intervals_athlete_id: null, intervals_connected_at: null }).eq('user_id', user.id);
     return { ok: true };
@@ -463,6 +486,8 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
   async 'delete-account'(req, body) {
     const { user } = await currentUser(req);
     if (body.confirm !== 'DELETE') throw new HttpError(400, 'Type DELETE to confirm.');
+    const icuKey = await keyFor(user.id).catch(() => null);
+    if (icuKey) await revokeToken(icuKey);
     // Every table references auth.users with ON DELETE CASCADE, so this removes all of the person's rows.
     const { error } = await admin.auth.admin.deleteUser(user.id);
     if (error) throw error;

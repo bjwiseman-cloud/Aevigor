@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connecting…</title>
+<style>body{font-family:system-ui,sans-serif;background:#f3eee2;color:#222;display:grid;place-items:center;min-height:100vh;margin:0}@media (prefers-color-scheme:dark){body{background:#0b0b0b;color:#eee}}</style>
+</head>
+<body>
+<p>Connecting to intervals.icu…</p>
+<script>
+  // intervals.icu sends people back here after the consent page. Hand the result to the app's Connect screen.
+  (function () {
+    var q = new URLSearchParams(location.search), out = new URLSearchParams();
+    ['code', 'state', 'error'].forEach(function (k) { var v = q.get(k); if (v) out.set('icu_' + k, v); });
+    location.replace('/beta/#/connect?' + out.toString());
+  })();
+</script>
+</body>
+</html>
