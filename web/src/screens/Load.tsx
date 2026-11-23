@@ -25,6 +25,7 @@ import { Volume } from '@/screens/training/liftCards';
 import { HelpQ } from '@/components/HelpQ';
 import { Arrange, type ArrangeCard } from '@/components/Arrange';
 import { SorenessCard } from '@/components/SorenessMap';
+import { MuscleLoadCard } from '@/components/MuscleLoad';
 import { ANALYSIS_TABS, SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 const FIT = '#14b8a6', FAT = '#fb7185', ACT = '#8b5cf6', PLAN = '#f59e0b';
@@ -130,6 +131,8 @@ export function Load({ charts = false }: { charts?: boolean } = {}) {
   const FIXED = ['ride', 'run', 'WeightTraining'];
   const shown = avail.keys.filter(Boolean);
   const sport = pick ?? 'mix';
+  // Rides, runs and Combined get the endurance muscle load map (Ben 2026-11-23)
+  const endo = sport === 'ride' || sport === 'run' || sport === 'mix' ? (sport as 'ride' | 'run' | 'mix') : null;
   const others = shown.filter((k) => !FIXED.includes(k));
 
   const ahead = useMemo(() => (cal.data ?? []).filter((c) => c.day > today && c.day <= addDays(today, 180)), [cal.data, today]);
@@ -216,14 +219,15 @@ export function Load({ charts = false }: { charts?: boolean } = {}) {
           <p className="text-xs text-muted-foreground">Uses all your sports. Training guidance, not medical advice.</p>
         </CardContent>
       </Card>
-      {sport === 'WeightTraining' && (
+      {(sport === 'WeightTraining' || endo) && (
         <div className="flex gap-1 rounded-lg border bg-card p-1">
-          {([['volume', 'Volume by muscle'], ['sore', 'Soreness and injury']] as const).map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setLiftMap(k)} className={cn('flex-1 rounded-md px-2 py-1.5 text-sm', liftMap === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>{l}</button>
+          {([['volume', sport === 'WeightTraining' ? '📊 Volume by muscle' : '🦵 Muscle load'], ['sore', '🔥 Soreness and injury']] as const).map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setLiftMap(k)} className={cn('flex-1 rounded-md px-2 py-1.5 text-sm', liftMap === k ? 'bg-gradient-to-br from-orange-400 via-rose-500 to-fuchsia-500 font-semibold text-white shadow-sm' : 'text-muted-foreground')}>{l}</button>
           ))}
         </div>
       )}
-      {sport === 'WeightTraining' && liftMap === 'volume' ? <Volume sets={lifts.data ?? []} unit={liftUnit} ex={null} /> : <SorenessCard />}
+      {sport === 'WeightTraining' && liftMap === 'volume' ? <Volume sets={lifts.data ?? []} unit={liftUnit} ex={null} />
+        : endo && liftMap === 'volume' ? <MuscleLoadCard key={endo} sport={endo} /> : <SorenessCard />}
 
       </>)}
       {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}

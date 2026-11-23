@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNeedIcu } from '@/components/IcuConnect';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Celebrate } from '@/components/Celebrate';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -102,6 +103,7 @@ export function Layout() {
     return () => document.removeEventListener('visibilitychange', maybe);
   }, [linked, lastSync]); // eslint-disable-line react-hooks/exhaustive-deps
   const pull = usePullToRefresh(() => sync.mutate(false), sync.isPending);
+  const icu = useNeedIcu('Syncing brings in your sessions and recovery data from intervals.icu.');
   const { theme } = useTheme();   // charts read their colours on render, so the page re-renders on a theme change
 
   return (
@@ -116,10 +118,11 @@ export function Layout() {
             <Button asChild variant="ghost" size="icon" aria-label="Settings"><Link to="/settings"><Cog /></Link></Button>
           </div>
         </div>
-        <button type="button" onClick={() => sync.mutate(false)} disabled={sync.isPending}
+        <button type="button" onClick={() => icu.need(() => sync.mutate(false))} disabled={sync.isPending}
           className="block w-full text-center text-[11px] text-muted-foreground">
-          {sync.isPending ? 'Syncing with intervals.icu…' : linked ? `Last sync ${lastSyncText(profile?.last_sync)} · tap or pull down to sync` : 'Not connected to intervals.icu'}
+          {sync.isPending ? 'Syncing with intervals.icu…' : linked ? `Last sync ${lastSyncText(profile?.last_sync)} · tap or pull down to sync` : 'Not connected to intervals.icu · tap to connect'}
         </button>
+        {icu.sheet}
       </header>
       {pull > 0 && (
         <div className="flex justify-center text-xs text-muted-foreground" style={{ height: pull / 2 }}>

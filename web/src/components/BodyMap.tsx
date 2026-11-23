@@ -25,6 +25,21 @@ export function upgradeKeys<T>(v: Record<string, T> | null | undefined): Record<
   return out;
 }
 
+// Extra tendon spots placed from the joints the figures already have (Ben 2026-11-23): below the kneecap on the
+// front; Achilles, hamstring at the sit bone and the sole of the foot on the back.
+const TENDON = ['belowKnee', 'sitBone', 'achilles', 'sole'];
+function withTendonSpots(j: Record<string, number[][]>) {
+  const out: Record<string, number[][]> = { ...j };
+  if (!j.lowerBack && j.knees) out.belowKnee = j.knees.map(([x, y]) => [x, y + 62]);
+  if (j.lowerBack && j.ankles && j.hips && j.knees) {
+    const mid = j.lowerBack[0][0];
+    out.sitBone = j.hips.map(([x, y], i) => [x + (mid - x) * 0.3, y + (j.knees[i][1] - y) * 0.3]);
+    out.achilles = j.ankles.map(([x, y]) => [x, y - 48]);
+    out.sole = j.ankles.map(([x, y]) => [x, y + 50]);
+  }
+  return out;
+}
+
 export function BodyFigure({ sex, side, fill, selected, onMuscle, joints, className }: {
   sex: Sex; side: 'front' | 'back'; fill: (k: string) => string | undefined; selected?: string | null;
   onMuscle?: (k: string) => void; joints?: { fill: (k: string) => string | undefined; onTap: (k: string) => void; selected?: string | null };
@@ -34,6 +49,7 @@ export function BodyFigure({ sex, side, fill, selected, onMuscle, joints, classN
   const fig = figs?.[`${sex}-${side}`];
   if (!fig) return <div className={cn('aspect-[1/2] w-full animate-pulse rounded-lg bg-muted', className)} />;
   const id = `${sex}${side}`;
+  const spots = withTendonSpots(fig.joints);
   return (
     <div className="relative">
     {/* Soft colourful halo behind the figure (Ben 2026-11-23: playful look) */}
@@ -54,10 +70,10 @@ export function BodyFigure({ sex, side, fill, selected, onMuscle, joints, classN
           </path>
         );
       })}
-      {joints && Object.entries(fig.joints).map(([k, pts]) => pts.map(([x, y], i) => {
+      {joints && Object.entries(spots).map(([k, pts]) => pts.map(([x, y], i) => {
         const c = joints.fill(k);
         return (
-          <circle key={k + i} cx={x} cy={y} r={20} className="cursor-pointer" fill={c ?? 'hsl(var(--card))'} fillOpacity={c ? 0.95 : 0.9}
+          <circle key={k + i} cx={x} cy={y} r={TENDON.includes(k) ? 15 : 20} className="cursor-pointer" fill={c ?? 'hsl(var(--card))'} fillOpacity={c ? 0.95 : 0.9}
             stroke={joints.selected === k ? 'hsl(var(--foreground))' : c ?? 'hsl(var(--muted-foreground))'} strokeWidth={joints.selected === k ? 6 : 4}
             onClick={() => joints.onTap(k)}><title>{jointLabel(k)}</title></circle>
         );

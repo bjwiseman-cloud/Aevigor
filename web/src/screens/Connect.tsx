@@ -84,7 +84,7 @@ export function Connect() {
               <FormItem><FormLabel>Your time zone</FormLabel><TimeZoneSelect value={field.value} onChange={field.onChange} /><FormMessage /></FormItem>
             )} />
           </Form>
-          <Button className="w-full" onClick={connectOAuth} disabled={!!busy}>{busy ?? 'Connect with intervals.icu'}</Button>
+          <Button className="h-14 w-full rounded-2xl bg-gradient-to-r from-rose-500 via-orange-500 to-amber-400 font-display text-lg font-extrabold italic text-white shadow-lg shadow-orange-500/30 hover:opacity-95" onClick={connectOAuth} disabled={!!busy}>🔗 {busy ?? 'Connect with intervals.icu'}</Button>
           {oauthError && <p className="text-sm text-destructive" role="alert">{oauthError}</p>}
           <p className="text-sm text-muted-foreground">Your watch (Garmin, Polar and so on) needs to be linked to intervals.icu so HRV and sleep arrive there.</p>
         </CardContent>
