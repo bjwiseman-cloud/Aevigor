@@ -83,6 +83,31 @@ export function rangeLoad(acts: Activity[], from: string, to: string, keep: (a: 
   return out;
 }
 
+export const isLift = (a: Activity) => /weight|strength/i.test(a.type);
+/** A hard set's share of a lifting session when no session load is known: 5 (about RPE 7 × 60 min ÷ 6 = 70 for 14 hard sets). */
+export const LOAD_PER_SET = 5;
+/**
+ * Lifting load per muscle on the same scale as rides and runs, for the Combined view. The week's lifting session load
+ * (intervals.icu Load, else session RPE × minutes ÷ 6) is split over the muscles by their share of the week's hard sets.
+ * Sets logged with no lifting session load count as LOAD_PER_SET each.
+ */
+export function liftLoad(acts: Activity[], hard: Partial<Record<MuscleKey, number>>, from: string, to: string) {
+  const sets = Object.values(hard).reduce((t, x) => t + (x ?? 0), 0);
+  if (!sets) return {} as Share;
+  let total = 0;
+  for (const a of acts) if (a.day >= from && a.day <= to && isLift(a)) total += sessionLoad(a) ?? 0;
+  if (!total) total = sets * LOAD_PER_SET;
+  const out: Share = {};
+  for (const [k, n] of Object.entries(hard) as [MuscleKey, number][]) if (n) out[k] = (total * n) / sets;
+  return out;
+}
+/** Adds two per-muscle loads. */
+export function addLoads(a: Share, b: Share) {
+  const out: Share = { ...a };
+  for (const [k, v] of Object.entries(b) as [MuscleKey, number][]) out[k] = (out[k] ?? 0) + v;
+  return out;
+}
+
 /** This week against your usual week (the 4 weeks before it, averaged): 100 = a usual week. */
 export function percentOfUsual<T extends string>(week: Partial<Record<T, number>>, before4: Partial<Record<T, number>>, keys: T[]) {
   const out: Partial<Record<T, number>> = {};
