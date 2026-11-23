@@ -12,7 +12,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Chip, Chips, Field } from '@/components/chips';
 import { HealthConsent } from '@/components/health';
-import { NextTestCard } from '@/screens/Load';
+import { NextTestCard, daysAway, weekOf } from '@/screens/Load';
+import { FunTile } from '@/components/Fun';
+import { useCalendar } from '@/hooks/data';
 import { TONE } from '@/components/Fun';
 import { cn } from '@/lib/utils';
 
@@ -85,6 +87,37 @@ function EventSheet({ open, onOpenChange, ev, tz, today, startDay }: { open: boo
   );
 }
 
+// Coming up this week (Ben 2026-11-23): appointments, events and races in the current Monday-to-Sunday week,
+// with how far away each one is. Tap one to edit it.
+function ThisWeekCard({ events, tz, today, onEdit }: { events: PlanEvent[]; tz: string; today: string; onEdit: (e: PlanEvent) => void }) {
+  const p = useProfile().data!;
+  const cal = useCalendar(p);
+  const [mon, sun] = weekOf(today);
+  const items: { day: string; time?: string; title: string; icon: string; ev?: PlanEvent; race?: boolean }[] = [];
+  for (const e of events) {
+    const lp = localParts(e.starts_at, tz), k = EVENT_KINDS.find((x) => x.id === e.kind);
+    for (let x = mon; x <= sun; x = addDaysIso(x, 1)) if (e.rrule ? occursOn(e.rrule, lp.day, x) : x === lp.day) items.push({ day: x, time: lp.time, title: e.title, icon: k?.icon ?? '📅', ev: e });
+  }
+  for (const c of cal.data ?? []) if (c.day >= mon && c.day <= sun && /^Race|Event/.test(c.kind)) items.push({ day: c.day, title: c.name || c.kind, icon: /^Race/.test(c.kind) ? '🏁' : '📌', race: true });
+  items.sort((a, b) => (a.day + (a.time ?? '')).localeCompare(b.day + (b.time ?? '')));
+  return (
+    <Card>
+      <CardHeader className="pb-2"><CardTitle>Coming up this week</CardTitle><p className="text-xs text-muted-foreground">Appointments, events and races · week of {shortDate(mon)}</p></CardHeader>
+      <CardContent>
+        {items.length ? (
+          <div className="grid grid-cols-2 gap-2">
+            {items.map((it, i) => (
+              <FunTile key={i} i={i} tone={it.day < today ? 'teal' : it.race ? 'rose' : (['sky', 'violet', 'fuchsia', 'lime'] as const)[i % 4]} icon={it.day < today ? '✅' : it.icon}
+                top={`${shortDate(it.day)}${it.time ? ' · ' + it.time : ''}`} big={daysAway(it.day, today)} sub={it.title}
+                onClick={it.ev ? () => onEdit(it.ev!) : undefined} />
+            ))}
+          </div>
+        ) : <p className="text-sm text-muted-foreground">Nothing booked this week. Tap a day on the calendar to add something.</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 const SHOW: { id: Show; label: string }[] = [{ id: 'training', label: 'Training' }, { id: 'tests', label: 'Tests and races' }, { id: 'log', label: 'My log' }, { id: 'appointments', label: 'Appointments' }];
 
 export function Schedule() {
@@ -153,7 +186,8 @@ export function Schedule() {
     <div className="space-y-4">
       <h1 className="font-serif text-xl font-bold tracking-wide">Calendar</h1>
       <Arrange page="schedule" cards={[
-        { id: 'next', label: 'Next test', node: <NextTestCard /> },
+        { id: 'next', label: 'Tests this week', node: <NextTestCard /> },
+        { id: 'week', label: 'Coming up this week', node: <ThisWeekCard events={d.events.data ?? []} tz={tz} today={today} onEdit={(ev) => setSheet({ ev, key: Date.now() })} /> },
         { id: 'calendar', label: 'Calendar', node: (
           <div className="space-y-4">
       <Card>

@@ -18,7 +18,7 @@ import { isRide, isRun, testResults } from '@/lib/perf';
 import { WeekLoadTypes } from '@/components/Compare';
 import { TS_ORDER, mergeDays, statusColor, trainingStatus, weekPct, type Status } from '@/lib/training-status';
 import { todayIn } from '@/lib/time';
-import { FunTile } from '@/components/Fun';
+import { FunTile, type Tone } from '@/components/Fun';
 import { cn } from '@/lib/utils';
 import { useSets, useUnit } from '@/hooks/lifting';
 import { Volume } from '@/screens/training/liftCards';
@@ -362,28 +362,36 @@ function ZoneChart({ title, help, data, keyA, keyP, zones, ticks, lo, hi, X, ext
 }
 
 // Next test, with the Form projected for that day (all sports). Lives on the Calendar tab (Ben 2026-11-23).
+// Tests this week (Ben 2026-11-23): only the current Monday-to-Sunday week, as colourful tiles with a countdown
+// and the projected Form for each test. When none falls this week, one line names the next one.
+const TEST_LOOK: [RegExp, string, Tone][] = [[/^ftp/i, '⚡', 'rose'], [/^vo2/i, '🫁', 'violet'], [/^durab/i, '🔋', 'amber'], [/^run/i, '🏃', 'sky'], [/meet/i, '🏆', 'fuchsia']];
+export const daysAway = (day: string, today: string) => { const d = Math.round((Date.parse(day) - Date.parse(today)) / 864e5); return d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : d < 0 ? `${-d} days ago` : `In ${d} days`; };
+export const weekOf = (today: string) => { const mon = addDays(today, -((new Date(today + 'T12:00:00Z').getUTCDay() + 6) % 7)); return [mon, addDays(mon, 6)] as const; };
 export function NextTestCard() {
   const p = useProfile().data!;
   const today = todayIn(p.time_zone);
   const load = useDailyLoad(p), tests = usePlannedTests(p);
-  const next = (tests.data ?? []).find((t) => t.day >= today && t.kind !== 'Durability test') ?? (tests.data ?? []).find((t) => t.day >= today);
-  const pts = useMemo(() => (next ? pmc(load.data ?? [], 'all', addDays(today, -LOAD_BACK), next.day > today ? next.day : addDays(today, 1), today) : []), [load.data, next?.day, today]);
-  const nextPt = next && pts.find((x) => x.day === next.day);
-  const daysTo = next ? Math.round((Date.parse(next.day) - Date.parse(today)) / 864e5) : null;
-  const inBand = nextPt && nextPt.form >= 5 && nextPt.form <= 15;
+  const [mon, sun] = weekOf(today);
+  const week = (tests.data ?? []).filter((t) => t.day >= mon && t.day <= sun);
+  const later = (tests.data ?? []).find((t) => t.day > sun);
+  const end = week.length ? week[week.length - 1].day : today;
+  const pts = useMemo(() => (week.length ? pmc(load.data ?? [], 'all', addDays(today, -LOAD_BACK), end > today ? end : addDays(today, 1), today) : []), [load.data, end, today, week.length]);
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle help="next-test">Next test</CardTitle></CardHeader>
-      <CardContent className="text-sm">
-        {next ? (
-          <div className="flex items-center gap-4">
-            <div className="font-mono text-3xl">{daysTo}<span className="text-sm"> days</span></div>
-            <div><b>{next.kind}</b> · {shortDay(next.day)}
-              <div className="text-muted-foreground">Projected Form that day: <b style={{ color: inBand ? '#22c55e' : PLAN }}>{nextPt ? Math.round(nextPt.form) : '–'}</b>{' '}
-                {next.kind === 'Durability test' ? '(no target band for durability)' : inBand ? '✓ inside the +5 to +15 test band' : '· aim for +5 to +15'}</div>
-            </div>
+      <CardHeader className="pb-2"><CardTitle help="next-test">Tests this week</CardTitle><p className="text-xs text-muted-foreground">Week of {shortDay(mon)}</p></CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        {week.length ? (
+          <div className="grid grid-cols-2 gap-2">
+            {week.map((t, i) => {
+              const look = TEST_LOOK.find(([re]) => re.test(t.kind)) ?? [null, '🎯', 'teal' as Tone];
+              const f = pts.find((x) => x.day === t.day), inBand = f && f.form >= 5 && f.form <= 15, band = /^(ftp|vo2|run)/i.test(t.kind);
+              return (
+                <FunTile key={t.day + t.kind} i={i} tone={t.day < today ? 'sky' : look[2]} icon={t.day < today ? '✅' : look[1]} top={`${t.kind} · ${shortDay(t.day)}`} big={daysAway(t.day, today)}
+                  sub={band && f && t.day >= today ? `Form ${Math.round(f.form)} ${inBand ? '✓ in the +5 to +15 band' : '· aim +5 to +15'}` : t.day < today ? 'done this week' : undefined} />
+              );
+            })}
           </div>
-        ) : <p className="text-muted-foreground">No test in your intervals.icu plan yet. Name a workout "FTP test", "VO2 test" or "Durability test".</p>}
+        ) : <p className="text-muted-foreground">No test this week.{later ? <> Next: <b>{later.kind}</b> on {shortDay(later.day)} ({daysAway(later.day, today).toLowerCase()}).</> : ' Name a workout "FTP test", "VO2 test", "Durability test", "Run threshold test" or "Mock meet" in intervals.icu.'}</p>}
       </CardContent>
     </Card>
   );

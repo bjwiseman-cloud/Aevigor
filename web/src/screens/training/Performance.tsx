@@ -17,7 +17,7 @@ import { useActivities, useCurves, usePaceCurves } from '@/hooks/perf';
 import { BEST_SECS, bestEfforts, isRide, isRun, latestWeight, mmss, n, pace, paceRows, secsLabel, testResults, type Activity, type Curve, type PaceCurve } from '@/lib/perf';
 import { todayIn } from '@/lib/time';
 import type { Unit } from '@/lib/lifting';
-import { BestLifts, Strength } from '@/screens/training/liftCards';
+import { BestLifts, MeetCard, Strength } from '@/screens/training/liftCards';
 import { AchievementsCard } from '@/components/Achievements';
 import { UNIT_KEY, useSets } from '@/hooks/lifting';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -104,9 +104,9 @@ function RideTests({ rides, results, today, onOpen }: { rides: Activity[]; resul
   const base = { today, onOpen };
   return (
     <Arrange page="perf-tests-ride" cards={[
-      { id: 'vo2', label: 'VO2 test', node: <TestCard {...base} id="vo2" title="VO2 test" icon="🫁" tone="violet" help="tests" better="high" fmt={W} pts={fromTests(results, /vo2/i)}
+      { id: 'vo2', label: 'VO2 test', node: <TestCard {...base} id="vo2" title="VO2 test" icon="🫁" tone="violet" help="tests" better="high" fmt={W} pts={fromTests(results, /^vo2/i)}
         what="5-min max power, week 3 Wednesday" empty="Shows after a VO2 test day on your intervals.icu calendar has a ride with power." /> },
-      { id: 'ftp', label: 'FTP test', node: <TestCard {...base} id="ftp" title="FTP test" icon="⚡" tone="rose" help="tests" better="high" fmt={W} pts={fromTests(results, /ftp/i)}
+      { id: 'ftp', label: 'FTP test', node: <TestCard {...base} id="ftp" title="FTP test" icon="⚡" tone="rose" help="tests" better="high" fmt={W} pts={fromTests(results, /^ftp/i)}
         what="95% of your 20-min time trial, week 5 Wednesday" empty="Shows after an FTP test day on your intervals.icu calendar has a ride with power." /> },
       { id: 'durability', label: 'Durability', node: <TestCard {...base} id="dur" title="Durability" icon="🔋" tone="amber" help="durability" better="low" fmt={pct} pts={durability(rides, results)} target={{ value: 5, label: 'target 5% or less' }}
         what="How far your end-of-ride 5-min max drops after 1500 kJ (Saturdays). Lower is better." empty="Shows after a Saturday ride of 1500 kJ or more that ends with a 5-min max." /> },
@@ -120,13 +120,19 @@ function RideTests({ rides, results, today, onOpen }: { rides: Activity[]; resul
   );
 }
 
-function RunTests({ runs, paceCurves, today, onOpen }: { runs: Activity[]; paceCurves: PaceCurve[]; today: string; onOpen: (id: string) => void }) {
+function RunTests({ runs, results, paceCurves, today, onOpen }: { runs: Activity[]; results: ReturnType<typeof testResults>; paceCurves: PaceCurve[]; today: string; onOpen: (id: string) => void }) {
+  const thr = fromTests(results, /^run threshold/i), vo2 = fromTests(results, /^run vo2/i), pace = (v: number) => `${v < 0 ? "-" : ""}${mmss(Math.abs(Math.round(v)))}/km`;
   const base = { today, onOpen };
   const five = (cv: string) => paceRows(paceCurves.find((c) => c.curve === cv)).find((r) => r.meters === 5000) ?? null;
   const all = five('all'), m3 = five('84d'), y1 = five('1y');
   const dayOf = (id: string | null) => runs.find((r) => r.id === id)?.day;
   return (
     <Arrange page="perf-tests-run" cards={[
+      // Only when scheduled (Ben 2026-11-23): name a run "Run threshold test" or "Run VO2 test" in intervals.icu
+      ...(thr.length ? [{ id: 'thr', label: 'Run threshold test', node: <TestCard {...base} id="rthr" title="Threshold test" icon="⚡" tone="rose" help="tests" better="low" fmt={pace} pts={thr}
+        what="Average pace of your scheduled threshold test run (about 30 min all out). Faster is better." empty="" /> }] : []),
+      ...(vo2.length ? [{ id: 'vo2', label: 'Run VO2 test', node: <TestCard {...base} id="rvo2" title="VO2 test" icon="🫁" tone="violet" help="tests" better="low" fmt={pace} pts={vo2}
+        what="Average pace of your scheduled VO2 test run (about 5 min all out). Faster is better." empty="" /> }] : []),
       { id: '5k', label: 'Best 5 km', node: (
         <Card>
           <CardHeader className="pb-2"><CardTitle help="pace-curve"><span className="flex items-center gap-2"><FunIcon tone="sky">🏃</FunIcon>Best 5 km</span></CardTitle>
@@ -334,8 +340,11 @@ export function Performance({ part = 'achievements' }: { part?: Part }) {
       : none('No curve for this sport yet. See Zones.');
     if (part === 'zones') c = <ZonesCard acts={mine} settings={st} today={today} sportLabel={label} />;
     if (part === 'tests') c = sport === 'ride' ? <RideTests rides={rides} results={results} today={today} onOpen={open} />
-      : sport === 'run' ? <RunTests runs={runs} paceCurves={paceCurves.data ?? []} today={today} onOpen={open} />
-      : none('Tests are for cycling and running. Lifting bests are under Curves.');
+      : sport === 'run' ? <RunTests runs={runs} results={results} paceCurves={paceCurves.data ?? []} today={today} onOpen={open} />
+      : sport === 'lift' ? cards('perf-tests-lift', [
+        { id: 'meet', label: 'Mock meet', node: <MeetCard sets={lifts.data ?? []} unit={unit} meets={(tests.data ?? []).filter((t) => t.kind === 'Mock meet' && t.day <= today).map((t) => t.day)} /> },
+        { id: 'best', label: 'Best lifts', node: <BestLifts sets={lifts.data ?? []} unit={unit} /> }])
+      : none('Tests are for cycling, running and lifting.');
     content = <>{chips(FIXED, true)}{c}</>;
   }
   return (

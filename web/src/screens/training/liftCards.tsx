@@ -287,3 +287,38 @@ export function BestLifts({ sets, unit }: { sets: LiftSet[]; unit: Unit }) {
     </Card>
   );
 }
+
+// Mock meet (Ben 2026-11-23): a squat-bench-deadlift test day at the end of a block. Name the workout "Mock meet"
+// (or "SBD test") in your intervals.icu calendar; the heaviest single you log that day for each lift is the result.
+export function MeetCard({ sets, unit, meets }: { sets: LiftSet[]; unit: Unit; meets: string[] }) {
+  const main = useMemo(() => mainLiftNames(sets), [sets]);
+  const rows = useMemo(() => meets.map((day) => {
+    const top = heaviest(sets.filter((s) => s.day === day));
+    const v = Object.fromEntries(MAIN_LIFTS.map((m) => [m.key, main[m.key] ? top.get(main[m.key]!)?.weight ?? null : null])) as Record<string, number | null>;
+    const total = MAIN_LIFTS.every((m) => v[m.key]) ? MAIN_LIFTS.reduce((t, m) => t + v[m.key]!, 0) : null;
+    return { day, v, total };
+  }).filter((r) => MAIN_LIFTS.some((m) => r.v[m.key])).sort((a, b) => b.day.localeCompare(a.day)), [sets, meets, main]);
+  const [pick, setPick] = useState(1);
+  const latest = rows[0], prev = rows[pick];
+  const w = (kg: number | null) => (kg == null ? '–' : `${showW(kg, unit)}`);
+  const diff = (a: number | null, b: number | null | undefined) => (a != null && b != null ? `${a - b >= 0 ? '+' : ''}${showW(a - b, unit)} ${unit}` : undefined);
+  return (
+    <Card>
+      <CardHeader className="pb-2"><CardTitle help="strength"><span className="flex items-center gap-2"><span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-400 via-pink-500 to-purple-500 text-base shadow-sm">🏆</span>Mock meet</span></CardTitle>
+        <p className="text-xs text-muted-foreground">Squat, bench and deadlift test day at the end of a block</p></CardHeader>
+      <CardContent className="space-y-3">
+        {!latest ? <p className="text-sm text-muted-foreground">Name a workout "Mock meet" (or "SBD test") in your intervals.icu calendar. Your heaviest single for each lift that day shows here, with your total.</p> : <>
+          <div className="grid grid-cols-2 gap-2">
+            {MAIN_LIFTS.map((m, i) => <FunTile key={m.key} i={i} tone={(['rose', 'violet', 'orange'] as const)[i]} icon="🏋️" top={`${m.label} · ${shortDay(latest.day)}`} big={<>{w(latest.v[m.key])}<span className="text-sm"> {unit}</span></>} sub={prev ? diff(latest.v[m.key], prev.v[m.key]) : 'first meet'} className="p-2" />)}
+            <FunTile i={3} tone="amber" icon="🥇" top="Total" big={<>{w(latest.total)}<span className="text-sm"> {unit}</span></>} sub={prev ? diff(latest.total, prev.total) : 'first meet'} className="p-2" />
+          </div>
+          {rows.length > 1 && (
+            <select className="h-8 w-full rounded-full border bg-card px-3 text-sm" aria-label="Compare with" value={pick} onChange={(e) => setPick(Number(e.target.value))}>
+              {rows.slice(1).map((r, k) => <option key={r.day} value={k + 1}>Compared with the meet on {shortDay(r.day)} · total {w(r.total)} {unit}</option>)}
+            </select>
+          )}
+        </>}
+      </CardContent>
+    </Card>
+  );
+}

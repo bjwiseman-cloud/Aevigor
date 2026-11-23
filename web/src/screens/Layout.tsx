@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Celebrate } from '@/components/Celebrate';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Award, CalendarDays, ClipboardCheck, Home, LineChart, Menu as MenuIcon, Settings as Cog, TrendingUp } from 'lucide-react';
@@ -128,6 +129,7 @@ export function Layout() {
       <main className={cn('mx-auto p-4', loc.pathname.startsWith('/analysis') ? 'max-w-5xl' : 'max-w-lg')}>
         <ReminderBanner />
         <div key={theme}><Outlet /></div>
+        <Celebrate />
       </main>
       <nav style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }} className="fixed inset-x-0 bottom-0 z-10 grid border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         {tabs.map(({ to, label, icon: Icon, match, centre }) => {

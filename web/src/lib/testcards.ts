@@ -22,7 +22,7 @@ export function fromTests(results: TestResult[], re: RegExp): Pt[] {
  */
 export function durability(acts: Activity[], results: TestResult[]): Pt[] {
   const rides = acts.filter((a) => isRide(a) && a.best?.[300]);
-  const planned = new Set(results.filter((r) => /durab/i.test(r.kind)).map((r) => r.activityId));
+  const planned = new Set(results.filter((r) => /^durab/i.test(r.kind)).map((r) => r.activityId));
   const out: Pt[] = [];
   for (const a of rides) {
     const kj = (n(a, 'icu_joules') ?? 0) / 1000;

@@ -46,7 +46,7 @@ export function achievements(i: {
 
   // FTP: the highest FTP from a test (95% of 20 min) or intervals.icu eFTP, and the gain over the last 12 months
   const eftp = [...rides].sort((a, b) => a.day.localeCompare(b.day)).map((r) => ({ day: r.day, v: n(r, 'icu_pm_ftp', 'icu_eftp'), id: r.id })).filter((x): x is { day: string; v: number; id: string } => !!x.v);
-  const ftpTests = i.tests.filter((t) => /ftp/i.test(t.kind)).map((t) => ({ day: t.day, v: t.value, id: t.activityId }));
+  const ftpTests = i.tests.filter((t) => /^ftp/i.test(t.kind)).map((t) => ({ day: t.day, v: t.value, id: t.activityId }));
   const ftpAll = [...eftp, ...ftpTests].sort((a, b) => a.day.localeCompare(b.day));
   if (ftpAll.length) {
     const top = ftpAll.reduce((m, x) => (x.v > m.v ? x : m));

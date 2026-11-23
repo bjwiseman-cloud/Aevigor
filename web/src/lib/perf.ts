@@ -86,6 +86,13 @@ export type TestResult = { day: string; kind: string; name: string | null; value
 export function testResults(tests: { day: string; kind: string; name: string | null }[], acts: Activity[]): TestResult[] {
   const out: TestResult[] = [];
   for (const t of tests) {
+    // Running tests (only when scheduled): the run's average pace, as seconds per km (lower is better)
+    if (/^run/i.test(t.kind)) {
+      const run = acts.filter((a) => a.day === t.day && isRun(a) && a.distance && a.moving_time).sort((a, b) => (b.moving_time ?? 0) - (a.moving_time ?? 0))[0];
+      if (run) out.push({ ...t, value: Math.round((run.moving_time! / run.distance!) * 1000), unit: '/km', label: /vo2/i.test(t.kind) ? 'Average pace of the VO2 test run' : 'Average pace of the threshold test run', activityId: run.id });
+      continue;
+    }
+    if (!/^(ftp|vo2|durab)/i.test(t.kind)) continue;
     const ride = acts.filter((a) => a.day === t.day && isRide(a) && a.best).sort((a, b) => (b.moving_time ?? 0) - (a.moving_time ?? 0))[0];
     if (!ride) continue;
     if (/ftp/i.test(t.kind) && ride.best![1200]) out.push({ ...t, value: Math.round(ride.best![1200] * 0.95), unit: 'W', label: 'FTP (95% of 20-min)', activityId: ride.id });
