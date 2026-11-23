@@ -12,11 +12,12 @@ import type { Profile } from '@/lib/types';
 import { useActivities, useCurves, usePaceCurves } from '@/hooks/perf';
 import { BEST_SECS, bestEfforts, isRide, isRun, latestWeight, mmss, n, pace, paceRows, secsLabel, testResults, type Activity, type Curve, type PaceCurve } from '@/lib/perf';
 import { todayIn } from '@/lib/time';
-import { e1rmSeries, exercises, fromKg, showW, type LiftSet, type Unit } from '@/lib/lifting';
-import { Strength } from '@/screens/training/liftCards';
+import type { Unit } from '@/lib/lifting';
+import { BestLifts, Strength } from '@/screens/training/liftCards';
+import { AchievementsCard } from '@/components/Achievements';
 import { UNIT_KEY, useSets } from '@/hooks/lifting';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
+import { SubTabs, TRENDS_TABS } from '@/screens/Layout';
 
 type Range = '30' | '90' | '1y';
 const RANGES: { id: Range; label: string; long: string }[] = [{ id: '30', label: '1M', long: 'Last month' }, { id: '90', label: '3M', long: 'Last 3 months' }, { id: '1y', label: '1Y', long: 'Last year' }];
@@ -223,33 +224,6 @@ function PaceCurveCard({ curves, acts, onOpen }: { curves: PaceCurve[]; acts: Ac
   );
 }
 
-// Best e1RM per exercise (the lifting "best efforts")
-function LiftBests({ sets, unit }: { sets: LiftSet[]; unit: Unit }) {
-  const rows = exercises(sets).slice(0, 12).map((ex) => {
-    const top = e1rmSeries(sets, ex).reduce<null | { day: string; e1rm: number; reps: number; weight: number }>((m, p) => (!m || p.e1rm > m.e1rm ? p : m), null);
-    return top ? { ex, ...top } : null;
-  }).filter(Boolean) as { ex: string; day: string; e1rm: number; reps: number; weight: number }[];
-  return (
-    <Card>
-      <CardHeader className="pb-2"><CardTitle help="strength">Best lifts</CardTitle></CardHeader>
-      <CardContent>
-        {rows.length ? (
-          <table className="w-full text-sm">
-            <thead className="text-xs text-muted-foreground"><tr><th className="text-left">Exercise</th><th className="text-left">🥇 e1RM</th><th className="text-left">From</th></tr></thead>
-            <tbody>{rows.map((r) => (
-              <tr key={r.ex} className="border-t">
-                <td className="py-1">{r.ex}</td>
-                <td><span className="font-mono">{Math.round(fromKg(r.e1rm, unit))} {unit}</span> <span className="text-[11px] text-muted-foreground">{shortDay(r.day)}</span></td>
-                <td className="text-xs text-muted-foreground">{r.reps} × {showW(r.weight, unit)}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-        ) : <p className="text-sm text-muted-foreground">Log or import lifting sets in Post Activity (or Import Activity under Activities) to see your best lifts.</p>}
-      </CardContent>
-    </Card>
-  );
-}
-
 const FIXED = [{ id: 'ride', label: '🚴 Cycling' }, { id: 'run', label: '🏃 Running' }, { id: 'lift', label: '🏋️ Lifting' }];
 const typeLabel = (t: string) => t.replace(/([a-z])([A-Z])/g, '$1 $2');
 
@@ -283,10 +257,11 @@ export function Performance() {
   const label = FIXED.find((s) => s.id === sport)?.label.slice(3) ?? typeLabel(sport);
   const well = wellness.data ?? [];
   const zones = { id: 'zones', label: 'Time in zones', node: <ZonesCard acts={mine} settings={st} today={today} sportLabel={label} /> };
-  if (acts.isLoading) return <><SubTabs tabs={TRAINING_TABS} /><p className="text-muted-foreground">Loading…</p></>;
+  if (acts.isLoading) return <><SubTabs tabs={TRENDS_TABS} /><p className="text-muted-foreground">Loading…</p></>;
   return (
     <div className="space-y-4">
-      <SubTabs tabs={TRAINING_TABS} />
+      <SubTabs tabs={TRENDS_TABS} />
+      <AchievementsCard />
       <div className="flex flex-wrap items-center gap-1.5">
         {FIXED.map((s) => <Chip key={s.id} on={sport === s.id} onClick={() => setParams({ sport: s.id }, { replace: true })}>{s.label}</Chip>)}
         {others.length > 0 && (
@@ -319,7 +294,7 @@ export function Performance() {
       {sport === 'lift' && (
         <Arrange key="lift" page="performance-lift" cards={[
           { id: 'strength', label: 'Strength (e1RM)', node: <Strength sets={lifts.data ?? []} unit={unit} ex={ex} setEx={setEx} /> },
-          { id: 'bests', label: 'Best lifts', node: <LiftBests sets={lifts.data ?? []} unit={unit} /> },
+          { id: 'bests', label: 'Best lifts', node: <BestLifts sets={lifts.data ?? []} unit={unit} /> },
           { ...zones, off: !mine.some((a) => typeof a.raw.zt_hr === 'string') }
         ]} />
       )}

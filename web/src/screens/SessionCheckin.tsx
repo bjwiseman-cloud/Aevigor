@@ -56,6 +56,7 @@ const COND_INFO: Record<string, [string, string, string, string]> = {
   zero: ['', 'Power meter zeroed before the ride', '', 'Zeroing (calibrating) the power meter before a test keeps readings accurate from test to test.'],
   meal: ['', 'Usual meal before the ride', '', 'What and when you eat before a test changes your energy, especially in long efforts like durability.']
 };
+const BACK: [number, string][] = [[7, 'Last 7 days'], [14, 'Last 2 weeks'], [31, 'Last month'], [92, 'Last 3 months'], [183, 'Last 6 months'], [365, 'Last year'], [0, 'All time']];
 const TEST_RE = /ftp|20.?min.*(test|tt)|vo2|5.?min.*test|durab|race|crit|\btt\b|time trial|fondo/i;
 const isLift = (a: Activity) => a.type === 'WeightTraining';
 const median = (a: (number | null | undefined)[]) => { const v = a.filter((x): x is number => typeof x === 'number' && isFinite(x)).sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : null; };
@@ -88,14 +89,19 @@ export function SessionCheckin() {
   const acts = useActivities(p), logs = useSessionLogs(p), wellness = useWellness(p), checkins = useCheckins(p), lifted = useSets();
   const [unit] = useUnit();
   const qc = useQueryClient();
-  const recent = useMemo(() => (acts.data ?? []).filter((a) => a.day >= addDays(today, -6) && (a.moving_time ?? 0) >= 900)
-    .sort((a, b) => String(b.start_local ?? b.day).localeCompare(String(a.start_local ?? a.day))), [acts.data, today]);
+  // How far back the list goes (Ben 2026-11-23): a drop-down, newest first, 5 at a time
+  const [back, setBack] = useState<number>(7);
+  const [withLogged, setWithLogged] = useState(false);
+  const [pages, setPages] = useState(1);
+  const sessions = useMemo(() => (acts.data ?? []).filter((a) => (a.moving_time ?? 0) >= 900)
+    .sort((a, b) => String(b.start_local ?? b.day).localeCompare(String(a.start_local ?? a.day))), [acts.data]);
+  const recent = useMemo(() => sessions.filter((a) => back <= 0 || a.day >= addDays(today, -(back - 1))), [sessions, back, today]);
   const logged = (a: Activity) => (logs.data ?? []).some((l) => l.activity_id === a.id);
   // ?a=<activity id> comes from a Post Activity reminder (email or phone alert)
   const [params] = useSearchParams();
   const [id, setId] = useState<string | null>(params.get('a'));
   const manual = id === 'manual';
-  const a = manual ? undefined : recent.find((x) => x.id === id) ?? recent.find((x) => !logged(x)) ?? recent[0];
+  const a = manual ? undefined : sessions.find((x) => x.id === id) ?? recent.find((x) => !logged(x)) ?? recent[0];
   const prev = (logs.data ?? []).find((l) => l.activity_id === a?.id);
   const kind: 'ride' | 'lift' | 'other' = manual ? 'lift' : a ? (isRide(a) ? 'ride' : isLift(a) ? 'lift' : 'other') : 'other';
 
@@ -117,9 +123,10 @@ export function SessionCheckin() {
   const loc = useLocation(), nav = useNavigate();
   const photo = (loc.state as { photo?: ReadLift[] } | null)?.photo;
   const photoHold = useRef(false);
+  const [fromPhoto, setFromPhoto] = useState(false);
   useEffect(() => {
     if (!photo || !lifted.data) return;
-    photoHold.current = true;
+    photoHold.current = true; setFromPhoto(true);
     setId('manual'); setRpe(5); setFeel(null); setNote('');
     setLifts(photo.map((r) => ({ name: r.name, sets: r.sets, auto: true })));
     nav('.', { replace: true, state: null });
@@ -250,12 +257,13 @@ export function SessionCheckin() {
   }
 
   const item = (x: Activity) => (
-    <button key={x.id} type="button" onClick={() => { photoHold.current = false; setId(x.id); }} className={cn('flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm', x.id === a?.id ? 'border-primary bg-muted' : 'bg-card')}>
+    <button key={x.id} type="button" onClick={() => { photoHold.current = false; setFromPhoto(false); setId(x.id); }} className={cn('flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm', x.id === a?.id ? 'border-primary bg-muted' : 'bg-card')}>
       <span>{x.name || x.type}<br /><small className="text-muted-foreground">{shortDay(x.day)} · {Math.round((x.moving_time ?? 0) / 60)} min</small></span>
       <small className="text-muted-foreground">{logged(x) ? '✓ logged' : 'not logged'}</small>
     </button>
   );
-  const ai = a ? recent.indexOf(a) : 0, first = recent.slice(0, Math.max(3, ai + 1)), rest = recent.slice(first.length);
+  const listed = recent.filter((x) => withLogged || !logged(x) || x.id === a?.id);
+  const shownList = listed.slice(0, pages * 5);
 
   const liftCard = (
     <Sec title="Lifts" help="Log each exercise and its sets: weight, reps and RIR (reps in reserve, how many more reps you could have done). e1RM = weight × (1 + (reps + RIR) ÷ 30), the Epley formula, for 12 or fewer total reps. Hard sets (0-4 RIR) count toward weekly volume. Saved to your lifting log and this activity.">
@@ -292,19 +300,28 @@ export function SessionCheckin() {
     <div className="space-y-3">
       <CheckinSeg on="session" />
       <Sec title="Pick a session">
-        <div className="space-y-1.5">{first.map(item)}</div>
-        {!recent.length && <p className="text-xs text-muted-foreground">No sessions of 15 min or more in the last 7 days. Pull down to sync.</p>}
-        {rest.length > 0 && (
-          <Accordion type="single" collapsible><AccordionItem value="r" className="border-b-0">
-            <AccordionTrigger className="py-2 text-sm text-muted-foreground">Earlier this week ({rest.length})</AccordionTrigger>
-            <AccordionContent className="space-y-1.5">{rest.map(item)}</AccordionContent>
-          </AccordionItem></Accordion>
+        <div className="flex flex-wrap items-center gap-2">
+          <select className="h-8 rounded-full border bg-card px-3 text-sm" aria-label="How far back" value={back} onChange={(e) => { setBack(Number(e.target.value)); setPages(1); }}>
+            {BACK.map(([d, l]) => <option key={d} value={d}>{l}</option>)}
+          </select>
+          <button type="button" onClick={() => { setWithLogged(!withLogged); setPages(1); }}
+            className={cn('h-8 rounded-full border px-3 text-sm', withLogged ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>Show logged too</button>
+        </div>
+        <div className="space-y-1.5">{shownList.map(item)}</div>
+        {!listed.length && <p className="text-xs text-muted-foreground">{recent.length ? 'Every session in this range is logged. Pick a longer range above, or turn on Show logged too.' : 'No sessions of 15 min or more in this range. Pick a longer range above, or pull down to sync.'}</p>}
+        {listed.length > shownList.length && (
+          <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setPages(pages + 1)}>Next 5 <span className="ml-1 text-muted-foreground">({listed.length - shownList.length} more)</span></Button>
         )}
         <button type="button" onClick={() => { if (!manual) { setRpe(5); setFeel(null); setNote(''); } setId('manual'); }} className={cn('w-full rounded-md border border-dashed px-3 py-2 text-left text-sm', manual ? 'border-primary bg-muted' : 'text-muted-foreground')}>Log a lift without a watch activity</button>
       </Sec>
 
       {manual && (
         <>
+          {fromPhoto && (
+            <div className="rounded-lg border-2 border-primary bg-primary/10 p-3 text-sm animate-in fade-in slide-in-from-top-2 motion-reduce:animate-none">
+              <b>📸 Lifts read from your photo.</b> Now add how it went: time and duration, session RPE, Feel and a note. Check the sets below, then Save.
+            </div>
+          )}
           <Sec title="Gym session" help={RPE_HELP}>
             <div className="grid grid-cols-2 gap-2">
               <label className="block text-xs font-semibold uppercase">Date<Input type="date" value={manualDay} max={today} onChange={(e) => setManualDay(e.target.value)} /></label>

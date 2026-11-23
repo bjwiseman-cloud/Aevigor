@@ -14,7 +14,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Chip, Chips, Field, Stepper } from '@/components/chips';
 import { RepeatPicker, TimesPicker } from '@/components/RepeatPicker';
 import { HealthConsent, NOT_MEDICAL } from '@/components/health';
-import { PLAN_TABS, SubTabs } from '@/screens/Layout';
+import { CheckinSeg } from '@/screens/Checkin';
 
 const UNITS = ['tablet', 'capsule', 'mg', 'mcg', 'IU', 'g', 'ml', 'units', 'drops', 'scoop'];
 
@@ -198,7 +198,7 @@ export function MyLog() {
   const saveGroup = useSave('log_groups', ['log_groups']);
   const saveItem = useSave('log_items', ['log_items']);
 
-  if (!d.on) return <><SubTabs tabs={PLAN_TABS} /><HealthConsent profile={profile} /></>;
+  if (!d.on) return <><CheckinSeg on="log" /><HealthConsent profile={profile} /></>;
   const items = d.items.data ?? [], groups = d.groups.data ?? [], doses = d.doses.data ?? [];
   const thisMonth = d.today.slice(0, 7);
   const monthDoses = doses.filter((x) => x.day.startsWith(thisMonth));
@@ -206,7 +206,7 @@ export function MyLog() {
 
   return (
     <div className="space-y-4">
-      <SubTabs tabs={PLAN_TABS} />
+      <CheckinSeg on="log" />
       <Arrange page="mylog" cards={[
         { id: 'summary', label: 'My log', node: (
       <Card>

@@ -25,7 +25,7 @@ export function Inbox() {
               {s.kind === 'log' ? <><ul className="text-muted-foreground">{s.items.map((i) => <li key={i.id}>{amountText(i)}</li>)}</ul><SlotActions s={s} day={day} /></>
                 : s.event?.prep_notes && <p className="text-muted-foreground">Prep: {s.event.prep_notes}</p>}
             </div>
-          )) : <p className="text-sm text-muted-foreground">Nothing set for today. Add items in <Link className="underline" to="/plan/log">My log</Link>.</p>}
+          )) : <p className="text-sm text-muted-foreground">Nothing set for today. Add items in <Link className="underline" to="/checkin/log">My log</Link>.</p>}
         </CardContent>
       </Card>
       <Card>
@@ -37,7 +37,7 @@ export function Inbox() {
               <span className="block text-muted-foreground">{shortDate(new Intl.DateTimeFormat('en-CA', { timeZone: profile.time_zone }).format(new Date(e.starts_at)))}{e.location ? ' · ' + e.location : ''}</span>
               {e.prep_notes && <span className="block text-xs text-muted-foreground">Prep: {e.prep_notes}</span>}
             </div>
-          )) : <p className="text-sm text-muted-foreground">No appointments coming up. Add them in <Link className="underline" to="/plan/schedule">Schedule</Link>.</p>}
+          )) : <p className="text-sm text-muted-foreground">No appointments coming up. Add them in <Link className="underline" to="/calendar">Calendar</Link>.</p>}
         </CardContent>
       </Card>
       <p className="text-xs text-muted-foreground">Turn on phone alerts in Settings to get these on your lock screen. {NOT_MEDICAL}</p>

@@ -156,9 +156,6 @@ export function Load() {
   });
   const cur: PmcPoint | undefined = all[sel];
   const fz = cur ? zoneOf(FORM_Z, cur.form) : null, rz = cur?.ramp != null ? zoneOf(RAMP_Z, cur.ramp) : null;
-  const next = (tests.data ?? []).find((t) => t.day >= today && t.kind !== 'Durability test') ?? (tests.data ?? []).find((t) => t.day >= today);
-  const nextPt = next && all.find((x) => x.day === next.day);
-  const daysTo = next ? Math.round((Date.parse(next.day) - Date.parse(today)) / 864e5) : null;
 
   // This week day by day, and the following weeks' plan
   const mon = monday(today);
@@ -199,23 +196,8 @@ export function Load() {
 
       {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}
 
-      <Arrange page="load" cards={[
-        { id: 'next', label: 'Next test', node: (
-      <Card>
-        <CardHeader className="pb-2"><CardTitle help="next-test">Next test</CardTitle></CardHeader>
-        <CardContent className="text-sm">
-          {next ? (
-            <div className="flex items-center gap-4">
-              <div className="font-mono text-3xl">{daysTo}<span className="text-sm"> days</span></div>
-              <div><b>{next.kind}</b> · {shortDay(next.day)}
-                <div className="text-muted-foreground">Projected Form that day: <b style={{ color: nextPt && nextPt.form >= 5 && nextPt.form <= 15 ? '#22c55e' : PLAN }}>{nextPt ? Math.round(nextPt.form) : '–'}</b>{' '}
-                  {next.kind === 'Durability test' ? '(no target band for durability)' : nextPt && nextPt.form >= 5 && nextPt.form <= 15 ? '✓ inside the +5 to +15 test band' : '· aim for +5 to +15'}</div>
-              </div>
-            </div>
-          ) : <p className="text-muted-foreground">No test in your intervals.icu plan yet. Name a workout "FTP test", "VO2 test" or "Durability test".</p>}
-        </CardContent>
-      </Card>
-        ) },
+      {/* Default view (Ben 2026-11-23): only the Training status card. The others are under Choose cards. */}
+      <Arrange page="load-v2" cards={[
         { id: 'status', label: 'Training status', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="training-status">Training status</CardTitle></CardHeader>
@@ -226,7 +208,7 @@ export function Load() {
         </CardContent>
       </Card>
         ) },
-        { id: 'pmc', label: 'Fitness · Fatigue', node: (
+        { id: 'pmc', label: 'Fitness · Fatigue', off: true, node: (
       <Card>
         <CardHeader className="pb-1"><CardTitle help="fitness-fatigue-form">Fitness · Fatigue</CardTitle><p className="text-xs text-muted-foreground">{sport === 'mix' ? `Combined: ${shown.map(sportLabel).join(' + ')}` : sportLabel(sport)}</p></CardHeader>
         <CardContent className="space-y-2">
@@ -260,13 +242,13 @@ export function Load() {
         </CardContent>
       </Card>
         ) },
-        { id: 'form', label: 'Form', node: (
+        { id: 'form', label: 'Form', off: true, node: (
         <ZoneChart title="Form" help="form-zones" data={data} keyA="formA" keyP="formP" zones={FORM_Z} ticks={[-30, -10, 5, 20]} lo={-40} hi={25} X={X} extra={<>{marksEls}{selLine}</>} />
         ) },
-        { id: 'ramp', label: 'Ramp rate', node: (
+        { id: 'ramp', label: 'Ramp rate', off: true, node: (
         <ZoneChart title="Ramp rate" help="ramp-rate" data={data} keyA="rampA" keyP="rampP" zones={RAMP_Z} ticks={[0, 3, 8]} lo={-4} hi={12} X={X} extra={<>{marksEls}{selLine}</>} />
         ) },
-        { id: 'plan', label: 'Actual vs planned load', node: (
+        { id: 'plan', label: 'Actual vs planned load', off: true, node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="load-vs-plan">Actual vs planned load</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm">
@@ -341,6 +323,34 @@ function ZoneChart({ title, help, data, keyA, keyP, zones, ticks, lo, hi, X, ext
           </ResponsiveContainer>
         </div>
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">{zones.map((z) => <span key={z[3]}><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: z[2] }} />{z[3]}</span>)}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Next test, with the Form projected for that day (all sports). Lives on the Calendar tab (Ben 2026-11-23).
+export function NextTestCard() {
+  const p = useProfile().data!;
+  const today = todayIn(p.time_zone);
+  const load = useDailyLoad(p), tests = usePlannedTests(p);
+  const next = (tests.data ?? []).find((t) => t.day >= today && t.kind !== 'Durability test') ?? (tests.data ?? []).find((t) => t.day >= today);
+  const pts = useMemo(() => (next ? pmc(load.data ?? [], 'all', addDays(today, -LOAD_BACK), next.day > today ? next.day : addDays(today, 1), today) : []), [load.data, next?.day, today]);
+  const nextPt = next && pts.find((x) => x.day === next.day);
+  const daysTo = next ? Math.round((Date.parse(next.day) - Date.parse(today)) / 864e5) : null;
+  const inBand = nextPt && nextPt.form >= 5 && nextPt.form <= 15;
+  return (
+    <Card>
+      <CardHeader className="pb-2"><CardTitle help="next-test">Next test</CardTitle></CardHeader>
+      <CardContent className="text-sm">
+        {next ? (
+          <div className="flex items-center gap-4">
+            <div className="font-mono text-3xl">{daysTo}<span className="text-sm"> days</span></div>
+            <div><b>{next.kind}</b> · {shortDay(next.day)}
+              <div className="text-muted-foreground">Projected Form that day: <b style={{ color: inBand ? '#22c55e' : PLAN }}>{nextPt ? Math.round(nextPt.form) : '–'}</b>{' '}
+                {next.kind === 'Durability test' ? '(no target band for durability)' : inBand ? '✓ inside the +5 to +15 test band' : '· aim for +5 to +15'}</div>
+            </div>
+          </div>
+        ) : <p className="text-muted-foreground">No test in your intervals.icu plan yet. Name a workout "FTP test", "VO2 test" or "Durability test".</p>}
       </CardContent>
     </Card>
   );

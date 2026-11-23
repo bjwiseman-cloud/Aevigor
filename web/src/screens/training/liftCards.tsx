@@ -5,12 +5,13 @@ import type { ReadLift } from '@/lib/logreader';
 import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Upload } from 'lucide-react';
+import { Search, Upload } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { callApi } from '@/lib/api';
 import { HelpQ } from '@/components/HelpQ';
-import { e1rm, e1rmSeries, exercises, fromKg, importCsv, setKey, showW, weeklyVolume, type ImportResult, type LiftSet, type Unit } from '@/lib/lifting';
+import { MAIN_LIFTS, e1rm, e1rmSeries, exercises, fromKg, heaviest, importCsv, mainLiftNames, setKey, showW, weeklyVolume, type ImportResult, type LiftSet, type Unit } from '@/lib/lifting';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Chip, Chips } from '@/components/chips';
@@ -20,21 +21,37 @@ import { useProfile, usePref } from '@/hooks/data';
 import { colorFor, levelName, muscleLabel, type MuscleKey } from '@/lib/muscles';
 import { DEFAULT_LANDMARKS, LANDMARK_KEY, hardSets, volumeLevel, weekStart, type Landmark } from '@/lib/volume';
 import { todayIn } from '@/lib/time';
+import { cn } from '@/lib/utils';
 import { addDays } from '@rules';
 import { C, HowToRead, axis, shortDay, tooltipStyle } from '@/components/charts';
 
+// Estimated 1RM (Ben 2026-11-23): Squat, Bench and Deadlift as the main choices, every other lift in a drop-down.
 export function Strength({ sets, unit, ex, setEx }: { sets: LiftSet[]; unit: Unit; ex: string | null; setEx: (e: string) => void }) {
   const list = useMemo(() => exercises(sets.filter((s) => e1rm(s.weight, s.reps) != null)), [sets]);
-  const pick = ex && list.includes(ex) ? ex : list[0];
+  const main = useMemo(() => mainLiftNames(sets.filter((s) => e1rm(s.weight, s.reps) != null)), [sets]);
+  const mainNames = MAIN_LIFTS.map((m) => main[m.key]).filter((x): x is string => !!x);
+  const others = list.filter((e) => !mainNames.includes(e));
+  const pick = ex && list.includes(ex) ? ex : mainNames[0] ?? list[0];
   const data = useMemo(() => (pick ? e1rmSeries(sets, pick).map((p) => ({ ...p, v: Math.round(fromKg(p.e1rm, unit) * 10) / 10 })) : []), [sets, pick, unit]);
   const best = data.reduce((m, p) => Math.max(m, p.v), 0);
   return (
     <Card>
       <CardHeader className="pb-2"><CardTitle help="strength">Estimated 1-rep max</CardTitle></CardHeader>
       <CardContent className="space-y-3">
-        {list.length ? <>
-          <Chips>{list.slice(0, 8).map((e) => <Chip key={e} on={e === pick} onClick={() => setEx(e)}>{e}</Chip>)}</Chips>
-          <p className="text-sm">Best <b className="font-mono">{best} {unit}</b> <span className="text-muted-foreground">· latest {data.at(-1)?.v} {unit}</span></p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {MAIN_LIFTS.map((m) => {
+            const name = main[m.key];
+            return <Chip key={m.key} on={!!name && name === pick} onClick={() => name ? setEx(name) : undefined}>{m.label}{!name && <span className="ml-1 text-[10px] text-muted-foreground">none yet</span>}</Chip>;
+          })}
+          {others.length > 0 && (
+            <select className="h-8 max-w-[11rem] rounded-full border bg-card px-3 text-sm" aria-label="Other lifts"
+              value={pick && others.includes(pick) ? pick : ''} onChange={(e) => e.target.value && setEx(e.target.value)}>
+              <option value="">Other lifts ▾</option>{others.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          )}
+        </div>
+        {list.length && pick ? <>
+          <p className="text-sm"><b>{pick}</b> · best <b className="font-mono">{best} {unit}</b> <span className="text-muted-foreground">· latest {data.at(-1)?.v} {unit}</span></p>
           <div className="h-48">
             <ResponsiveContainer>
               <LineChart data={data} margin={{ top: 5, right: 8, left: -14, bottom: 0 }}>
@@ -89,6 +106,7 @@ export function Volume({ sets, unit, ex }: { sets: LiftSet[]; unit: Unit; ex: st
   const [back, setBack] = useState(0);
   const [cur, setCur] = useState<string | null>(null);
   const [side, setSide] = useState<'front' | 'back'>('front');
+  const swipe = useRef<number | null>(null);
   const byName = useMemo(() => {
     const m = new Map((all ?? []).map((x) => [x.n.toLowerCase(), x]));
     // Short names from the older lifting log
@@ -111,9 +129,19 @@ export function Volume({ sets, unit, ex }: { sets: LiftSet[]; unit: Unit; ex: st
             <span>Week of {shortDay(from)}</span>
             <Button size="sm" variant="outline" disabled={!back} onClick={() => setBack(back - 1)} aria-label="Later week">›</Button>
           </div>
-          <div className="mx-auto w-full max-w-[220px]">
-            <BodyFigure sex={figureSex(p.sex)} side={side} selected={cur} fill={(k) => (level(k) ? colorFor('volume', level(k)) : undefined)} onMuscle={(k) => setCur(cur === k ? null : k)} />
-            <div className="mt-1 flex justify-center gap-1">{(['front', 'back'] as const).map((s) => <Chip key={s} on={side === s} onClick={() => setSide(s)}>{s === 'front' ? 'Front' : 'Back'}</Chip>)}</div>
+          {/* Swipe left or right on the body to turn it (Ben 2026-11-23, replaces the Front / Back buttons) */}
+          <div className="mx-auto w-full max-w-[220px] touch-pan-y select-none"
+            onPointerDown={(e) => { swipe.current = e.clientX; }}
+            onPointerUp={(e) => { if (swipe.current !== null && Math.abs(e.clientX - swipe.current) > 40) { setSide(side === 'front' ? 'back' : 'front'); navigator.vibrate?.(8); } swipe.current = null; }}
+            onPointerCancel={() => { swipe.current = null; }}>
+            <div key={side} className="animate-in fade-in zoom-in-95 duration-300 motion-reduce:animate-none">
+              <BodyFigure sex={figureSex(p.sex)} side={side} selected={cur} fill={(k) => (level(k) ? colorFor('volume', level(k)) : undefined)} onMuscle={(k) => setCur(cur === k ? null : k)} />
+            </div>
+            <div className="mt-1 flex items-center justify-center gap-2 text-[11px] text-muted-foreground" aria-live="polite">
+              <span className={cn('h-1.5 w-1.5 rounded-full', side === 'front' ? 'bg-primary' : 'bg-muted-foreground/40')} />
+              <button type="button" className="rounded px-1" aria-label="Turn the body" onClick={() => setSide(side === 'front' ? 'back' : 'front')}>{side === 'front' ? 'Front' : 'Back'} · swipe to turn</button>
+              <span className={cn('h-1.5 w-1.5 rounded-full', side === 'back' ? 'bg-primary' : 'bg-muted-foreground/40')} />
+            </div>
           </div>
           <ScaleLegend scale="volume" />
           {cur && (
@@ -203,3 +231,49 @@ export function LiftImport({ sets, unit }: { sets: LiftSet[]; unit: Unit }) {
   );
 }
 
+
+// Best lifts (Ben 2026-11-23): the heaviest weight actually lifted for every exercise (not an estimate).
+// Squat, Bench and Deadlift always sit at the top; a search box finds any other exercise.
+export function BestLifts({ sets, unit }: { sets: LiftSet[]; unit: Unit }) {
+  const [q, setQ] = useState('');
+  const [all, setAll] = useState(false);
+  const top = useMemo(() => heaviest(sets), [sets]);
+  const main = useMemo(() => mainLiftNames(sets), [sets]);
+  const mainNames = MAIN_LIFTS.map((m) => main[m.key]).filter(Boolean) as string[];
+  const rest = useMemo(() => exercises(sets).filter((e) => !mainNames.includes(e) && top.has(e)), [sets, top, mainNames.join()]);
+  const found = q.trim() ? rest.filter((e) => e.toLowerCase().includes(q.trim().toLowerCase())) : rest;
+  const shown = q.trim() || all ? found : found.slice(0, 10);
+  const row = (label: string, name: string | null, strong = false) => {
+    const b = name ? top.get(name) : undefined;
+    return (
+      <tr key={label} className={cn('border-t', strong && 'font-semibold')}>
+        <td className="py-1.5">{label}{strong && name && name.toLowerCase() !== label.toLowerCase() && <span className="block text-[11px] font-normal text-muted-foreground">{name}</span>}</td>
+        <td className="font-mono">{b ? `${showW(b.weight, unit)} ${unit}` : '–'}</td>
+        <td className="text-xs text-muted-foreground">{b ? `${b.reps} rep${b.reps > 1 ? 's' : ''} · ${shortDay(b.day)}` : 'not logged yet'}</td>
+      </tr>
+    );
+  };
+  return (
+    <Card>
+      <CardHeader className="pb-2"><CardTitle help="strength">Best lifts</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <table className="w-full text-sm">
+          <thead className="text-xs text-muted-foreground"><tr><th className="text-left">Exercise</th><th className="text-left">🏋️ Heaviest</th><th className="text-left">Set</th></tr></thead>
+          <tbody>
+            {MAIN_LIFTS.map((m) => row(m.label, main[m.key], true))}
+            {shown.map((e) => row(e, e))}
+          </tbody>
+        </table>
+        {rest.length > 0 && (
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input className="pl-8" placeholder={`Search ${rest.length} other exercises`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search exercises" />
+          </div>
+        )}
+        {q.trim() && !found.length && <p className="text-sm text-muted-foreground">No exercise matches “{q}”.</p>}
+        {!q.trim() && found.length > 10 && <Button variant="ghost" size="sm" className="w-full" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `Show all ${found.length}`}</Button>}
+        <p className="text-xs text-muted-foreground">The heaviest weight you actually lifted for at least 1 rep, warm-ups left out.</p>
+      </CardContent>
+    </Card>
+  );
+}

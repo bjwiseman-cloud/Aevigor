@@ -30,7 +30,7 @@ export function CycleCard() {
         <p className="text-muted-foreground">Log period days and symptoms, and see estimated phases shaded on your Trends charts. Optional, private, and you can turn it off or delete it at any time.</p>
         {c.health
           ? <Button size="sm" onClick={() => c.saveSettings({ tracking: true, life_stage: 'regular' }).catch(err)}>Turn on cycle tracking</Button>
-          : <p>It is part of the health log, which you turn on in <Link className="text-primary underline" to="/plan/log">Plan</Link>.</p>}
+          : <p>It is part of the health log, which you turn on in <Link className="text-primary underline" to="/checkin/log">Check-in › My log</Link>.</p>}
       </CardContent></Card>
     );
   }
@@ -72,7 +72,7 @@ export function CycleSettingsSection() {
   const p = useProfile().data!;
   const c = useCycle(p);
   const [contra, setContra] = useState<string | null>(null);
-  if (!c.health) return <p className="text-muted-foreground">Cycle tracking is part of the health log. Turn the health log on in <Link className="text-primary underline" to="/plan/log">Plan</Link> first.</p>;
+  if (!c.health) return <p className="text-muted-foreground">Cycle tracking is part of the health log. Turn the health log on in <Link className="text-primary underline" to="/checkin/log">Check-in › My log</Link> first.</p>;
   const s = c.settings;
   return (
     <div className="space-y-3">

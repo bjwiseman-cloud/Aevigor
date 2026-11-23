@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { configured } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthProvider';
 import { useProfile } from '@/hooks/data';
@@ -28,6 +28,12 @@ import { Sessions } from '@/screens/training/Sessions';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 
+// Redirect that keeps the ?query (e.g. ?sport=lift)
+function Moved({ to }: { to: string }) {
+  const { search } = useLocation();
+  return <Navigate to={to + search} replace />;
+}
+
 export default function App() {
   const { session, loading, recovering } = useAuth();
   const profile = useProfile();
@@ -54,15 +60,20 @@ export default function App() {
         <Route path="/checkin" element={<CheckinPage />} />
         <Route path="/checkin/session" element={<SessionCheckin />} />
         <Route path="/training/load" element={<Load />} />
-        <Route path="/training/performance" element={<Performance />} />
+        <Route path="/trends/performance" element={<Performance />} />
+        <Route path="/training/performance" element={<Moved to="/trends/performance" />} />
         <Route path="/training/sessions" element={<Sessions />} />
-        <Route path="/training/lifting" element={<Navigate to="/training/performance?sport=lift" replace />} />
+        <Route path="/training/lifting" element={<Navigate to="/trends/performance?sport=lift" replace />} />
         <Route path="/training" element={<Navigate to="/training/load" replace />} />
         <Route path="/load" element={<Navigate to="/training/load" replace />} />
-        <Route path="/plan/schedule" element={<Schedule />} />
-        <Route path="/plan/log" element={<MyLog />} />
-        <Route path="/plan/records" element={<Records />} />
-        <Route path="/plan" element={<Navigate to="/plan/schedule" replace />} />
+        <Route path="/calendar" element={<Schedule />} />
+        <Route path="/checkin/log" element={<MyLog />} />
+        <Route path="/checkin/records" element={<Records />} />
+        {/* Old Plan tab links (reminders, emails, bookmarks) */}
+        <Route path="/plan/schedule" element={<Navigate to="/calendar" replace />} />
+        <Route path="/plan/log" element={<Navigate to="/checkin/log" replace />} />
+        <Route path="/plan/records" element={<Navigate to="/checkin/records" replace />} />
+        <Route path="/plan" element={<Navigate to="/calendar" replace />} />
         <Route path="/inbox" element={<Inbox />} />
         <Route path="/menu" element={<Menu />} />
         <Route path="/trends" element={<Trends />} />

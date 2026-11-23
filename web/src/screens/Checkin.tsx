@@ -58,12 +58,13 @@ function Opts({ opts, value, onPick, cols }: { opts: string[]; value: number | n
   );
 }
 
-export function CheckinSeg({ on }: { on: 'morning' | 'session' }) {
-  const cls = (x: boolean) => cn('flex-1 rounded-md px-3 py-1.5 text-center text-sm', x ? 'bg-primary text-primary-foreground' : 'text-muted-foreground');
+// Check-in tab parts (Ben 2026-11-23): My log and Records moved here from the old Plan tab
+const SEG = [{ id: 'morning', to: '/checkin', label: 'Morning' }, { id: 'session', to: '/checkin/session', label: 'Post Activity' }, { id: 'log', to: '/checkin/log', label: 'My log' }, { id: 'records', to: '/checkin/records', label: 'Records' }] as const;
+export function CheckinSeg({ on }: { on: (typeof SEG)[number]['id'] }) {
+  const cls = (x: boolean) => cn('flex-1 rounded-md px-1 py-1.5 text-center text-[13px] leading-tight', x ? 'bg-primary font-semibold text-primary-foreground' : 'text-muted-foreground');
   return (
     <div className="mb-3 flex gap-1 rounded-lg border bg-card p-1">
-      <Link to="/checkin" className={cls(on === 'morning')}>Morning</Link>
-      <Link to="/checkin/session" className={cls(on === 'session')}>Post Activity</Link>
+      {SEG.map((x) => <Link key={x.id} to={x.to} className={cls(on === x.id)}>{x.label}</Link>)}
     </div>
   );
 }
