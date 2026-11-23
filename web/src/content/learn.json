@@ -333,12 +333,14 @@
     {
       "id": "tests",
       "field": "cycling",
-      "title": "Test results",
-      "short": "A table of your test rides: 5-minute max (VO2), 20-minute time trial (FTP) and durability.",
+      "title": "Tests",
+      "short": "One card per test: VO2 (5-min max), FTP (20-min time trial), durability, efficiency (EF) and decoupling, plus 5 km and running efficiency for runs. Each shows your latest result next to your best of all time, the last 3 months or this month.",
       "why": "Doing the same test the same way, every block, is the fairest way to track yourself.",
       "calc": [
         "FTP = 95% of your 20-minute average power. It is good for tracking but may not match a lab threshold, so the app only compares you with yourself.",
-        "Tests are found by the name of the planned workout in your intervals.icu calendar: \"FTP test\", \"VO2 test\" (or \"5 min test\") and \"Durability test\". The ride with power on that day is used."
+        "Tests are found by the name of the planned workout in your intervals.icu calendar: \"FTP test\", \"VO2 test\" (or \"5 min test\") and \"Durability test\". The ride with power on that day is used.",
+        "Durability = how far the 5-min max at the end of a Saturday ride of 1500 kJ or more sits below your fresh best 5-min of the 90 days before. Lower is better; about 5% or less is the target. Saturdays where the end effort was skipped (more than 25% down) are left out.",
+        "EF and decoupling use steady rides of 60 minutes or more (intensity 55-78%). EF = normalised power ÷ heart rate, higher is better. Decoupling = how far heart rate drifts up against power; under 5% is the usual guide (Friel). For runs, EF = speed in m/min ÷ heart rate on runs of 45 minutes or more."
       ],
       "refs": [
         "r23",
