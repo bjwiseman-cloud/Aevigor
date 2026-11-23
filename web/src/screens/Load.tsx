@@ -22,6 +22,7 @@ import { useSets, useUnit } from '@/hooks/lifting';
 import { Volume } from '@/screens/training/liftCards';
 import { HelpQ } from '@/components/HelpQ';
 import { Arrange } from '@/components/Arrange';
+import { SorenessCard } from '@/components/SorenessMap';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 const FIT = '#14b8a6', FAT = '#fb7185', ACT = '#8b5cf6', PLAN = '#f59e0b';
@@ -111,6 +112,7 @@ export function Load() {
   const [pj, setPj] = useState(true);
   const [tIdx, setTIdx] = useState<number | null>(null);
   const [selDay, setSelDay] = useState<string | null>(null);
+  const [liftMap, setLiftMap] = useState<'volume' | 'sore'>('volume');
 
   const rows = load.data ?? [];
   const avail = useMemo(() => {
@@ -198,13 +200,9 @@ export function Load() {
         )}
         <span className="ml-auto"><HelpQ text="Combined adds up all your sports. More sports lists every other sport in your intervals.icu history. Add more sports by creating them in intervals.icu > Settings > Sport Settings; they show up here after the next sync." /></span>
       </div>
-      {sport === 'WeightTraining' && <Volume sets={lifts.data ?? []} unit={liftUnit} ex={null} />}
+      {/* Every sport (Ben 2026-11-23): Training status first, then the body map. Lifting shows weekly volume by
+          muscle, with soreness and injury one tap away; other sports show soreness and injury. */}
 
-      {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}
-
-      {/* Default view (Ben 2026-11-23): only the Training status card. The others are under Choose cards. */}
-      <Arrange page="load-v2" cards={[
-        { id: 'status', label: 'Training status', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="training-status">Training status</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -213,7 +211,19 @@ export function Load() {
           <p className="text-xs text-muted-foreground">Uses all your sports. Training guidance, not medical advice.</p>
         </CardContent>
       </Card>
-        ) },
+      {sport === 'WeightTraining' && (
+        <div className="flex gap-1 rounded-lg border bg-card p-1">
+          {([['volume', 'Volume by muscle'], ['sore', 'Soreness and injury']] as const).map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setLiftMap(k)} className={cn('flex-1 rounded-md px-2 py-1.5 text-sm', liftMap === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>{l}</button>
+          ))}
+        </div>
+      )}
+      {sport === 'WeightTraining' && liftMap === 'volume' ? <Volume sets={lifts.data ?? []} unit={liftUnit} ex={null} /> : <SorenessCard />}
+
+      {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}
+
+      {/* Default view (Ben 2026-11-23): Training status and the body map only. The charts are under Choose cards. */}
+      <Arrange page="load-v2" cards={[
         { id: 'pmc', label: 'Fitness · Fatigue', off: true, node: (
       <Card>
         <CardHeader className="pb-1"><CardTitle help="fitness-fatigue-form">Fitness · Fatigue</CardTitle><p className="text-xs text-muted-foreground">{sport === 'mix' ? `Combined: ${shown.map(sportLabel).join(' + ')}` : sportLabel(sport)}</p></CardHeader>
