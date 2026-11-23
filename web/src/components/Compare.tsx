@@ -9,6 +9,8 @@ import { useProfile } from '@/hooks/data';
 import { duration, isRide, isRun, n, weightOf, type Activity } from '@/lib/perf';
 import { CATEGORIES, COGGAN_LABEL, COGGAN_SECS, category, cogganProfile, cogganStep, categoryFloor, riderType, strain, xert } from '@/lib/compare';
 import { cn } from '@/lib/utils';
+import { TONE } from '@/components/Achievements';
+import { Chip, Chips } from '@/components/chips';
 
 export const SESSION_COLOURS = ['#0ea5e9', '#f43f5e', '#a855f7', '#f59e0b'];
 const FEEL = ['', '💪 Strong', '🙂 Good', '😐 Normal', '😕 Poor', '😫 Weak'];
@@ -95,61 +97,102 @@ function LoadGauges({ cmp }: { cmp: Activity[] }) {
   );
 }
 
+// Playful gradient tile, the same look as the Achievements tiles.
+function Tile({ tone, icon, top, big, sub, i = 0, dot, children }: { tone: keyof typeof TONE; icon: string; top: string; big?: string; sub?: string; i?: number; dot?: string; children?: React.ReactNode }) {
+  return (
+    <div style={{ animationDelay: `${i * 70}ms` }} className={cn('relative overflow-hidden rounded-xl bg-gradient-to-br p-3 shadow-md animate-pop motion-reduce:animate-none', TONE[tone])}>
+      <span aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,0.35)_50%,transparent_70%)] bg-[length:200%_100%] animate-shine motion-reduce:hidden" />
+      {dot && <span className="absolute right-2 top-2 h-3 w-3 rounded-full ring-2 ring-white" style={{ background: dot }} />}
+      <div className="relative text-2xl leading-none animate-float motion-reduce:animate-none" style={{ animationDelay: `${i * 230}ms` }}>{icon}</div>
+      <div className="relative mt-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-90">{top}</div>
+      {big && <div className="relative font-display text-2xl font-extrabold italic leading-tight">{big}</div>}
+      {sub && <div className="relative text-[11px] opacity-90">{sub}</div>}
+      {children && <div className="relative">{children}</div>}
+    </div>
+  );
+}
+// Category colours climb from cool (Untrained) to hot (World class).
+const CAT_TONE: (keyof typeof TONE)[] = ['sky', 'teal', 'emerald', 'lime', 'amber', 'orange', 'rose', 'fuchsia'];
+const TYPE_LOOK: Record<string, [keyof typeof TONE, string]> = {
+  'All-rounder': ['emerald', '🌟'], Sprinter: ['rose', '⚡'], Pursuiter: ['fuchsia', '🎯'], 'Time trialist (climber type)': ['sky', '⛰️'], 'Unusual V shape': ['amber', '❓']
+};
+const AXIS_ICON: Record<string, string> = { '5 s': '⚡', '1 min': '🔥', '5 min': '💨', FT: '🛣️' };
+const grads = (count: number) => (
+  <defs>{SESSION_COLOURS.slice(0, count).map((c, i) => <radialGradient key={i} id={`rg${i}`}><stop offset="0%" stopColor={c} stopOpacity={0.15} /><stop offset="100%" stopColor={c} stopOpacity={0.55} /></radialGradient>)}</defs>
+);
+
 export function CogganRadar({ cmp, weight, sex }: { cmp: Activity[]; weight: number | null; sex: string | null | undefined }) {
   const prof = cmp.map((a) => cogganProfile(a, weightOf(a, weight)));
   if (!prof.some(Boolean)) return <p className="text-sm text-muted-foreground">Needs your weight and a power ride with at least 20 min of data.</p>;
   const data = COGGAN_SECS.map((k) => ({ axis: COGGAN_LABEL[k], ...Object.fromEntries(prof.map((p, i) => [`s${i}`, p ? Math.round(cogganStep(k, p.wkg[k], sex) * 10) / 10 : null])), ...Object.fromEntries(prof.map((p, i) => [`w${i}`, p?.wkg[k] ?? null])) }));
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="h-64"><ResponsiveContainer>
         <RadarChart data={data} outerRadius="72%">
+          {grads(cmp.length)}
           <PolarGrid stroke={C.grid} gridType="polygon" />
-          <PolarAngleAxis dataKey="axis" tick={{ fill: C.text, fontSize: 12 }} />
+          <PolarAngleAxis dataKey="axis" tick={{ fill: C.text, fontSize: 13, fontWeight: 700 }} tickFormatter={(v: string) => `${AXIS_ICON[v] ?? ''} ${v}`} />
           <PolarRadiusAxis domain={[0, 40]} ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40] as never} tick={false} axisLine={false} />
-          {prof.map((p, i) => p && <Radar key={i} dataKey={`s${i}`} stroke={SESSION_COLOURS[i]} fill={SESSION_COLOURS[i]} fillOpacity={0.18} strokeWidth={2} isAnimationActive />)}
+          {prof.map((p, i) => p && <Radar key={i} dataKey={`s${i}`} stroke={SESSION_COLOURS[i]} fill={`url(#rg${i})`} fillOpacity={1} strokeWidth={2.5} dot={{ r: 3, fill: SESSION_COLOURS[i] }} isAnimationActive animationDuration={900} />)}
           <Tooltip {...tooltipStyle} formatter={(v: number, k: string, it: { payload?: Record<string, number> }) => { const i = Number(String(k).slice(1)); return [`${it.payload?.[`w${i}`]} W/kg · ${category(v)}`, lab(cmp[i])]; }} />
         </RadarChart>
       </ResponsiveContainer></div>
-      <p className="text-center text-[11px] text-muted-foreground">Rings = Coggan's 8 categories, from Untrained (centre) to World class (edge)</p>
-      {prof.map((p, i) => { if (!p) return null; const steps = COGGAN_SECS.map((k) => cogganStep(k, p.wkg[k], sex)); const t = riderType(steps); return (
-        <div key={i} className="rounded-md border p-2 text-xs" style={{ borderLeft: `4px solid ${SESSION_COLOURS[i]}` }}>
-          <div className="text-sm font-bold">{t.type}</div>
-          <p className="text-muted-foreground">{t.why}</p>
-          <div className="mt-1 grid grid-cols-4 gap-1 text-center">{COGGAN_SECS.map((k, j) => <div key={k} className="rounded bg-muted px-1 py-0.5"><div className="font-semibold">{COGGAN_LABEL[k]}</div><div className="font-mono">{p.wkg[k]}</div><div className="text-[10px]">{category(steps[j])}</div></div>)}</div>
-          <p className="mt-1 text-[10px] text-muted-foreground">{lab(cmp[i])}. FT from {p.ftFrom}.{cmp[i].raw._label ? '' : ' From this one session, not your all-time best.'}</p>
+      {/* the 8 rings, coloured from centre (Untrained) to edge (World class) */}
+      <div className="grid grid-cols-4 gap-1 text-[10px] font-semibold">
+        {CATEGORIES.map((c, ci) => <div key={c} className={cn('rounded-md bg-gradient-to-br px-1 py-1 text-center leading-tight shadow-sm', TONE[CAT_TONE[ci]])}>{ci + 1}. {c}</div>)}
+      </div>
+      <p className="text-center text-[11px] text-muted-foreground">Rings from the centre out: Coggan's 8 categories, Untrained to World class</p>
+      {prof.map((p, i) => { if (!p) return null; const steps = COGGAN_SECS.map((k) => cogganStep(k, p.wkg[k], sex)); const t = riderType(steps); const [tone, icon] = TYPE_LOOK[t.type] ?? ['violet', '🚴']; return (
+        <div key={i} className="space-y-2">
+          <Tile tone={tone} icon={icon} top={`${lab(cmp[i])} · rider type`} big={t.type} sub={t.why} dot={SESSION_COLOURS[i]} i={i} />
+          <div className="grid grid-cols-4 gap-1.5">
+            {COGGAN_SECS.map((k, j) => <Tile key={k} tone={CAT_TONE[Math.min(7, Math.floor(steps[j] / 5))]} icon={AXIS_ICON[COGGAN_LABEL[k]]} top={COGGAN_LABEL[k]} i={i * 4 + j + 1}><div className="font-display text-lg font-extrabold italic leading-tight">{p.wkg[k]}</div><div className="text-[10px] leading-tight opacity-90">W/kg · {category(steps[j])}</div></Tile>)}
+          </div>
+          <p className="text-[10px] text-muted-foreground">FT from {p.ftFrom}.{cmp[i].raw._label ? '' : ' From this one session, not your all-time best.'}</p>
         </div>
       ); })}
       <HowToRead>
-        <p>Coggan's power profile puts your best 5 s, 1 min, 5 min and threshold (FT) power, in watts per kilo, on one table from Untrained to World class{sex === 'female' ? ' (women\'s table)' : ' (men\'s table)'}. The shape tells the rider type: flat = all-rounder, sloping down = sprinter, sloping up = time trialist, peak in the middle = pursuiter. Coggan has no "climber" type; a climber is strong at FT per kilo, so it goes with time trialist.</p>
-        <table className="mt-2 w-full text-[11px]"><thead><tr><th className="text-left">Starts at</th>{COGGAN_SECS.map((k) => <th key={k} className="text-right">{COGGAN_LABEL[k]}</th>)}</tr></thead>
+        <p>Each spoke is your best power for that length of effort, in watts per kilo, placed on Coggan's table{sex === 'female' ? ' for women' : ' for men'}. Further out = a higher category. The shape tells your rider type: even all round = all-rounder, bigger at the top (5 s, 1 min) = sprinter, bigger at FT = time trialist (climbers look like this too), bulge at 1 to 5 min = pursuiter. Use it to see your strong and weak points, and watch the shape grow over the year.</p>
+        <table className="mt-2 w-full text-[11px]"><thead><tr><th className="text-left">Starts at (W/kg)</th>{COGGAN_SECS.map((k) => <th key={k} className="text-right">{COGGAN_LABEL[k]}</th>)}</tr></thead>
           <tbody>{CATEGORIES.map((c, ci) => <tr key={c} className="border-t"><td>{c}</td>{COGGAN_SECS.map((k) => <td key={k} className="text-right font-mono">{categoryFloor(k, ci, sex)}</td>)}</tr>).reverse()}</tbody></table>
       </HowToRead>
     </div>
   );
 }
 
+const XERT_AX = [
+  { k: 'pp', label: 'PP', long: 'Peak Power', unit: ' W', tone: 'rose', icon: '⚡' },
+  { k: 'hie', label: 'HIE', long: 'High Intensity Energy', unit: ' kJ', tone: 'orange', icon: '🔥' },
+  { k: 'tp', label: 'TP', long: 'Threshold Power', unit: ' W', tone: 'sky', icon: '🛣️' }
+] as const;
 export function XertRadar({ cmp }: { cmp: Activity[] }) {
   const x = cmp.map(xert);
   if (!x.some(Boolean)) return <p className="text-sm text-muted-foreground">Needs a power ride where intervals.icu worked out W′ and eFTP.</p>;
   const mx = { pp: Math.max(...x.map((v) => v?.pp ?? 0)), hie: Math.max(...x.map((v) => v?.hie ?? 0)), tp: Math.max(...x.map((v) => v?.tp ?? 0)) };
-  const AX = [{ k: 'pp', label: 'PP', unit: ' W' }, { k: 'hie', label: 'HIE', unit: ' kJ' }, { k: 'tp', label: 'TP', unit: ' W' }] as const;
-  const data = AX.map((a) => ({ axis: a.label, ...Object.fromEntries(x.map((v, i) => [`s${i}`, v ? Math.round((100 * v[a.k]) / (mx[a.k] || 1)) : null])), ...Object.fromEntries(x.map((v, i) => [`r${i}`, v ? `${a.k === 'hie' ? v.hie.toFixed(1) : Math.round(v[a.k])}${a.unit}` : null])) }));
+  const fmt = (k: 'pp' | 'hie' | 'tp', v: { pp: number; hie: number; tp: number }) => (k === 'hie' ? v.hie.toFixed(1) : String(Math.round(v[k])));
+  const data = XERT_AX.map((a) => ({ axis: a.label, ...Object.fromEntries(x.map((v, i) => [`s${i}`, v ? Math.round((100 * v[a.k]) / (mx[a.k] || 1)) : null])), ...Object.fromEntries(x.map((v, i) => [`r${i}`, v ? `${fmt(a.k, v)}${a.unit}` : null])) }));
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="h-56"><ResponsiveContainer>
         <RadarChart data={data} outerRadius="72%">
+          {grads(cmp.length)}
           <PolarGrid stroke={C.grid} gridType="polygon" />
-          <PolarAngleAxis dataKey="axis" tick={{ fill: C.text, fontSize: 13, fontWeight: 700 }} />
+          <PolarAngleAxis dataKey="axis" tick={{ fill: C.text, fontSize: 13, fontWeight: 700 }} tickFormatter={(v: string) => `${XERT_AX.find((a) => a.label === v)?.icon ?? ''} ${v}`} />
           <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-          {x.map((v, i) => v && <Radar key={i} dataKey={`s${i}`} stroke={SESSION_COLOURS[i]} fill={SESSION_COLOURS[i]} fillOpacity={0.18} strokeWidth={2} />)}
+          {x.map((v, i) => v && <Radar key={i} dataKey={`s${i}`} stroke={SESSION_COLOURS[i]} fill={`url(#rg${i})`} fillOpacity={1} strokeWidth={2.5} dot={{ r: 3, fill: SESSION_COLOURS[i] }} animationDuration={900} />)}
           <Tooltip {...tooltipStyle} formatter={(_v: number, k: string, it: { payload?: Record<string, string> }) => { const i = Number(String(k).slice(1)); return [it.payload?.[`r${i}`], lab(cmp[i])]; }} />
         </RadarChart>
       </ResponsiveContainer></div>
-      <div className="grid grid-cols-3 gap-1 text-center text-xs">
-        {AX.map((a) => <div key={a.k} className="rounded bg-muted p-1"><div className="font-bold">{a.label}</div>{x.map((v, i) => <div key={i} className="font-mono" style={{ color: SESSION_COLOURS[i] }}>{v ? (a.k === 'hie' ? v.hie.toFixed(1) : Math.round(v[a.k])) + a.unit : '–'}</div>)}</div>)}
+      <div className="grid grid-cols-3 gap-1.5">
+        {XERT_AX.map((a, j) => (
+          <Tile key={a.k} tone={a.tone} icon={a.icon} top={a.long} i={j}>
+            <div className="font-display text-xl font-extrabold italic leading-tight">{a.label}</div>
+            {x.map((v, i) => <div key={i} className="flex items-center gap-1 font-mono text-[11px]"><span className="h-2 w-2 rounded-full ring-1 ring-white" style={{ background: SESSION_COLOURS[i] }} />{v ? fmt(a.k, v) + a.unit : '–'}</div>)}
+          </Tile>
+        ))}
       </div>
       <HowToRead>
-        <p><b>PP, Peak Power:</b> your best 5 s power in the session. <b>HIE, High Intensity Energy:</b> the energy you can spend above threshold before you run out (intervals.icu's W′). <b>TP, Threshold Power:</b> the power you can hold for a long time without tiring fast (intervals.icu's eFTP). These are Xert's three terms. Each spoke is scaled to the highest of the sessions you picked, so the shape shows where one session asked more of you.</p>
+        <p><b>PP, Peak Power</b> (⚡): your best 5 s power, your sprint. <b>HIE, High Intensity Energy</b> (🔥): the energy you can spend above threshold before you run out, like a battery for attacks and climbs (intervals.icu's W′). <b>TP, Threshold Power</b> (🛣️): the power you can hold for a long time without tiring fast (intervals.icu's eFTP). These are Xert's three terms. Each spoke is scaled to the highest value shown, so the shape shows which of the three moved: a bigger TP spoke means more steady power, a bigger HIE spoke more punch.</p>
       </HowToRead>
     </div>
   );
@@ -206,7 +249,7 @@ function useRangeSets(rides: Activity[], curves: Curve[], today: string, days: n
   }, [rides, curves, today, days]);
 }
 function RangeChips({ v, set }: { v: number; set: (n: number) => void }) {
-  return <div className="flex gap-1">{RANGES.map((r) => <button key={r.id} type="button" onClick={() => set(r.id)} className={cn('rounded-full border px-2.5 py-0.5 text-xs', v === r.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>{r.label}</button>)}</div>;
+  return <Chips>{RANGES.map((r) => <Chip key={r.id} on={v === r.id} className="text-xs" onClick={() => set(r.id)}>{r.label}</Chip>)}</Chips>;
 }
 export function PowerProfileCard({ rides, curves, today, weight }: { rides: Activity[]; curves: Curve[]; today: string; weight: number | null }) {
   const p = useProfile().data!;
@@ -214,7 +257,7 @@ export function PowerProfileCard({ rides, curves, today, weight }: { rides: Acti
   const sets = useRangeSets(rides, curves, today, days);
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle help="power-profile">Power profile (Coggan)</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="power-profile"><span className="font-display text-xl font-extrabold italic tracking-wide">🕸️ Power profile</span></CardTitle><p className="text-xs text-muted-foreground">Coggan's rider types and categories</p></CardHeader>
       <CardContent className="space-y-2"><RangeChips v={days} set={setDays} /><Key cmp={sets} /><CogganRadar cmp={sets} weight={weight} sex={p.sex} /></CardContent>
     </Card>
   );
@@ -224,7 +267,7 @@ export function SignatureCard({ rides, curves, today }: { rides: Activity[]; cur
   const sets = useRangeSets(rides, curves, today, days);
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle help="pp-hie-tp">PP · HIE · TP</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="pp-hie-tp"><span className="font-display text-xl font-extrabold italic tracking-wide">⚡ PP · HIE · TP</span></CardTitle><p className="text-xs text-muted-foreground">Sprint, punch and steady power, in Xert's terms</p></CardHeader>
       <CardContent className="space-y-2"><RangeChips v={days} set={setDays} /><Key cmp={sets} /><XertRadar cmp={sets} /></CardContent>
     </Card>
   );

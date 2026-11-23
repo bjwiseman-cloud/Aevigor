@@ -720,7 +720,9 @@
         "Power profile and PP · HIE · TP: see their own help topics.",
         "Load: TSS is one number for the whole session. Strain Score (SS) from intervals.icu splits the strain into three parts: SS CP (steady work near threshold), SS W′ (hard efforts above threshold) and SS Pmax (short sprints)."
       ],
-      "refs": [],
+      "refs": [
+        "r22"
+      ],
       "coach": [],
       "extra": [
         {
@@ -733,21 +735,34 @@
       "id": "power-profile",
       "field": "cycling",
       "title": "Power profile (Coggan)",
-      "short": "Your best 5 s, 1 min, 5 min and threshold power, in watts per kilo, placed on Coggan's table from Untrained to World class.",
-      "why": "The shape shows your strong and weak points. Flat = all-rounder, sloping down = sprinter, sloping up = time trialist, peak in the middle = pursuiter.",
+      "short": "A spider chart of your best 5 s, 1 min, 5 min and threshold power per kilo, ranked on Coggan's table from Untrained to World class, with your rider type.",
+      "why": "It shows your strong and weak points at a glance, so you can train the weak ones or play to the strong ones (for example sprint finishes vs long climbs). Comparing a recent range with all-time shows which parts are improving.",
       "calc": [
         "Each spoke is your W/kg for that duration, placed on the table: 8 categories (Untrained, Fair, Moderate, Good, Very good, Excellent, Exceptional, World class), each 5 of the table's 40 equal steps.",
         "FT (functional threshold) = 95% of your best 20 min power, or intervals.icu's eFTP if there is no 20 min effort.",
         "Weight is the weight saved on the ride in intervals.icu, else your Profile weight. Men's or women's table from your Profile.",
         "Coggan has no 'climber' type. Climbing needs power per kilo at threshold, so it sits with time trialist.",
-        "The table's top and bottom rows come from the book; the app spreads the steps evenly between them as Coggan describes, so a value can differ slightly from the printed table."
+        "The table's top and bottom rows come from the book; the app spreads the steps evenly between them as Coggan describes, so a value can differ slightly from the printed table.",
+        "Research mostly uses the Record Power Profile instead: your best power at many durations (about 1 s to 4 h) over a season. Coggan's 4-point chart is a coaching tool and was not tested in a study, but it is the only one with ranks for amateurs. Your Power curve card is the many-durations view."
       ],
-      "refs": [],
+      "refs": [
+        "r21",
+        "r22",
+        "r26"
+      ],
       "coach": [],
       "extra": [
         {
-          "text": "Allen H, Coggan A. Training and Racing with a Power Meter (power profile chart).",
+          "text": "Allen H, Coggan AR, McGregor S. Training and Racing with a Power Meter, 3rd ed. VeloPress; 2019 (power profile chart). Summary by TrainingPeaks:",
           "url": "https://www.trainingpeaks.com/learn/articles/power-profiling/"
+        },
+        {
+          "text": "Coggan on how the table was built (40 equal steps between an untrained and a world-class anchor), quoted on BikeForums:",
+          "url": "https://www.bikeforums.net/18633032-post22.html"
+        },
+        {
+          "text": "Leo P, Mateo-March M, Valenzuela PL, et al. The record power profile in professional female cyclists: normative values obtained from a large database. Int J Sports Physiol Perform. 2022.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/35168197/"
         }
       ]
     },
@@ -755,17 +770,29 @@
       "id": "pp-hie-tp",
       "field": "cycling",
       "title": "PP · HIE · TP",
-      "short": "Three numbers in Xert's terms: Peak Power (PP), High Intensity Energy (HIE) and Threshold Power (TP).",
-      "why": "Together they describe how your power is built: sprint, hard efforts above threshold, and long steady power.",
+      "short": "A spider chart of three numbers in Xert's terms: Peak Power (PP, sprint), High Intensity Energy (HIE, punch above threshold) and Threshold Power (TP, steady power).",
+      "why": "Together they describe the power-duration curve with three numbers: how hard you can sprint, how much hard work you can do above threshold, and what you can hold for a long time. Each is trained differently, so seeing which moved tells you what your training is building.",
       "calc": [
         "PP, Peak Power: your best 5 s power.",
         "HIE, High Intensity Energy: the energy you can spend above threshold before you run out. The app uses intervals.icu's W′ from its power model.",
         "TP, Threshold Power: the highest power you can hold for a long time without tiring fast. The app uses intervals.icu's eFTP.",
-        "Each spoke is scaled to the highest value in the chart, so the shape compares the periods or sessions shown. These are Xert's names; the numbers come from intervals.icu, not from Xert."
+        "Each spoke is scaled to the highest value in the chart, so the shape compares the periods or sessions shown. These are Xert's names; the numbers come from intervals.icu, not from Xert.",
+        "The science behind it is the critical power model: critical power (close to TP) and W′ (HIE), plus peak power, describe how long you can hold any power. intervals.icu, Xert and WKO all fit versions of this model."
       ],
-      "refs": [],
+      "refs": [
+        "r22",
+        "r26"
+      ],
       "coach": [],
       "extra": [
+        {
+          "text": "Jones AM, Vanhatalo A. The 'critical power' concept: applications to sports performance with a focus on intermittent high-intensity exercise. Sports Med. 2017;47(Suppl 1):65-78.",
+          "url": "https://doi.org/10.1007/s40279-017-0688-0"
+        },
+        {
+          "text": "Skiba PF, Chidnok W, Vanhatalo A, Jones AM. Modeling the expenditure and reconstitution of work capacity above critical power. Med Sci Sports Exerc. 2012;44(8):1526-1532.",
+          "url": "https://doi.org/10.1249/MSS.0b013e3182517a80"
+        },
         {
           "text": "Xert: Fitness Signature (Peak Power, High Intensity Energy, Threshold Power).",
           "url": "https://www.xertonline.com/"
