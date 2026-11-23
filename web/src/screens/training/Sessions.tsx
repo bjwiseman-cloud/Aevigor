@@ -19,7 +19,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 import { useActivities, useStreams } from '@/hooks/perf';
 import { MEDALS, METRICS, RUN_DIST, duration, isRace, isRide, isRun, n, secsLabel, wbal, workSplit, type Activity } from '@/lib/perf';
 import { Arrange } from '@/components/Arrange';
-import { CompareCard } from '@/components/Compare';
+import { ComparePopup } from '@/components/Compare';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 type Filter = 'all' | 'ride' | 'run' | 'lift' | 'other';
@@ -148,6 +148,7 @@ export function Sessions() {
   const [len, setLen] = useState<string | null>(null);
   const [kind, setKind] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
+  const [cmpOpen, setCmpOpen] = useState(false);
   const [more, setMore] = useState(30);
   const [range, setRange] = useState<{ y: string | null; m: string | null; all?: boolean }>({ y: null, m: null });
   const [unit] = useUnit();
@@ -181,7 +182,7 @@ export function Sessions() {
   return (
     <div className="space-y-4">
       <SubTabs tabs={TRAINING_TABS} />
-      {cmp.length > 1 && <CompareCard cmp={cmp} onClear={() => setPicked([])} />}
+      {cmp.length > 1 && <ComparePopup cmp={cmp} open={cmpOpen} onOpenChange={setCmpOpen} onClear={() => setPicked([])} />}
       <Arrange page="sessions" cards={[
         { id: 'list', label: 'Activities', node: (
       <Card>
@@ -221,6 +222,13 @@ export function Sessions() {
         ) },
         { id: 'import', label: 'Import Activity', node: <LiftImport sets={lifts.data ?? []} unit={unit} /> }
       ]} />
+      {picked.length > 0 && (
+        <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[6] flex items-center gap-2 rounded-xl border bg-card/95 p-2 shadow-lg backdrop-blur">
+          <span className="flex-1 text-sm">{picked.length} picked{picked.length < 2 ? ' · tick one more' : ''}</span>
+          <Button variant="ghost" size="sm" onClick={() => setPicked([])}>Clear</Button>
+          <Button size="sm" disabled={cmp.length < 2} onClick={() => setCmpOpen(true)}>⚖️ Compare {cmp.length > 1 ? cmp.length : ''}</Button>
+        </div>
+      )}
       {open && <Detail a={open} badges={badges[open.id] ?? []} sets={(lifts.data ?? []).filter((x) => x.activity_id ? x.activity_id === open.id : x.day === open.day)} onClose={() => setOpen(null)} />}
     </div>
   );

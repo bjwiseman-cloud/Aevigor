@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { HelpButton } from '@/components/Help';
 import { HowToRead, C, shortDay, tooltipStyle } from '@/components/charts';
 import { useProfile } from '@/hooks/data';
 import { duration, isRide, isRun, n, weightOf, type Activity } from '@/lib/perf';
@@ -220,27 +222,35 @@ export function XertRadar({ cmp }: { cmp: Activity[] }) {
   );
 }
 
-export function CompareCard({ cmp, onClear }: { cmp: Activity[]; onClear: () => void }) {
+// Compare opens as a pop-up window (Ben 2026-11-23): slides up full height on a phone, a centred window on a computer.
+export function ComparePopup({ cmp, open, onOpenChange, onClear }: { cmp: Activity[]; open: boolean; onOpenChange: (v: boolean) => void; onClear: () => void }) {
   const p = useProfile().data!;
   const [view, setView] = useState<'bars' | 'coggan' | 'xert' | 'load'>('bars');
   const power = cmp.some((a) => isRide(a) && a.best);
   const views = [{ id: 'bars', label: 'Metrics' }, ...(power ? [{ id: 'coggan', label: 'Power profile' }, { id: 'xert', label: 'Morton 3P' }] : []), { id: 'load', label: 'Load' }] as const;
   const cur = views.some((v) => v.id === view) ? view : 'bars';
   return (
-    <Card>
-      <CardHeader className="pb-2"><CardTitle help="compare">Compare {cmp.length} sessions</CardTitle></CardHeader>
-      <CardContent className="space-y-3">
-        <Key cmp={cmp} />
-        <div className="flex flex-wrap gap-1 rounded-lg border bg-card p-1">
-          {views.map((v) => <button key={v.id} type="button" onClick={() => setView(v.id as typeof view)} className={cn('flex-1 whitespace-nowrap rounded-md px-2 py-1.5 text-xs', cur === v.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>{v.label}</button>)}
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="h-[94vh] max-h-[94vh] max-w-2xl md:bottom-[3vh] md:rounded-xl">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2 font-display text-2xl font-extrabold italic">⚖️ Compare {cmp.length} sessions <HelpButton topic="compare" /></SheetTitle>
+          <SheetDescription asChild><div><Key cmp={cmp} /></div></SheetDescription>
+        </SheetHeader>
+        <div className="space-y-3">
+          <div className="sticky -top-5 z-10 flex flex-wrap gap-1 rounded-lg border bg-card p-1 shadow-sm">
+            {views.map((v) => <button key={v.id} type="button" onClick={() => setView(v.id as typeof view)} className={cn('flex-1 whitespace-nowrap rounded-md px-2 py-1.5 text-xs', cur === v.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>{v.label}</button>)}
+          </div>
+          {cur === 'bars' && <Bars cmp={cmp} />}
+          {cur === 'coggan' && <CogganRadar cmp={cmp} weight={p.athlete?.weight ?? null} sex={p.sex} />}
+          {cur === 'xert' && <XertRadar cmp={cmp} />}
+          {cur === 'load' && <LoadGauges cmp={cmp} />}
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => { onClear(); onOpenChange(false); }}>Clear and close</Button>
+            <Button className="flex-1" onClick={() => onOpenChange(false)}>Close</Button>
+          </div>
         </div>
-        {cur === 'bars' && <Bars cmp={cmp} />}
-        {cur === 'coggan' && <CogganRadar cmp={cmp} weight={p.athlete?.weight ?? null} sex={p.sex} />}
-        {cur === 'xert' && <XertRadar cmp={cmp} />}
-        {cur === 'load' && <LoadGauges cmp={cmp} />}
-        <Button variant="ghost" size="sm" onClick={onClear}>Clear</Button>
-      </CardContent>
-    </Card>
+      </SheetContent>
+    </Sheet>
   );
 }
 

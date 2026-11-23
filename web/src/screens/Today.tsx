@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useLatestStatus, useProfile, useTodayCheckin } from '@/hooks/data';
-import { STATUS, DOT, type Dot } from '@/lib/status';
+import { STATUS, type Dot } from '@/lib/status';
 import { LastWeekCard, WeeklyCheckCard } from '@/components/WeekCards';
 import { fmt, niceDay, todayIn } from '@/lib/time';
 import type { Profile, Signals } from '@/lib/types';
@@ -60,6 +60,14 @@ const HERO: Record<string, { bg: string; icon: string; glow: string }> = {
   'GO EASY': { bg: 'from-rose-500 via-red-500 to-orange-500 text-white', icon: '🌿', glow: 'bg-rose-200' },
   'NO DATA': { bg: 'from-slate-400 via-slate-500 to-zinc-500 text-white', icon: '⏳', glow: 'bg-slate-200' }
 };
+// Signals as colourful tiles (Ben 2026-11-23), coloured by how each signal reads today.
+const SIG_LOOK: Record<string, { bg: string; word: string }> = {
+  good: { bg: 'from-emerald-300 via-green-400 to-teal-500 text-emerald-950', word: 'in range' },
+  warn: { bg: 'from-amber-300 via-yellow-400 to-orange-400 text-amber-950', word: 'watch' },
+  bad: { bg: 'from-rose-400 via-pink-500 to-red-500 text-white', word: 'needs care' },
+  none: { bg: 'from-slate-300 via-slate-400 to-zinc-400 text-slate-950', word: 'no data' }
+};
+const SIG_ICON: Record<string, string> = { Feel: '🙂', 'HRV 7-day': '💓', Sleep: '😴', 'Resting HR': '❤️', 'Load vs plan': '📊' };
 const DAW = [
   { k: 'do', label: 'Do', icon: '✅', cls: 'border-emerald-300 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-500/10', pill: 'bg-emerald-500' },
   { k: 'avoid', label: 'Avoid', icon: '⛔', cls: 'border-rose-300 bg-rose-50 dark:border-rose-500/40 dark:bg-rose-500/10', pill: 'bg-rose-500' },
@@ -142,16 +150,21 @@ export function Today() {
         { id: 'signals', label: 'Signals', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="signals"><span className="font-display text-xl font-extrabold italic tracking-wide">📡 Signals</span></CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {lines.map((l) => (
-            <div key={l.k}>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="flex items-center gap-2 font-medium"><span className={cn('h-2.5 w-2.5 rounded-full', DOT[l.dot])} />{l.k}</span>
-                {l.range ? <span className="text-right text-xs text-muted-foreground">{l.sub}</span> : <span className="text-right">{l.v}</span>}
+        <CardContent className="space-y-2.5">
+          {lines.map((l, i) => { const look = SIG_LOOK[l.dot]; return (
+            <div key={l.k} style={{ animationDelay: `${i * 70}ms` }} className={cn('relative overflow-hidden rounded-xl bg-gradient-to-br p-3 shadow-md animate-pop motion-reduce:animate-none', look.bg)}>
+              <span aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,0.3)_50%,transparent_70%)] bg-[length:200%_100%] animate-shine motion-reduce:hidden" />
+              <div className="relative flex items-center gap-3">
+                <span className="text-2xl leading-none animate-float motion-reduce:animate-none" style={{ animationDelay: `${i * 230}ms` }}>{SIG_ICON[l.k] ?? '•'}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide opacity-90">{l.k} · {look.word}</div>
+                  {l.range ? <div className="font-display text-2xl font-extrabold italic leading-tight">{l.range.label}</div> : <div className="text-base font-bold leading-tight [&_span]:font-normal [&_span]:text-inherit [&_span]:opacity-80">{l.v}</div>}
+                </div>
+                {l.sub && <span className="max-w-[45%] text-right text-[11px] opacity-90">{l.sub}</span>}
               </div>
-              {l.range && <RangeBar r={l.range} />}
+              {l.range && <div className="relative mt-2 rounded-lg bg-card/90 px-2 pb-2 pt-0.5 text-foreground"><RangeBar r={l.range} /></div>}
             </div>
-          ))}
+          ); })}
           <RangeKey />
         </CardContent>
       </Card>
