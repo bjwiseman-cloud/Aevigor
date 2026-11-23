@@ -133,8 +133,19 @@ export function Today() {
   const lines = signalLines(s, !!checkin.data);
   if (s.sick) lines.push({ k: 'Sickness', range: null, sub: null, dot: s.sick === 'Yes' ? 'bad' : 'warn', v: s.sick === 'Yes' ? 'Below the neck' : 'Mild, above the neck' });
   if (r.load && r.load.plan > 0) {
-    lines.push({ k: 'Load vs plan', range: null, sub: null, dot: r.load.alert ? 'bad' : 'good',
-      v: <>{r.load.act} / {r.load.plan} <span className="text-muted-foreground">(last 7 days)</span></> });
+    // A fill bar (Ben 2026-11-23): how much of the last 7 days' planned load is done. The scale runs to 150% of plan,
+    // with marks at the plan (100%) and at the alert line (120%).
+    const pct = Math.round((100 * r.load.act) / r.load.plan), w = (v: number) => `${Math.min(100, (v / 150) * 100)}%`;
+    lines.push({ k: 'Load vs plan', range: null, sub: 'last 7 days', dot: r.load.alert ? 'bad' : 'good',
+      v: <>
+        <span className="font-display text-2xl font-extrabold italic">{pct}%</span> <span>{r.load.act} of {r.load.plan} planned</span>
+        <span className="relative mt-2 block h-4 overflow-hidden rounded-full bg-card/90">
+          <span className={cn('absolute inset-y-0 left-0 rounded-full bg-gradient-to-r transition-all duration-700', r.load.alert ? 'from-orange-400 to-red-600' : 'from-sky-400 via-emerald-400 to-green-600')} style={{ width: w(pct) }} />
+          <span className="absolute inset-y-0 w-0.5 bg-foreground/70" style={{ left: w(100) }} title="Plan" />
+          <span className="absolute inset-y-0 w-0.5 bg-red-600/70" style={{ left: w(120) }} title="Alert line" />
+        </span>
+        <span className="relative mt-0.5 block h-3 text-[10px] font-normal"><span className="absolute -translate-x-1/2" style={{ left: w(100) }}>plan</span><span className="absolute -translate-x-1/2" style={{ left: w(120) }}>+20%</span></span>
+      </> });
   }
 
   return (

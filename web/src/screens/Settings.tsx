@@ -28,6 +28,22 @@ import { PhoneAlerts } from '@/components/PhoneAlerts';
 import { Reminders } from '@/components/ReminderSettings';
 import { Chip, Chips } from '@/components/chips';
 import { ThemeChips } from '@/components/ThemeButton';
+import { Switch } from '@/components/ui/switch';
+import { useAnalysisOn } from '@/screens/Layout';
+
+// Analysis tab (Ben 2026-11-23): Trends, physiology (LT, VO2max, eFTP, efficiency) and load charts, made for a
+// computer screen. Off by default; switching it on adds an Analysis tab to the bottom bar.
+function AdvancedAnalysis() {
+  const a = useAnalysisOn();
+  return (
+    <>
+      <label className="flex items-center justify-between gap-3">
+        <span><b>Analysis tab</b><br /><span className="text-muted-foreground">Trends, physiology and load charts for deeper analysis. Best on a computer.</span></span>
+        <Switch checked={a.value} disabled={!a.loaded} onCheckedChange={(v) => { a.save(v).then(() => toast.success(v ? 'Analysis tab added' : 'Analysis tab hidden'), (e: Error) => toast.error(e.message)); }} />
+      </label>
+    </>
+  );
+}
 
 const accountSchema = z.object({ display_name: z.string().trim().max(80), time_zone: z.string().min(1) });
 const passwordSchema = z.object({ password: z.string().min(8, 'At least 8 characters.') });
@@ -199,6 +215,8 @@ export function Settings() {
             </AlertDialog>
           )}
       </Section>
+
+      <Section title="Advanced"><AdvancedAnalysis /></Section>
 
       <Section title="Privacy">
           <p className="text-muted-foreground">

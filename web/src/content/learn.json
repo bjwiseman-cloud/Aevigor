@@ -705,8 +705,8 @@
       "calc": [
         "Power bests come from your intervals.icu all-time power curve (or your synced rides). FTP is the higher of intervals.icu eFTP and your FTP tests (95% of the 20-minute test), and the gain compares the latest value with the first one in the last 12 months.",
         "Running pace is your fastest 5 km from your pace curve (or the longest standard distance you have run). Lifts are the heaviest weight actually lifted for at least 1 rep, not an estimate.",
-        "Streaks count weeks in a row, Monday to Sunday. Weekly streak: at least one activity. 80% plan streak: the week's actual load is 80 to 120% of the planned load. 100% plan streak: 100 to 120%. Weeks with nothing planned are skipped, and this week only counts once it reaches the mark, so an unfinished week never breaks a streak.",
-        "Firsts: a badge the first time you use each feature (check-in, Post Activity, manual activity, lifting log, import, reminders, phone alerts, supplement, medication or meal log, calendar item, health record, blood pressure, cycle log, connecting intervals.icu). Locked ones show a padlock."
+        "Firsts: a badge the first time you use each feature (check-in, Post Activity, manual activity, lifting log, import, reminders, phone alerts, supplement, medication or meal log, calendar item, health record, blood pressure, cycle log, connecting intervals.icu). Locked ones show a padlock.",
+        "Streaks count weeks in a row, Monday to Sunday. Weekly streak: at least one activity. Moderate compliance: the week's actual load is within ±30% of the planned load (70 to 130%). High compliance: within ±10% (90 to 110%). Weeks with nothing planned are skipped, and this week only counts once it reaches the mark, so an unfinished week never breaks a streak."
       ],
       "refs": [],
       "coach": []

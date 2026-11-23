@@ -79,7 +79,7 @@ export function achievements(i: {
 
 // ---- Streaks (Ben 2026-11-23): weeks in a row, Monday to Sunday ----
 // Activity streak: at least one activity that week. Plan streaks: the week's actual load against its planned load,
-// "80%" = 80 to 120% of plan, "100%" = 100 to 120% (doing far more than planned is not following the plan).
+// Moderate compliance = within ±30% of plan (70-130%), high compliance = within ±10% (90-110%) (Ben 2026-11-23).
 // Weeks with nothing planned are skipped for the plan streaks (they neither add nor break). The current week only
 // counts once it already meets the mark, so an unfinished week never breaks a streak.
 export type Streak = { id: string; icon: string; label: string; now: number; best: number; tone: Achievement['tone']; sub: string };
@@ -106,12 +106,12 @@ export function streaks(i: { actDays: string[]; load: { day: string; actual: num
   for (const r of i.load) { if (r.day > i.today) continue; const m = mondayOf(r.day), s = sum.get(m) ?? { a: 0, p: 0 }; s.a += r.actual ?? 0; s.p += r.planned; sum.set(m, s); }
   const ratio = (m: string) => { const s = sum.get(m); return s && s.p > 0 ? s.a / s.p : null; };
   const a = run(mons.map((m) => acts.has(m)));
-  const p80 = run(mons.map((m) => { const r = ratio(m); return r == null ? null : r >= 0.8 && r <= 1.2; }));
-  const p100 = run(mons.map((m) => { const r = ratio(m); return r == null ? null : r >= 1 && r <= 1.2; }));
+  const p80 = run(mons.map((m) => { const r = ratio(m); return r == null ? null : r >= 0.7 && r <= 1.3; }));
+  const p100 = run(mons.map((m) => { const r = ratio(m); return r == null ? null : r >= 0.9 && r <= 1.1; }));
   const out: Streak[] = [{ id: 'streak-act', icon: '🔥', label: 'Weekly streak', now: a.now, best: a.best, tone: 'orange', sub: 'weeks with at least 1 activity' }];
   if (mons.some((m) => ratio(m) != null)) {
-    out.push({ id: 'streak-80', icon: '🎯', label: '80% plan streak', now: p80.now, best: p80.best, tone: 'sky', sub: 'weeks at 80-120% of planned load' });
-    out.push({ id: 'streak-100', icon: '💯', label: '100% plan streak', now: p100.now, best: p100.best, tone: 'violet', sub: 'weeks at 100-120% of planned load' });
+    out.push({ id: 'streak-80', icon: '🎯', label: 'Moderate compliance', now: p80.now, best: p80.best, tone: 'sky', sub: 'weeks within ±30% of planned load' });
+    out.push({ id: 'streak-100', icon: '💯', label: 'High compliance', now: p100.now, best: p100.best, tone: 'violet', sub: 'weeks within ±10% of planned load' });
   }
   return out;
 }

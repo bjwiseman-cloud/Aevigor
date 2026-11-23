@@ -18,7 +18,7 @@ import { BestLifts, Strength } from '@/screens/training/liftCards';
 import { AchievementsCard } from '@/components/Achievements';
 import { UNIT_KEY, useSets } from '@/hooks/lifting';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { SubTabs, TRENDS_TABS } from '@/screens/Layout';
+import { ANALYSIS_TABS, PERF_TABS, SubTabs } from '@/screens/Layout';
 
 type Range = '30' | '90' | '1y';
 const RANGES: { id: Range; label: string; long: string }[] = [{ id: '30', label: '1M', long: 'Last month' }, { id: '90', label: '3M', long: 'Last 3 months' }, { id: '1y', label: '1Y', long: 'Last year' }];
@@ -230,7 +230,8 @@ const typeLabel = (t: string) => t.replace(/([a-z])([A-Z])/g, '$1 $2');
 
 // Performance by sport (Ben 2026-11-19): Cycling, Running and Lifting chips, every other sport under More sports.
 // Each sport has its own card list: press and hold to move cards, Choose cards to switch them on or off.
-export function Performance() {
+type Part = 'achievements' | 'profile' | 'curves' | 'zones' | 'tests' | 'physiology';
+export function Performance({ part = 'achievements' }: { part?: Part }) {
   const p = useProfile().data!;
   const acts = useActivities(p), curves = useCurves(p), tests = usePlannedTests(p), paceCurves = usePaceCurves(p), lifts = useSets(), wellness = useWellness(p);
   const my = usePref<MyZones>(MY_ZONES_KEY, {});
@@ -257,53 +258,55 @@ export function Performance() {
   const st = settingsFor(p, my.value, sport);
   const label = FIXED.find((s) => s.id === sport)?.label.slice(3) ?? typeLabel(sport);
   const well = wellness.data ?? [];
-  const zones = { id: 'zones', label: 'Time in zones', node: <ZonesCard acts={mine} settings={st} today={today} sportLabel={label} /> };
-  if (acts.isLoading) return <><SubTabs tabs={TRENDS_TABS} /><p className="text-muted-foreground">Loading…</p></>;
+  const sportQ = `?sport=${encodeURIComponent(sport)}`;
+  const tabs = part === 'physiology' ? ANALYSIS_TABS : PERF_TABS.map((t) => ({ ...t, to: t.to + sportQ }));
+  if (acts.isLoading) return <><SubTabs tabs={tabs} /><p className="text-muted-foreground">Loading…</p></>;
+  const chips = (list: { id: string; label: string }[], more: boolean) => (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {list.map((s) => <Chip key={s.id} on={sport === s.id} onClick={() => setParams({ sport: s.id }, { replace: true })}>{s.label}</Chip>)}
+      {more && others.length > 0 && (
+        <select className="h-8 rounded-full border bg-card px-3 text-sm" value={others.includes(sport) ? sport : ''} onChange={(e) => e.target.value && setParams({ sport: e.target.value }, { replace: true })} aria-label="More sports">
+          <option value="">More sports ▾</option>{others.map((k) => <option key={k} value={k}>{typeLabel(k)}</option>)}
+        </select>
+      )}
+    </div>
+  );
+  const none = (t: string) => <Card><CardContent className="pt-6 text-sm text-muted-foreground">{t}</CardContent></Card>;
+  const cards = (key: string, list: { id: string; label: string; node: React.ReactNode; off?: boolean }[]) => <Arrange key={key} page={key} cards={list} />;
+  let content: React.ReactNode = null;
+  if (part === 'achievements') content = <AchievementsCard />;
+  else if (part === 'physiology') {
+    content = <>{chips(FIXED.filter((f) => f.id !== 'lift'), false)}{sport === 'run'
+      ? cards('physio-run', [
+        { id: 'lt', label: 'Lactate threshold', node: <ThresholdCard sport="run" acts={runs} settings={st} paceCurves={paceCurves.data ?? []} /> },
+        { id: 'vo2', label: 'VO2max', node: <Vo2Card p={p} sport="run" acts={runs} wellness={well} paceCurves={paceCurves.data ?? []} settings={st} weight={weight} /> },
+        { id: 'ef', label: 'Running efficiency and decoupling', node: <RunEfCard p={p} runs={runs} settings={st} /> }])
+      : cards('physio-ride', [
+        { id: 'lt', label: 'Lactate threshold', node: <ThresholdCard sport="ride" acts={rides} settings={st} paceCurves={[]} /> },
+        { id: 'vo2', label: 'VO2max', node: <Vo2Card p={p} sport="ride" acts={rides} wellness={well} paceCurves={[]} settings={st} weight={weight} /> },
+        { id: 'fitness', label: 'eFTP', node: <Fitness p={p} rides={rides} /> },
+        { id: 'ef', label: 'Efficiency and decoupling', node: <EfDecoupling p={p} rides={rides} /> }])}</>;
+  } else {
+    let c: React.ReactNode = null;
+    if (part === 'profile') c = sport === 'ride' ? cards('perf-profile', [
+      { id: 'profile', label: 'Power profile (Coggan)', node: <PowerProfileCard rides={rides} curves={curves.data ?? []} today={today} weight={weight} /> },
+      { id: 'signature', label: 'Morton 3P (PP · HIE · TP)', node: <SignatureCard rides={rides} curves={curves.data ?? []} today={today} /> }])
+      : sport === 'lift' ? <Strength sets={lifts.data ?? []} unit={unit} ex={ex} setEx={setEx} />
+      : none('The power profile is for cycling. For this sport, see Curves and Zones.');
+    if (part === 'curves') c = sport === 'ride' ? <PowerCurve rides={rides} curves={curves.data ?? []} today={today} weight={weight} onOpen={open} />
+      : sport === 'run' ? cards('perf-curves-run', [
+        { id: 'pace', label: 'Pace curve', node: <PaceCurveCard curves={paceCurves.data ?? []} acts={runs} onOpen={open} /> },
+        { id: 'power', label: 'Running power curve', node: <PowerCurve sport="run" rides={runs} curves={curves.data ?? []} today={today} weight={weight} onOpen={open} /> }])
+      : sport === 'lift' ? <BestLifts sets={lifts.data ?? []} unit={unit} />
+      : none('No curve for this sport yet. See Zones.');
+    if (part === 'zones') c = <ZonesCard acts={mine} settings={st} today={today} sportLabel={label} />;
+    if (part === 'tests') c = sport === 'ride' ? <Tests results={results} /> : none('Test results are for cycling tests (VO2 and FTP tests on your calendar).');
+    content = <>{chips(FIXED, true)}{c}</>;
+  }
   return (
     <div className="space-y-4">
-      <SubTabs tabs={TRENDS_TABS} />
-      <AchievementsCard />
-      <div className="flex flex-wrap items-center gap-1.5">
-        {FIXED.map((s) => <Chip key={s.id} on={sport === s.id} onClick={() => setParams({ sport: s.id }, { replace: true })}>{s.label}</Chip>)}
-        {others.length > 0 && (
-          <select className="h-8 rounded-full border bg-card px-3 text-sm" value={others.includes(sport) ? sport : ''} onChange={(e) => e.target.value && setParams({ sport: e.target.value }, { replace: true })} aria-label="More sports">
-            <option value="">More sports ▾</option>{others.map((k) => <option key={k} value={k}>{typeLabel(k)}</option>)}
-          </select>
-        )}
-      </div>
-      {sport === 'ride' && (
-        <Arrange key="ride" page="performance-v2" cards={[
-          { id: 'profile', label: 'Power profile (Coggan)', node: <PowerProfileCard rides={rides} curves={curves.data ?? []} today={today} weight={weight} /> },
-          { id: 'signature', label: 'Morton 3P (PP · HIE · TP)', node: <SignatureCard rides={rides} curves={curves.data ?? []} today={today} /> },
-          { id: 'curve', label: 'Power curve', node: <PowerCurve rides={rides} curves={curves.data ?? []} today={today} weight={weight} onOpen={open} /> },
-          zones,
-          { id: 'tests', label: 'Test results', node: <Tests results={results} /> },
-          { id: 'lt', label: 'Lactate threshold', more: true, node: <ThresholdCard sport="ride" acts={rides} settings={st} paceCurves={[]} /> },
-          { id: 'vo2', label: 'VO2max', more: true, node: <Vo2Card p={p} sport="ride" acts={rides} wellness={well} paceCurves={[]} settings={st} weight={weight} /> },
-          { id: 'fitness', label: 'eFTP', more: true, node: <Fitness p={p} rides={rides} /> },
-          { id: 'ef', label: 'Efficiency and decoupling', more: true, node: <EfDecoupling p={p} rides={rides} /> }
-        ]} />
-      )}
-      {sport === 'run' && (
-        <Arrange key="run" page="performance-run-v2" cards={[
-          { id: 'pace', label: 'Pace curve', node: <PaceCurveCard curves={paceCurves.data ?? []} acts={runs} onOpen={open} /> },
-          { id: 'power', label: 'Running power curve', node: <PowerCurve sport="run" rides={runs} curves={curves.data ?? []} today={today} weight={weight} onOpen={open} /> },
-          zones,
-          { id: 'lt', label: 'Lactate threshold', more: true, node: <ThresholdCard sport="run" acts={runs} settings={st} paceCurves={paceCurves.data ?? []} /> },
-          { id: 'vo2', label: 'VO2max', more: true, node: <Vo2Card p={p} sport="run" acts={runs} wellness={well} paceCurves={paceCurves.data ?? []} settings={st} weight={weight} /> },
-          { id: 'ef', label: 'Running efficiency and decoupling', more: true, node: <RunEfCard p={p} runs={runs} settings={st} /> }
-        ]} />
-      )}
-      {sport === 'lift' && (
-        <Arrange key="lift" page="performance-lift" cards={[
-          { id: 'strength', label: 'Strength (e1RM)', node: <Strength sets={lifts.data ?? []} unit={unit} ex={ex} setEx={setEx} /> },
-          { id: 'bests', label: 'Best lifts', node: <BestLifts sets={lifts.data ?? []} unit={unit} /> },
-          { ...zones, off: !mine.some((a) => typeof a.raw.zt_hr === 'string') }
-        ]} />
-      )}
-      {!['ride', 'run', 'lift'].includes(sport) && (
-        <Arrange key={sport} page={`performance-${sport}`} cards={[zones]} />
-      )}
+      <SubTabs tabs={tabs} />
+      {content}
     </div>
   );
 }

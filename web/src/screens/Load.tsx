@@ -22,9 +22,9 @@ import { cn } from '@/lib/utils';
 import { useSets, useUnit } from '@/hooks/lifting';
 import { Volume } from '@/screens/training/liftCards';
 import { HelpQ } from '@/components/HelpQ';
-import { Arrange } from '@/components/Arrange';
+import { Arrange, type ArrangeCard } from '@/components/Arrange';
 import { SorenessCard } from '@/components/SorenessMap';
-import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
+import { ANALYSIS_TABS, SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 const FIT = '#14b8a6', FAT = '#fb7185', ACT = '#8b5cf6', PLAN = '#f59e0b';
 type Zone = [number, number, string, string];
@@ -102,7 +102,9 @@ function Ribbon({ hist, days, sel }: { hist: Status[]; days: string[]; sel: numb
 
 const M = { top: 8, right: 6, bottom: 0, left: -18 };
 
-export function Load() {
+// charts: the Analysis › Load charts view (Fitness · Fatigue, Form, Ramp rate and the day slider). Without it,
+// the Training › Load tab: Training status, body map and Actual vs planned load (Ben 2026-11-23).
+export function Load({ charts = false }: { charts?: boolean } = {}) {
   const p = useProfile().data!;
   const today = todayIn(p.time_zone);
   const load = useDailyLoad(p), tests = usePlannedTests(p), cal = useCalendar(p), acts = useActivities(p), wellness = useWellness(p), checkins = useCheckins(p), lifts = useSets();
@@ -185,12 +187,12 @@ export function Load() {
   const selLine = cur ? <ReferenceLine x={cur.day} stroke="currentColor" strokeOpacity={0.6} /> : null;
   const X = <XAxis dataKey="day" {...axis} tickFormatter={shortDay} minTickGap={24} />;
 
-  if (load.isLoading) return <><SubTabs tabs={TRAINING_TABS} /><p className="text-muted-foreground">Loading…</p></>;
+  if (load.isLoading) return <><SubTabs tabs={charts ? ANALYSIS_TABS : TRAINING_TABS} /><p className="text-muted-foreground">Loading…</p></>;
   const hasData = rows.some((r) => r.actual > 0 || r.planned > 0);
 
   return (
     <div className="space-y-4">
-      <SubTabs tabs={TRAINING_TABS} />
+      <SubTabs tabs={charts ? ANALYSIS_TABS : TRAINING_TABS} />
       <div className="flex flex-wrap items-center gap-1.5">
         {FIXED.map((k) => <Chip key={k} on={sport === k} onClick={() => setPick(k)}>{sportLabel(k)}</Chip>)}
         <Chip on={sport === 'mix'} onClick={() => setPick('mix')}>Combined</Chip>
@@ -201,6 +203,7 @@ export function Load() {
         )}
         <span className="ml-auto"><HelpQ text="Combined adds up all your sports. More sports lists every other sport in your intervals.icu history. Add more sports by creating them in intervals.icu > Settings > Sport Settings; they show up here after the next sync." /></span>
       </div>
+      {!charts && (<>
       {/* Every sport (Ben 2026-11-23): Training status first, then the body map. Lifting shows weekly volume by
           muscle, with soreness and injury one tap away; other sports show soreness and injury. */}
 
@@ -221,10 +224,11 @@ export function Load() {
       )}
       {sport === 'WeightTraining' && liftMap === 'volume' ? <Volume sets={lifts.data ?? []} unit={liftUnit} ex={null} /> : <SorenessCard />}
 
+      </>)}
       {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}
 
       {/* Ben 2026-11-23: Training status, body map, then Actual vs planned load; the other charts sit in the More cards drop-down. */}
-      <Arrange page="load-v3" cards={[
+      <Arrange page={charts ? 'analysis-load' : 'load-v4'} cards={([
         { id: 'pmc', label: 'Fitness · Fatigue', more: true, node: (
       <Card>
         <CardHeader className="pb-1"><CardTitle help="fitness-fatigue-form">Fitness · Fatigue</CardTitle><p className="text-xs text-muted-foreground">{sport === 'mix' ? `Combined: ${shown.map(sportLabel).join(' + ')}` : sportLabel(sport)}</p></CardHeader>
@@ -299,10 +303,10 @@ export function Load() {
         </CardContent>
       </Card>
         ) }
-      ]} />
+      ] as ArrangeCard[]).filter((c) => (charts ? c.id !== 'plan' : c.id === 'plan')).map((c) => ({ ...c, more: false }))} />
 
       {/* Day picker for the charts: pinned to the bottom of the screen while you scroll (Ben 2026-11-19) */}
-      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-[5] -mx-4 space-y-2 border-t bg-background/95 px-4 py-2 backdrop-blur">
+      {charts && <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-[5] -mx-4 space-y-2 border-t bg-background/95 px-4 py-2 backdrop-blur">
           <Slider min={a0} max={Math.max(a0, a1)} step={1} value={[sel]} onValueChange={([v]) => setSelDay(all[v]?.day ?? null)} aria-label="Pick a day" />
           {cur && (
             <p className="text-xs">
@@ -311,7 +315,7 @@ export function Load() {
               <span style={{ color: rz?.[2] }}>Ramp <b>{cur.ramp == null ? '–' : cur.ramp}</b>/wk {rz?.[3]}</span> · <span style={{ color: ACT }}>Load <b>{sel > iToday ? '–' : Math.round(cur.actual ?? 0)}</b></span> · <span style={{ color: PLAN }}>planned <b>{Math.round(cur.planned) || '–'}</b></span>
             </p>
           )}
-      </div>
+      </div>}
     </div>
   );
 }

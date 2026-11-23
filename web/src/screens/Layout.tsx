@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { CalendarDays, ClipboardCheck, Home, LineChart, Menu as MenuIcon, Settings as Cog, TrendingUp } from 'lucide-react';
+import { Award, CalendarDays, ClipboardCheck, Home, LineChart, Menu as MenuIcon, Settings as Cog, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BellButton, ReminderBanner } from '@/components/reminders';
 import { ThemeButton } from '@/components/ThemeButton';
 import { useTheme } from '@/lib/theme';
-import { useProfile } from '@/hooks/data';
+import { usePref, useProfile } from '@/hooks/data';
 import { callApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -21,23 +21,29 @@ export function Brand() {
   );
 }
 
-// Bottom tabs (Ben, 2026-11-23): Check-in · Training · Today (centre) · Trends · Calendar. The Plan tab is gone:
-// My log and Records moved into Check-in, Performance into Trends, and the calendar became its own tab.
+// Bottom tabs (Ben, 2026-11-23): Check-in · Training · Today (centre) · Performance · Calendar. Analysis (Trends,
+// physiology and load charts, made for a computer screen) joins as an extra tab once switched on in
+// Settings › Advanced; it is off by default for everyone.
 const TABS = [
   { to: '/checkin', label: 'Check-in', icon: ClipboardCheck, match: ['/checkin'] },
   { to: '/training/load', label: 'Training', icon: TrendingUp, match: ['/training'] },
   { to: '/today', label: 'Today', icon: Home, match: ['/today'], centre: true },
-  { to: '/trends', label: 'Trends', icon: LineChart, match: ['/trends'] },
+  { to: '/performance', label: 'Performance', icon: Award, match: ['/performance'] },
   { to: '/calendar', label: 'Calendar', icon: CalendarDays, match: ['/calendar'] }
 ];
+const ANALYSIS_TAB = { to: '/analysis', label: 'Analysis', icon: LineChart, match: ['/analysis'] };
+export const ANALYSIS_KEY = 'analysis_on';
+export function useAnalysisOn() { return usePref<boolean>(ANALYSIS_KEY, false); }
 
 // Sub-tabs at the top of Training and Trends
 export function SubTabs({ tabs }: { tabs: { to: string; label: string; end?: boolean }[] }) {
+  // Up to 4 tabs share the width; more scroll sideways so every label stays whole.
+  const many = tabs.length > 4;
   return (
-    <div className="mb-4 grid overflow-hidden rounded-md border" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+    <div className={cn('mb-4 overflow-hidden rounded-md border', many ? 'flex overflow-x-auto' : 'grid')} style={many ? undefined : { gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
       {tabs.map((t) => (
         <NavLink key={t.to} to={t.to} end={t.end}
-          className={({ isActive }) => cn('py-2 text-center text-sm', isActive ? 'bg-primary font-semibold text-primary-foreground' : 'bg-card text-muted-foreground')}>
+          className={({ isActive }) => cn('py-2 text-center text-sm', many && 'flex-1 shrink-0 whitespace-nowrap px-3', isActive ? 'bg-primary font-semibold text-primary-foreground' : 'bg-card text-muted-foreground')}>
           {t.label}
         </NavLink>
       ))}
@@ -45,7 +51,11 @@ export function SubTabs({ tabs }: { tabs: { to: string; label: string; end?: boo
   );
 }
 export const TRAINING_TABS = [{ to: '/training/load', label: 'Load' }, { to: '/training/sessions', label: 'Activities' }];
-export const TRENDS_TABS = [{ to: '/trends', label: 'Trends', end: true }, { to: '/trends/performance', label: 'Performance' }];
+export const PERF_TABS = [
+  { to: '/performance', label: 'Achievements', end: true }, { to: '/performance/profile', label: 'Profile' }, { to: '/performance/curves', label: 'Curves' },
+  { to: '/performance/zones', label: 'Zones' }, { to: '/performance/tests', label: 'Tests' }
+];
+export const ANALYSIS_TABS = [{ to: '/analysis', label: 'Trends', end: true }, { to: '/analysis/physiology', label: 'Physiology' }, { to: '/analysis/load', label: 'Load charts' }];
 
 function lastSyncText(iso: string | null | undefined) {
   return iso ? new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'never';
@@ -71,6 +81,8 @@ export function Layout() {
   const qc = useQueryClient();
   const profile = useProfile().data;
   const loc = useLocation();
+  const analysis = useAnalysisOn().value;
+  const tabs: typeof TABS = analysis ? [...TABS, ANALYSIS_TAB] : TABS;
   const sync = useMutation({
     mutationFn: (_auto: boolean = false) => (profile?.intervals_connected_at ? callApi('sync') : Promise.resolve(null)),
     onSuccess: (_r, auto) => { qc.invalidateQueries(); if (!auto) toast.success('Synced'); },
@@ -113,16 +125,16 @@ export function Layout() {
           {pull > 70 ? 'Release to sync' : 'Pull to sync'}
         </div>
       )}
-      <main className="mx-auto max-w-lg p-4">
+      <main className={cn('mx-auto p-4', loc.pathname.startsWith('/analysis') ? 'max-w-5xl' : 'max-w-lg')}>
         <ReminderBanner />
         <div key={theme}><Outlet /></div>
       </main>
-      <nav className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        {TABS.map(({ to, label, icon: Icon, match, centre }) => {
+      <nav style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }} className="fixed inset-x-0 bottom-0 z-10 grid border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+        {tabs.map(({ to, label, icon: Icon, match, centre }) => {
           const on = match.some((m) => loc.pathname.startsWith(m));
           return (
             <Link key={to} to={to} aria-current={on ? 'page' : undefined}
-              className={cn('flex flex-col items-center gap-1 py-2.5 text-[11px] tracking-wide', on ? 'text-primary' : 'text-muted-foreground')}>
+              className={cn('flex flex-col items-center gap-1 py-2.5', tabs.length > 5 ? 'text-[10px]' : 'text-[11px] tracking-wide', on ? 'text-primary' : 'text-muted-foreground')}>
               {centre
                 ? <span className={cn('-mt-6 grid h-12 w-12 place-items-center rounded-full shadow-lg', on ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground')}><Icon className="h-6 w-6" /></span>
                 : <Icon className="h-5 w-5" />}

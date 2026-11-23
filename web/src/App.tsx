@@ -60,10 +60,18 @@ export default function App() {
         <Route path="/checkin" element={<CheckinPage />} />
         <Route path="/checkin/session" element={<SessionCheckin />} />
         <Route path="/training/load" element={<Load />} />
-        <Route path="/trends/performance" element={<Performance />} />
-        <Route path="/training/performance" element={<Moved to="/trends/performance" />} />
+        <Route path="/performance" element={<Performance />} />
+        <Route path="/performance/profile" element={<Performance part="profile" />} />
+        <Route path="/performance/curves" element={<Performance part="curves" />} />
+        <Route path="/performance/zones" element={<Performance part="zones" />} />
+        <Route path="/performance/tests" element={<Performance part="tests" />} />
+        <Route path="/analysis" element={<Trends />} />
+        <Route path="/analysis/physiology" element={<Performance part="physiology" />} />
+        <Route path="/analysis/load" element={<Load charts />} />
+        <Route path="/trends/performance" element={<Moved to="/performance" />} />
+        <Route path="/training/performance" element={<Moved to="/performance" />} />
         <Route path="/training/sessions" element={<Sessions />} />
-        <Route path="/training/lifting" element={<Navigate to="/trends/performance?sport=lift" replace />} />
+        <Route path="/training/lifting" element={<Navigate to="/performance/profile?sport=lift" replace />} />
         <Route path="/training" element={<Navigate to="/training/load" replace />} />
         <Route path="/load" element={<Navigate to="/training/load" replace />} />
         <Route path="/calendar" element={<Schedule />} />
@@ -76,7 +84,7 @@ export default function App() {
         <Route path="/plan" element={<Navigate to="/calendar" replace />} />
         <Route path="/inbox" element={<Inbox />} />
         <Route path="/menu" element={<Menu />} />
-        <Route path="/trends" element={<Trends />} />
+        <Route path="/trends" element={<Navigate to="/analysis" replace />} />
         <Route path="/guide" element={<Guide />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/profile" element={<Profile />} />
