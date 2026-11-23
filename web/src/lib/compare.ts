@@ -49,11 +49,18 @@ export function cogganProfile(a: Activity, weight: number | null) {
   return { wkg, ftFrom: ft20 ? '95% of best 20 min' : 'eFTP' };
 }
 
-// ---- Xert-style signature: Peak Power (PP), High Intensity Energy (HIE), Threshold Power (TP) ----
-// Ben's pick: PP = best 5 s power. HIE and TP from intervals.icu's power model for that session (W′ and eFTP).
-export function xert(a: Activity) {
-  const pp = a.best?.[5] ?? n(a, 'icu_pm_p_max'), hie = n(a, 'icu_pm_w_prime', 'icu_w_prime'), tp = n(a, 'icu_pm_ftp', 'icu_eftp');
-  return pp != null && hie != null && tp != null ? { pp, hie: hie / 1000, tp } : null;
+// ---- Morton 3-parameter critical power model (Morton 1996), in Xert's words ----
+// Ben 2026-11-23: PP = Pmax (1 s peak, Morton's third parameter), HIE = W′, TP = CP. All from intervals.icu's power
+// model for the ride (icu_pm_*). If intervals.icu sends no CP, eFTP stands in and the card says so.
+export function morton(a: Activity) {
+  const pp = n(a, 'icu_pm_p_max') ?? a.best?.[1] ?? null, hie = n(a, 'icu_pm_w_prime', 'icu_w_prime');
+  const cp = n(a, 'icu_pm_cp', 'icu_cp'), tp = cp ?? n(a, 'icu_pm_ftp', 'icu_eftp');
+  return pp != null && hie != null && tp != null && pp > tp ? { pp, hie: hie / 1000, tp, tpFrom: cp != null ? 'CP' : 'eFTP', ppFrom: n(a, 'icu_pm_p_max') != null ? 'model' : 'best 1 s' } : null;
+}
+/** Morton 3P power for t seconds: P(t) = CP + W′ / (t + W′ / (Pmax − CP)). */
+export function mortonPower(m: { pp: number; hie: number; tp: number }, t: number) {
+  const w = m.hie * 1000;
+  return m.tp + w / (t + w / (m.pp - m.tp));
 }
 
 // ---- intervals.icu Strain Score: total and 3 sub-strains (CP, W′, Pmax) ----

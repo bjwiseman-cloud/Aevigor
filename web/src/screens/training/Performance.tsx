@@ -272,26 +272,26 @@ export function Performance() {
         )}
       </div>
       {sport === 'ride' && (
-        <Arrange key="ride" page="performance" cards={[
+        <Arrange key="ride" page="performance-v2" cards={[
           { id: 'profile', label: 'Power profile (Coggan)', node: <PowerProfileCard rides={rides} curves={curves.data ?? []} today={today} weight={weight} /> },
-          { id: 'signature', label: 'PP · HIE · TP', node: <SignatureCard rides={rides} curves={curves.data ?? []} today={today} /> },
+          { id: 'signature', label: 'Morton 3P (PP · HIE · TP)', node: <SignatureCard rides={rides} curves={curves.data ?? []} today={today} /> },
           { id: 'curve', label: 'Power curve', node: <PowerCurve rides={rides} curves={curves.data ?? []} today={today} weight={weight} onOpen={open} /> },
           zones,
           { id: 'tests', label: 'Test results', node: <Tests results={results} /> },
-          { id: 'lt', label: 'Lactate threshold', node: <ThresholdCard sport="ride" acts={rides} settings={st} paceCurves={[]} /> },
-          { id: 'vo2', label: 'VO2max', node: <Vo2Card p={p} sport="ride" acts={rides} wellness={well} paceCurves={[]} settings={st} weight={weight} /> },
-          { id: 'fitness', label: 'eFTP', node: <Fitness p={p} rides={rides} /> },
-          { id: 'ef', label: 'Efficiency and decoupling', node: <EfDecoupling p={p} rides={rides} /> }
+          { id: 'lt', label: 'Lactate threshold', more: true, node: <ThresholdCard sport="ride" acts={rides} settings={st} paceCurves={[]} /> },
+          { id: 'vo2', label: 'VO2max', more: true, node: <Vo2Card p={p} sport="ride" acts={rides} wellness={well} paceCurves={[]} settings={st} weight={weight} /> },
+          { id: 'fitness', label: 'eFTP', more: true, node: <Fitness p={p} rides={rides} /> },
+          { id: 'ef', label: 'Efficiency and decoupling', more: true, node: <EfDecoupling p={p} rides={rides} /> }
         ]} />
       )}
       {sport === 'run' && (
-        <Arrange key="run" page="performance-run" cards={[
+        <Arrange key="run" page="performance-run-v2" cards={[
           { id: 'pace', label: 'Pace curve', node: <PaceCurveCard curves={paceCurves.data ?? []} acts={runs} onOpen={open} /> },
           { id: 'power', label: 'Running power curve', node: <PowerCurve sport="run" rides={runs} curves={curves.data ?? []} today={today} weight={weight} onOpen={open} /> },
           zones,
-          { id: 'lt', label: 'Lactate threshold', node: <ThresholdCard sport="run" acts={runs} settings={st} paceCurves={paceCurves.data ?? []} /> },
-          { id: 'vo2', label: 'VO2max', node: <Vo2Card p={p} sport="run" acts={runs} wellness={well} paceCurves={paceCurves.data ?? []} settings={st} weight={weight} /> },
-          { id: 'ef', label: 'Running efficiency and decoupling', node: <RunEfCard p={p} runs={runs} settings={st} /> }
+          { id: 'lt', label: 'Lactate threshold', more: true, node: <ThresholdCard sport="run" acts={runs} settings={st} paceCurves={paceCurves.data ?? []} /> },
+          { id: 'vo2', label: 'VO2max', more: true, node: <Vo2Card p={p} sport="run" acts={runs} wellness={well} paceCurves={paceCurves.data ?? []} settings={st} weight={weight} /> },
+          { id: 'ef', label: 'Running efficiency and decoupling', more: true, node: <RunEfCard p={p} runs={runs} settings={st} /> }
         ]} />
       )}
       {sport === 'lift' && (

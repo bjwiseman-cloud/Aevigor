@@ -769,15 +769,15 @@
     {
       "id": "pp-hie-tp",
       "field": "cycling",
-      "title": "PP · HIE · TP",
-      "short": "A spider chart of three numbers in Xert's terms: Peak Power (PP, sprint), High Intensity Energy (HIE, punch above threshold) and Threshold Power (TP, steady power).",
+      "title": "Morton 3P (PP · HIE · TP)",
+      "short": "A spider chart of Morton's 3-parameter power model, in Xert's words: Peak Power (PP = Pmax, 1 s), High Intensity Energy (HIE = W′) and Threshold Power (TP = critical power).",
       "why": "Together they describe the power-duration curve with three numbers: how hard you can sprint, how much hard work you can do above threshold, and what you can hold for a long time. Each is trained differently, so seeing which moved tells you what your training is building.",
       "calc": [
-        "PP, Peak Power: your best 5 s power.",
-        "HIE, High Intensity Energy: the energy you can spend above threshold before you run out. The app uses intervals.icu's W′ from its power model.",
-        "TP, Threshold Power: the highest power you can hold for a long time without tiring fast. The app uses intervals.icu's eFTP.",
-        "Each spoke is scaled to the highest value in the chart, so the shape compares the periods or sessions shown. These are Xert's names; the numbers come from intervals.icu, not from Xert.",
-        "The science behind it is the critical power model: critical power (close to TP) and W′ (HIE), plus peak power, describe how long you can hold any power. intervals.icu, Xert and WKO all fit versions of this model."
+        "PP, Peak Power = Pmax, your 1-second peak power, from intervals.icu's power model (else your best 1 s).",
+        "HIE, High Intensity Energy = W′, the energy you can spend above critical power before you run out.",
+        "TP, Threshold Power = CP, critical power, from intervals.icu's power model. If intervals.icu sends no CP, eFTP is used and the card says so.",
+        "Morton's model: power you can hold for t seconds = CP + W′ ÷ (t + W′ ÷ (Pmax − CP)). The model check table compares this with your real bests at 5 s, 1 min, 5 min and 20 min; within about 5% is a good fit.",
+        "Each spoke is scaled to the highest value shown. The names PP, HIE and TP are Xert's; the numbers come from intervals.icu, not from Xert."
       ],
       "refs": [
         "r22",
@@ -785,6 +785,10 @@
       ],
       "coach": [],
       "extra": [
+        {
+          "text": "Morton RH. A 3-parameter critical power model. Ergonomics. 1996;39(4):611-619.",
+          "url": "https://doi.org/10.1080/00140139608964484"
+        },
         {
           "text": "Jones AM, Vanhatalo A. The 'critical power' concept: applications to sports performance with a focus on intermittent high-intensity exercise. Sports Med. 2017;47(Suppl 1):65-78.",
           "url": "https://doi.org/10.1007/s40279-017-0688-0"

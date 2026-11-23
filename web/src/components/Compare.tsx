@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { HowToRead, C, shortDay, tooltipStyle } from '@/components/charts';
 import { useProfile } from '@/hooks/data';
 import { duration, isRide, isRun, n, weightOf, type Activity } from '@/lib/perf';
-import { CATEGORIES, COGGAN_LABEL, COGGAN_SECS, category, cogganProfile, cogganStep, categoryFloor, riderType, strain, xert } from '@/lib/compare';
+import { CATEGORIES, COGGAN_LABEL, COGGAN_SECS, category, cogganProfile, cogganStep, categoryFloor, riderType, mortonPower, strain, morton } from '@/lib/compare';
 import { cn } from '@/lib/utils';
 import { TONE } from '@/components/Achievements';
 import { Chip, Chips } from '@/components/chips';
@@ -161,15 +161,34 @@ export function CogganRadar({ cmp, weight, sex }: { cmp: Activity[]; weight: num
 }
 
 const XERT_AX = [
-  { k: 'pp', label: 'PP', long: 'Peak Power', unit: ' W', tone: 'rose', icon: '⚡' },
-  { k: 'hie', label: 'HIE', long: 'High Intensity Energy', unit: ' kJ', tone: 'orange', icon: '🔥' },
-  { k: 'tp', label: 'TP', long: 'Threshold Power', unit: ' W', tone: 'sky', icon: '🛣️' }
+  { k: 'pp', label: 'PP', long: 'Peak Power · Pmax 1 s', unit: ' W', tone: 'rose', icon: '⚡' },
+  { k: 'hie', label: 'HIE', long: 'High Intensity Energy · W′', unit: ' kJ', tone: 'orange', icon: '🔥' },
+  { k: 'tp', label: 'TP', long: 'Threshold Power · CP', unit: ' W', tone: 'sky', icon: '🛣️' }
 ] as const;
+// How well the model matches the real bests: model power at 5 s, 1 min, 5 min and 20 min next to the best.
+function ModelCheck({ cmp, x }: { cmp: Activity[]; x: (ReturnType<typeof morton>)[] }) {
+  const T = [5, 60, 300, 1200];
+  const rows = cmp.map((a, i) => ({ a, i, m: x[i] })).filter((r) => r.m && r.a.best);
+  if (!rows.length) return null;
+  return (
+    <div className="rounded-xl border p-2">
+      <div className="mb-1 text-xs font-semibold">🔬 Model check: Morton 3P vs your bests</div>
+      <table className="w-full text-[11px]"><thead className="text-muted-foreground"><tr><td />{T.map((t) => <td key={t} className="text-right">{t < 60 ? `${t} s` : `${t / 60} min`}</td>)}</tr></thead>
+        <tbody>{rows.map(({ a, i, m }) => (
+          <tr key={a.id} className="border-t"><td><span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: SESSION_COLOURS[i] }} />{lab(a)}</td>
+            {T.map((t) => { const b = a.best?.[t], p = mortonPower(m!, t); if (!b) return <td key={t} className="text-right">–</td>; const d = Math.round((100 * (p - b)) / b); return <td key={t} className="text-right font-mono">{Math.round(p)}<span className={cn('ml-0.5', Math.abs(d) <= 5 ? 'text-emerald-600' : Math.abs(d) <= 10 ? 'text-amber-600' : 'text-rose-600')}>{d > 0 ? '+' : ''}{d}%</span></td>; })}
+          </tr>
+        ))}</tbody></table>
+      <p className="mt-1 text-[10px] text-muted-foreground">Model watts, and how far from your real best (green within 5%).</p>
+    </div>
+  );
+}
+
 export function XertRadar({ cmp }: { cmp: Activity[] }) {
-  const x = cmp.map(xert);
-  if (!x.some(Boolean)) return <p className="text-sm text-muted-foreground">Needs a power ride where intervals.icu worked out W′ and eFTP.</p>;
+  const x = cmp.map(morton);
+  if (!x.some(Boolean)) return <p className="text-sm text-muted-foreground">Needs a power ride where intervals.icu worked out its power model (Pmax, W′ and CP).</p>;
   const mx = { pp: Math.max(...x.map((v) => v?.pp ?? 0)), hie: Math.max(...x.map((v) => v?.hie ?? 0)), tp: Math.max(...x.map((v) => v?.tp ?? 0)) };
-  const fmt = (k: 'pp' | 'hie' | 'tp', v: { pp: number; hie: number; tp: number }) => (k === 'hie' ? v.hie.toFixed(1) : String(Math.round(v[k])));
+  const fmt = (k: 'pp' | 'hie' | 'tp', v: { pp: number; hie: number; tp: number; tpFrom?: string }) => (k === 'hie' ? v.hie.toFixed(1) : String(Math.round(v[k])));
   const data = XERT_AX.map((a) => ({ axis: a.label, ...Object.fromEntries(x.map((v, i) => [`s${i}`, v ? Math.round((100 * v[a.k]) / (mx[a.k] || 1)) : null])), ...Object.fromEntries(x.map((v, i) => [`r${i}`, v ? `${fmt(a.k, v)}${a.unit}` : null])) }));
   return (
     <div className="space-y-3">
@@ -191,8 +210,11 @@ export function XertRadar({ cmp }: { cmp: Activity[] }) {
           </Tile>
         ))}
       </div>
+      <ModelCheck cmp={cmp} x={x} />
+      {x.some((v) => v?.tpFrom === 'eFTP') && <p className="text-[10px] text-muted-foreground">intervals.icu sent no CP here, so TP uses eFTP.</p>}
       <HowToRead>
-        <p><b>PP, Peak Power</b> (⚡): your best 5 s power, your sprint. <b>HIE, High Intensity Energy</b> (🔥): the energy you can spend above threshold before you run out, like a battery for attacks and climbs (intervals.icu's W′). <b>TP, Threshold Power</b> (🛣️): the power you can hold for a long time without tiring fast (intervals.icu's eFTP). These are Xert's three terms. Each spoke is scaled to the highest value shown, so the shape shows which of the three moved: a bigger TP spoke means more steady power, a bigger HIE spoke more punch.</p>
+        <p>Morton's 3-parameter model (1996) describes how long you can hold any power with three numbers. In Xert's words: <b>PP, Peak Power</b> (⚡) = Pmax, your 1-second peak; <b>HIE, High Intensity Energy</b> (🔥) = W′, the energy you can spend above threshold before you run out, like a battery for attacks and climbs; <b>TP, Threshold Power</b> (🛣️) = CP, critical power, the most you can hold for a long time without tiring fast. All three come from intervals.icu's power model. Each spoke is scaled to the highest value shown, so the shape shows which of the three moved.</p>
+        <p className="mt-2">The model check shows how close the model's power is to your real bests. Within about 5% means the model fits you well.</p>
       </HowToRead>
     </div>
   );
@@ -202,7 +224,7 @@ export function CompareCard({ cmp, onClear }: { cmp: Activity[]; onClear: () => 
   const p = useProfile().data!;
   const [view, setView] = useState<'bars' | 'coggan' | 'xert' | 'load'>('bars');
   const power = cmp.some((a) => isRide(a) && a.best);
-  const views = [{ id: 'bars', label: 'Metrics' }, ...(power ? [{ id: 'coggan', label: 'Power profile' }, { id: 'xert', label: 'PP · HIE · TP' }] : []), { id: 'load', label: 'Load' }] as const;
+  const views = [{ id: 'bars', label: 'Metrics' }, ...(power ? [{ id: 'coggan', label: 'Power profile' }, { id: 'xert', label: 'Morton 3P' }] : []), { id: 'load', label: 'Load' }] as const;
   const cur = views.some((v) => v.id === view) ? view : 'bars';
   return (
     <Card>
@@ -228,7 +250,7 @@ const RANGES = [{ id: 30, label: '1M' }, { id: 90, label: '3M' }, { id: 365, lab
 /** A made-up "activity" holding the best numbers of a set of rides, so the radars can draw it like a session. */
 export function bestOf(rides: Activity[], label: string, curve?: Curve): Activity {
   const best: Record<string, number> = {};
-  for (const s of [5, 60, 300, 1200]) {
+  for (const s of [1, 5, 60, 300, 1200]) {
     const i = curve?.secs.indexOf(s) ?? -1, c = i >= 0 ? curve!.watts[i] : null;
     const r = Math.max(0, ...rides.map((a) => a.best?.[s] ?? 0));
     if (c || r) best[s] = Math.max(c ?? 0, r);
@@ -238,6 +260,9 @@ export function bestOf(rides: Activity[], label: string, curve?: Curve): Activit
   const ftp = mx('icu_pm_ftp', 'icu_eftp'), wp = mx('icu_pm_w_prime', 'icu_w_prime');
   if (ftp != null) raw.icu_pm_ftp = ftp;
   if (wp != null) raw.icu_pm_w_prime = wp;
+  const pm = mx('icu_pm_p_max'), cp = mx('icu_pm_cp', 'icu_cp');
+  if (pm != null) raw.icu_pm_p_max = pm;
+  if (cp != null) raw.icu_pm_cp = cp;
   return { id: label, day: '', start_local: null, type: 'Ride', name: label, moving_time: null, distance: null, load: null, raw, best: Object.keys(best).length ? best : null } as unknown as Activity;
 }
 
@@ -267,7 +292,7 @@ export function SignatureCard({ rides, curves, today }: { rides: Activity[]; cur
   const sets = useRangeSets(rides, curves, today, days);
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle help="pp-hie-tp"><span className="font-display text-xl font-extrabold italic tracking-wide">⚡ PP · HIE · TP</span></CardTitle><p className="text-xs text-muted-foreground">Sprint, punch and steady power, in Xert's terms</p></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="pp-hie-tp"><span className="font-display text-xl font-extrabold italic tracking-wide">⚡ Morton 3P</span></CardTitle><p className="text-xs text-muted-foreground">PP · HIE · TP: sprint, punch and steady power</p></CardHeader>
       <CardContent className="space-y-2"><RangeChips v={days} set={setDays} /><Key cmp={sets} /><XertRadar cmp={sets} /></CardContent>
     </Card>
   );

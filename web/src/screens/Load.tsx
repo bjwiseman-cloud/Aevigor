@@ -223,9 +223,9 @@ export function Load() {
 
       {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}
 
-      {/* Default view (Ben 2026-11-23): Training status and the body map only. The charts are under Choose cards. */}
-      <Arrange page="load-v2" cards={[
-        { id: 'pmc', label: 'Fitness · Fatigue', off: true, node: (
+      {/* Ben 2026-11-23: Training status, body map, then Actual vs planned load; the other charts sit in the More cards drop-down. */}
+      <Arrange page="load-v3" cards={[
+        { id: 'pmc', label: 'Fitness · Fatigue', more: true, node: (
       <Card>
         <CardHeader className="pb-1"><CardTitle help="fitness-fatigue-form">Fitness · Fatigue</CardTitle><p className="text-xs text-muted-foreground">{sport === 'mix' ? `Combined: ${shown.map(sportLabel).join(' + ')}` : sportLabel(sport)}</p></CardHeader>
         <CardContent className="space-y-2">
@@ -259,13 +259,13 @@ export function Load() {
         </CardContent>
       </Card>
         ) },
-        { id: 'form', label: 'Form', off: true, node: (
+        { id: 'form', label: 'Form', more: true, node: (
         <ZoneChart title="Form" help="form-zones" data={data} keyA="formA" keyP="formP" zones={FORM_Z} ticks={[-30, -10, 5, 20]} lo={-40} hi={25} X={X} extra={<>{marksEls}{selLine}</>} />
         ) },
-        { id: 'ramp', label: 'Ramp rate', off: true, node: (
+        { id: 'ramp', label: 'Ramp rate', more: true, node: (
         <ZoneChart title="Ramp rate" help="ramp-rate" data={data} keyA="rampA" keyP="rampP" zones={RAMP_Z} ticks={[0, 3, 8]} lo={-4} hi={12} X={X} extra={<>{marksEls}{selLine}</>} />
         ) },
-        { id: 'plan', label: 'Actual vs planned load', off: true, node: (
+        { id: 'plan', label: 'Actual vs planned load', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="load-vs-plan">Actual vs planned load</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm">
