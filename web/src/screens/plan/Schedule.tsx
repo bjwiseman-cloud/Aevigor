@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Chip, Chips, Field } from '@/components/chips';
 import { HealthConsent } from '@/components/health';
-import { PLAN_TABS, SubTabs } from '@/screens/Layout';
+import { NextTestCard } from '@/screens/Load';
 import { cn } from '@/lib/utils';
 
 type View = 'day' | 'week' | 'month' | 'quarter';
@@ -123,7 +123,7 @@ export function Schedule() {
     return out.filter((e) => show.includes(e.show)).sort((a, b) => (a.day + (a.time ?? '')).localeCompare(b.day + (b.time ?? '')));
   }, [tests.data, d.events.data, d.items.data, range, show, tz, view]);
 
-  if (!d.on) return <><SubTabs tabs={PLAN_TABS} /><HealthConsent profile={profile} /></>;
+  if (!d.on) return <div className="space-y-4"><h1 className="font-serif text-xl font-bold tracking-wide">Calendar</h1><NextTestCard /><HealthConsent profile={profile} /></div>;
 
   const monthGrid = () => {
     const first = range[0], lead = (new Date(first + 'T12:00:00Z').getUTCDay() + 6) % 7, cells: (string | null)[] = Array(lead).fill(null);
@@ -143,12 +143,13 @@ export function Schedule() {
   const upcoming = entries.filter((e) => e.day >= today);
   return (
     <div className="space-y-4">
-      <SubTabs tabs={PLAN_TABS} />
+      <h1 className="font-serif text-xl font-bold tracking-wide">Calendar</h1>
       <Arrange page="schedule" cards={[
-        { id: 'calendar', label: 'Schedule', node: (
+        { id: 'next', label: 'Next test', node: <NextTestCard /> },
+        { id: 'calendar', label: 'Calendar', node: (
           <div className="space-y-4">
       <Card>
-        <CardHeader className="pb-2"><CardTitle help="schedule">Schedule</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="schedule">Calendar</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <Chips>{(['day', 'week', 'month', 'quarter'] as View[]).map((v) => <Chip key={v} on={view === v} onClick={() => setView(v)}>{v[0].toUpperCase() + v.slice(1)}</Chip>)}</Chips>
           <Chips>{SHOW.map((s) => <Chip key={s.id} on={show.includes(s.id)} onClick={() => setShow(show.includes(s.id) ? show.filter((x) => x !== s.id) : [...show, s.id])}>{s.label}</Chip>)}</Chips>

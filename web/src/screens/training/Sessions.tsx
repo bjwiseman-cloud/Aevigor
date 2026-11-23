@@ -19,6 +19,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 import { useActivities, useStreams } from '@/hooks/perf';
 import { MEDALS, METRICS, RUN_DIST, duration, isRace, isRide, isRun, n, secsLabel, wbal, workSplit, type Activity } from '@/lib/perf';
 import { Arrange } from '@/components/Arrange';
+import { CompareCard } from '@/components/Compare';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 type Filter = 'all' | 'ride' | 'run' | 'lift' | 'other';
@@ -180,18 +181,7 @@ export function Sessions() {
   return (
     <div className="space-y-4">
       <SubTabs tabs={TRAINING_TABS} />
-      {cmp.length > 1 && (
-        <Card>
-          <CardHeader className="pb-2"><CardTitle help="sessions">Compare {cmp.length} sessions</CardTitle></CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-xs text-muted-foreground"><tr><th className="text-left" />{cmp.map((a) => <th key={a.id} className="px-1 text-right">{shortDay(a.day)}<div className="max-w-[90px] truncate font-normal">{a.name}</div></th>)}</tr></thead>
-              <tbody>{METRICS.filter((m) => cmp.some((a) => m.get(a))).map((m) => <tr key={m.label} className="border-t"><td className="py-1 text-muted-foreground">{m.label}</td>{cmp.map((a) => <td key={a.id} className="px-1 text-right font-mono">{m.get(a) ?? '–'}</td>)}</tr>)}</tbody>
-            </table>
-            <Button variant="ghost" size="sm" className="mt-2" onClick={() => setPicked([])}>Clear</Button>
-          </CardContent>
-        </Card>
-      )}
+      {cmp.length > 1 && <CompareCard cmp={cmp} onClear={() => setPicked([])} />}
       <Arrange page="sessions" cards={[
         { id: 'list', label: 'Activities', node: (
       <Card>

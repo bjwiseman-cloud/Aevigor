@@ -132,3 +132,34 @@ export function importCsv(text: string, fallbackUnit: Unit): ImportResult {
   }
   return { sets: out, skipped, app, unitFound: headUnit != null || cUnit >= 0 };
 }
+
+// ---------- Main lifts and heaviest actual lifts (Ben 2026-11-23) ----------
+// Squat, Bench and Deadlift found by name in the person's own log. Variations (front squat, incline bench,
+// Romanian deadlift…) are not counted as the main lift; they still show as their own exercises.
+export const MAIN_LIFTS = [
+  { key: 'squat', label: 'Squat', re: /squat/i, avoid: /front|goblet|split|hack|bulgarian|jump|overhead|pistol|smith|box|zercher|belt|sissy|leg press/i },
+  { key: 'bench', label: 'Bench', re: /bench/i, avoid: /incline|decline|dumbbell|\bdb\b|close|machine|smith|floor|board|pin|spoto|dip|step|jump/i },
+  { key: 'deadlift', label: 'Deadlift', re: /deadlift|^dl$/i, avoid: /romanian|rdl|stiff|single|one.?leg|trap|hex|deficit|rack|block|snatch|dumbbell|\bdb\b|kettlebell|kb/i }
+] as const;
+export type MainKey = (typeof MAIN_LIFTS)[number]['key'];
+
+/** The exercise name used for each main lift (most often logged match), or null if none logged. */
+export function mainLiftNames(sets: LiftSet[]): Record<MainKey, string | null> {
+  const list = exercises(sets.filter(work));
+  const out = {} as Record<MainKey, string | null>;
+  for (const m of MAIN_LIFTS) out[m.key] = list.find((e) => m.re.test(e) && !m.avoid.test(e)) ?? null;
+  return out;
+}
+
+/** Heaviest weight actually lifted (any working set of 1 rep or more), per exercise. */
+export function heaviest(sets: LiftSet[]) {
+  const m = new Map<string, { exercise: string; weight: number; reps: number; day: string }>();
+  for (const s of sets) {
+    if (!work(s) || !s.weight) continue;
+    const cur = m.get(s.exercise);
+    // Heavier wins; at the same weight, more reps, then the earliest day (when the best was first set)
+    if (!cur || s.weight > cur.weight || (s.weight === cur.weight && (s.reps > cur.reps || (s.reps === cur.reps && s.day < cur.day))))
+      m.set(s.exercise, { exercise: s.exercise, weight: s.weight, reps: s.reps, day: s.day });
+  }
+  return m;
+}

@@ -165,11 +165,13 @@
       "id": "weekly-check",
       "field": "readiness",
       "title": "Weekly check",
-      "short": "Looks at the last few days, not just today, to tell you if you need an easier week.",
-      "why": "Overreaching shows up as a pattern over days. One bad morning is not a reason to change the plan.",
+      "short": "Your week at a glance, shown from Monday and kept all week: where you are in the training block, key sessions, tests or a deload coming, appointments, and what to keep an eye on.",
+      "why": "Planning the week around the key sessions, and spotting a pattern in sleep, HRV or resting heart rate early, helps you train hard on the right days. Items already done drop off as the week goes on.",
       "calc": [
-        "7-day HRV below its band 3 or more days in a row = Deload. With resting heart rate also high for 3 or more days = Deload, strong.",
-        "1 or 2 low HRV days, resting heart rate high on its own, or two short nights in a row = Watch."
+        "Week of the block comes from the tests in your intervals.icu calendar, using the 5-week block: weeks 1 to 3 build, the VO2 test is in week 3, week 4 is the deload and the FTP test is in week 5. It only shows when the app can work it out.",
+        "Key sessions are this week's days with the most planned load in intervals.icu, plus any test or race. Appointments come from the Calendar tab.",
+        "What to monitor looks at the last 7 days: average sleep against 7 hours, the 7-day HRV trend and resting heart rate against your 60-day normal, Feel from the check-in, and load against plan. The deload check is the same as before: 7-day HRV below its band 3 or more days in a row = Deload; with resting heart rate also high = Deload, strong; 1 or 2 low days, resting heart rate high on its own, or two short nights in a row = Watch.",
+        "The advice is about training and recovery only (ease off, an earlier night, an easy day). It is not medical advice and does not diagnose anything."
       ],
       "refs": [
         "r2",
@@ -282,7 +284,8 @@
       "calc": [
         "Load per session: power-based (TSS) for rides, pace-based for runs, and session RPE (effort 1 to 10 times minutes, divided by 10) for lifting, badminton and anything without power or pace.",
         "Only sports that have planned workouts are compared, so like is compared with like. The alert shows when the last 7 days are more than 20% above plan.",
-        "The acute:chronic workload ratio is not used, because of known flaws."
+        "The acute:chronic workload ratio is not used, because of known flaws.",
+        "This week by load type: TSS added up, next to intervals.icu's Strain Score (SS) and its three parts: SS CP, SS W′ and SS Pmax. Strain Score needs W′ and Pmax set in your intervals.icu Sport Settings."
       ],
       "refs": [
         "r12",
@@ -678,6 +681,127 @@
       ],
       "refs": [],
       "coach": []
+    },
+    {
+      "id": "last-week",
+      "field": "readiness",
+      "title": "Last week",
+      "short": "How last week (Monday to Sunday) went: new bests, load against plan, sessions done, check-ins and Post Activity logs, and any test results.",
+      "why": "A quick look back shows whether the plan and what you actually did line up, so you can adjust the coming week.",
+      "calc": [
+        "Load against plan adds up the training load of every sport for Monday to Sunday and compares it with the planned load in intervals.icu. Within 10% of plan shows green, within 20% gold.",
+        "Planned days done counts the days that had planned load and where you trained. Check-ins counts mornings with a check-in. Post Activity counts sessions of 15 minutes or more that you logged.",
+        "New bests are the achievements first set last week. Test results are planned FTP, VO2 or durability tests done last week."
+      ],
+      "refs": [],
+      "coach": []
+    },
+    {
+      "id": "achievements",
+      "field": "load",
+      "title": "Achievements",
+      "short": "Your all-time bests: 5-minute, 20-minute and sprint power, best FTP and its gain over the last year, best running pace, longest rides and runs by distance and time, and your heaviest squat, bench and deadlift.",
+      "why": "Seeing bests and how they move keeps the long view in sight. A New badge marks anything set in the last 14 days.",
+      "calc": [
+        "Power bests come from your intervals.icu all-time power curve (or your synced rides). FTP is the higher of intervals.icu eFTP and your FTP tests (95% of the 20-minute test), and the gain compares the latest value with the first one in the last 12 months.",
+        "Running pace is your fastest 5 km from your pace curve (or the longest standard distance you have run). Lifts are the heaviest weight actually lifted for at least 1 rep, not an estimate."
+      ],
+      "refs": [],
+      "coach": []
+    },
+    {
+      "id": "compare",
+      "field": "cycling",
+      "title": "Compare sessions",
+      "short": "Puts 2 to 4 sessions side by side: coloured bars for each metric, two power radars for rides with power, and both kinds of load.",
+      "why": "Seeing the same numbers drawn next to each other makes it quick to spot which session was longer, harder or more tiring.",
+      "calc": [
+        "Bars: the longest bar is the highest of the sessions you picked. RPE is out of 10. Feel uses the intervals.icu words (Strong to Weak).",
+        "Power profile and PP · HIE · TP: see their own help topics.",
+        "Load: TSS is one number for the whole session. Strain Score (SS) from intervals.icu splits the strain into three parts: SS CP (steady work near threshold), SS W′ (hard efforts above threshold) and SS Pmax (short sprints)."
+      ],
+      "refs": [
+        "r22"
+      ],
+      "coach": [],
+      "extra": [
+        {
+          "text": "intervals.icu forum: Strain Score, a 3-dimensional load model.",
+          "url": "https://forum.intervals.icu/"
+        }
+      ]
+    },
+    {
+      "id": "power-profile",
+      "field": "cycling",
+      "title": "Power profile (Coggan)",
+      "short": "A spider chart of your best 5 s, 1 min, 5 min and threshold power per kilo, ranked on Coggan's table from Untrained to World class, with your rider type.",
+      "why": "It shows your strong and weak points at a glance, so you can train the weak ones or play to the strong ones (for example sprint finishes vs long climbs). Comparing a recent range with all-time shows which parts are improving.",
+      "calc": [
+        "Each spoke is your W/kg for that duration, placed on the table: 8 categories (Untrained, Fair, Moderate, Good, Very good, Excellent, Exceptional, World class), each 5 of the table's 40 equal steps.",
+        "FT (functional threshold) = 95% of your best 20 min power, or intervals.icu's eFTP if there is no 20 min effort.",
+        "Weight is the weight saved on the ride in intervals.icu, else your Profile weight. Men's or women's table from your Profile.",
+        "Coggan has no 'climber' type. Climbing needs power per kilo at threshold, so it sits with time trialist.",
+        "The table's top and bottom rows come from the book; the app spreads the steps evenly between them as Coggan describes, so a value can differ slightly from the printed table.",
+        "Research mostly uses the Record Power Profile instead: your best power at many durations (about 1 s to 4 h) over a season. Coggan's 4-point chart is a coaching tool and was not tested in a study, but it is the only one with ranks for amateurs. Your Power curve card is the many-durations view."
+      ],
+      "refs": [
+        "r21",
+        "r22",
+        "r26"
+      ],
+      "coach": [],
+      "extra": [
+        {
+          "text": "Allen H, Coggan AR, McGregor S. Training and Racing with a Power Meter, 3rd ed. VeloPress; 2019 (power profile chart). Summary by TrainingPeaks:",
+          "url": "https://www.trainingpeaks.com/learn/articles/power-profiling/"
+        },
+        {
+          "text": "Coggan on how the table was built (40 equal steps between an untrained and a world-class anchor), quoted on BikeForums:",
+          "url": "https://www.bikeforums.net/18633032-post22.html"
+        },
+        {
+          "text": "Leo P, Mateo-March M, Valenzuela PL, et al. The record power profile in professional female cyclists: normative values obtained from a large database. Int J Sports Physiol Perform. 2022.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/35168197/"
+        }
+      ]
+    },
+    {
+      "id": "pp-hie-tp",
+      "field": "cycling",
+      "title": "Morton 3P (PP · HIE · TP)",
+      "short": "A spider chart of Morton's 3-parameter power model, in Xert's words: Peak Power (PP = Pmax, 1 s), High Intensity Energy (HIE = W′) and Threshold Power (TP = critical power).",
+      "why": "Together they describe the power-duration curve with three numbers: how hard you can sprint, how much hard work you can do above threshold, and what you can hold for a long time. Each is trained differently, so seeing which moved tells you what your training is building.",
+      "calc": [
+        "PP, Peak Power = Pmax, your 1-second peak power, from intervals.icu's power model (else your best 1 s).",
+        "HIE, High Intensity Energy = W′, the energy you can spend above critical power before you run out.",
+        "TP, Threshold Power = CP, critical power, from intervals.icu's power model. If intervals.icu sends no CP, eFTP is used and the card says so.",
+        "Morton's model: power you can hold for t seconds = CP + W′ ÷ (t + W′ ÷ (Pmax − CP)). The model check table compares this with your real bests at 5 s, 1 min, 5 min and 20 min; within about 5% is a good fit.",
+        "Each spoke is scaled to the highest value shown. The names PP, HIE and TP are Xert's; the numbers come from intervals.icu, not from Xert."
+      ],
+      "refs": [
+        "r22",
+        "r26"
+      ],
+      "coach": [],
+      "extra": [
+        {
+          "text": "Morton RH. A 3-parameter critical power model. Ergonomics. 1996;39(4):611-619.",
+          "url": "https://doi.org/10.1080/00140139608964484"
+        },
+        {
+          "text": "Jones AM, Vanhatalo A. The 'critical power' concept: applications to sports performance with a focus on intermittent high-intensity exercise. Sports Med. 2017;47(Suppl 1):65-78.",
+          "url": "https://doi.org/10.1007/s40279-017-0688-0"
+        },
+        {
+          "text": "Skiba PF, Chidnok W, Vanhatalo A, Jones AM. Modeling the expenditure and reconstitution of work capacity above critical power. Med Sci Sports Exerc. 2012;44(8):1526-1532.",
+          "url": "https://doi.org/10.1249/MSS.0b013e3182517a80"
+        },
+        {
+          "text": "Xert: Fitness Signature (Peak Power, High Intensity Energy, Threshold Power).",
+          "url": "https://www.xertonline.com/"
+        }
+      ]
     }
   ]
 }

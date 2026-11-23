@@ -14,7 +14,8 @@ import { HowToRead, axis, shortDay, tooltipStyle } from '@/components/charts';
 import { useCalendar, useCheckins, useDailyLoad, usePlannedTests, useProfile, useWellness, LOAD_BACK } from '@/hooks/data';
 import { useActivities } from '@/hooks/perf';
 import { pmc, type PmcPoint } from '@/lib/metrics';
-import { testResults } from '@/lib/perf';
+import { isRide, isRun, testResults } from '@/lib/perf';
+import { WeekLoadTypes } from '@/components/Compare';
 import { TS_ORDER, mergeDays, statusColor, trainingStatus, weekPct, type Status } from '@/lib/training-status';
 import { todayIn } from '@/lib/time';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,7 @@ import { useSets, useUnit } from '@/hooks/lifting';
 import { Volume } from '@/screens/training/liftCards';
 import { HelpQ } from '@/components/HelpQ';
 import { Arrange } from '@/components/Arrange';
+import { SorenessCard } from '@/components/SorenessMap';
 import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 const FIT = '#14b8a6', FAT = '#fb7185', ACT = '#8b5cf6', PLAN = '#f59e0b';
@@ -51,19 +53,25 @@ function ZoneGradient({ id, values, zones }: { id: string; values: (number | nul
   return <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">{stops.map((s, i) => <stop key={i} offset={Math.min(1, Math.max(0, s.o))} stopColor={s.c} />)}</linearGradient>;
 }
 
-// Today's training status as one large word glowing in its status colour (Ben 2026-11-19, replaces the dial)
+// Today's training status as a colourful, gently animated tile in its Garmin-style colour
+// (Ben 2026-11-23: same playful look as Achievements; replaces the glowing word)
+const TS_ICON: Record<string, string> = { Detraining: '📉', Recovery: '🔋', Peaking: '🏔️', Maintaining: '⚖️', Productive: '🚀', Unproductive: '🌀', Strained: '⚠️', Overreaching: '🛑', Paused: '⏸️' };
 function StatusWord({ st }: { st: Status }) {
   const idx = TS_ORDER.findIndex((t) => t[0] === st.word);
-  const col = idx >= 0 ? TS_ORDER[idx][1] : undefined;
+  const col = idx >= 0 ? TS_ORDER[idx][1] : '#9ca3af';
   const desc = idx >= 0 ? TS_ORDER[idx][2] : st.word === 'Paused' ? 'You logged being sick, so training status is paused until you are well.' : 'Needs about 6 weeks of training history.';
+  const dark = st.word === 'Maintaining';
   return (
-    <div className="space-y-3 py-2">
-      <div className="relative mx-auto w-fit px-6 py-3">
-        {col && <div aria-hidden className="absolute inset-0 rounded-full opacity-25 blur-2xl" style={{ background: col }} />}
-        <div role="img" aria-label={`Training status: ${st.word}`} className="relative text-center font-serif text-5xl font-bold tracking-wide"
-          style={col ? { color: col, textShadow: `0 0 10px ${col}, 0 0 28px ${col}99, 0 0 56px ${col}55` } : undefined}>{st.word}</div>
+    <div className="space-y-3 py-1">
+      <div role="img" aria-label={`Training status: ${st.word}`}
+        className={cn('relative overflow-hidden rounded-2xl px-4 py-5 text-center shadow-lg animate-pop motion-reduce:animate-none', dark ? 'text-amber-950' : 'text-white')}
+        style={{ background: `linear-gradient(135deg, ${col}cc 0%, ${col} 45%, ${col}ee 100%)` }}>
+        <span aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/40 blur-2xl animate-breathe motion-reduce:animate-none" />
+        <span aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,0.35)_50%,transparent_70%)] bg-[length:200%_100%] animate-shine motion-reduce:hidden" />
+        <div className="relative text-4xl leading-none animate-float motion-reduce:animate-none">{TS_ICON[st.word] ?? '⏳'}</div>
+        <div className="relative mt-2 font-display text-4xl font-extrabold uppercase italic leading-none tracking-wide drop-shadow-sm">{st.word}</div>
+        <p className="relative mt-2 text-sm opacity-95">{desc}</p>
       </div>
-      <p className="text-center text-sm text-muted-foreground">{desc}</p>
       <StatusLegend on={(w) => w === st.word} />
       <div className="flex flex-wrap justify-center gap-1.5">{st.chips.map(([t, flag]) => <span key={t} className={cn('rounded-full border px-2 py-0.5 text-xs', flag && 'border-status-caution text-status-caution')}>{t}</span>)}</div>
     </div>
@@ -105,6 +113,7 @@ export function Load() {
   const [pj, setPj] = useState(true);
   const [tIdx, setTIdx] = useState<number | null>(null);
   const [selDay, setSelDay] = useState<string | null>(null);
+  const [liftMap, setLiftMap] = useState<'volume' | 'sore'>('volume');
 
   const rows = load.data ?? [];
   const avail = useMemo(() => {
@@ -156,9 +165,6 @@ export function Load() {
   });
   const cur: PmcPoint | undefined = all[sel];
   const fz = cur ? zoneOf(FORM_Z, cur.form) : null, rz = cur?.ramp != null ? zoneOf(RAMP_Z, cur.ramp) : null;
-  const next = (tests.data ?? []).find((t) => t.day >= today && t.kind !== 'Durability test') ?? (tests.data ?? []).find((t) => t.day >= today);
-  const nextPt = next && all.find((x) => x.day === next.day);
-  const daysTo = next ? Math.round((Date.parse(next.day) - Date.parse(today)) / 864e5) : null;
 
   // This week day by day, and the following weeks' plan
   const mon = monday(today);
@@ -195,28 +201,9 @@ export function Load() {
         )}
         <span className="ml-auto"><HelpQ text="Combined adds up all your sports. More sports lists every other sport in your intervals.icu history. Add more sports by creating them in intervals.icu > Settings > Sport Settings; they show up here after the next sync." /></span>
       </div>
-      {sport === 'WeightTraining' && <Volume sets={lifts.data ?? []} unit={liftUnit} ex={null} />}
+      {/* Every sport (Ben 2026-11-23): Training status first, then the body map. Lifting shows weekly volume by
+          muscle, with soreness and injury one tap away; other sports show soreness and injury. */}
 
-      {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}
-
-      <Arrange page="load" cards={[
-        { id: 'next', label: 'Next test', node: (
-      <Card>
-        <CardHeader className="pb-2"><CardTitle help="next-test">Next test</CardTitle></CardHeader>
-        <CardContent className="text-sm">
-          {next ? (
-            <div className="flex items-center gap-4">
-              <div className="font-mono text-3xl">{daysTo}<span className="text-sm"> days</span></div>
-              <div><b>{next.kind}</b> · {shortDay(next.day)}
-                <div className="text-muted-foreground">Projected Form that day: <b style={{ color: nextPt && nextPt.form >= 5 && nextPt.form <= 15 ? '#22c55e' : PLAN }}>{nextPt ? Math.round(nextPt.form) : '–'}</b>{' '}
-                  {next.kind === 'Durability test' ? '(no target band for durability)' : nextPt && nextPt.form >= 5 && nextPt.form <= 15 ? '✓ inside the +5 to +15 test band' : '· aim for +5 to +15'}</div>
-              </div>
-            </div>
-          ) : <p className="text-muted-foreground">No test in your intervals.icu plan yet. Name a workout "FTP test", "VO2 test" or "Durability test".</p>}
-        </CardContent>
-      </Card>
-        ) },
-        { id: 'status', label: 'Training status', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="training-status">Training status</CardTitle></CardHeader>
         <CardContent className="space-y-3">
@@ -225,8 +212,20 @@ export function Load() {
           <p className="text-xs text-muted-foreground">Uses all your sports. Training guidance, not medical advice.</p>
         </CardContent>
       </Card>
-        ) },
-        { id: 'pmc', label: 'Fitness · Fatigue', node: (
+      {sport === 'WeightTraining' && (
+        <div className="flex gap-1 rounded-lg border bg-card p-1">
+          {([['volume', 'Volume by muscle'], ['sore', 'Soreness and injury']] as const).map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setLiftMap(k)} className={cn('flex-1 rounded-md px-2 py-1.5 text-sm', liftMap === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>{l}</button>
+          ))}
+        </div>
+      )}
+      {sport === 'WeightTraining' && liftMap === 'volume' ? <Volume sets={lifts.data ?? []} unit={liftUnit} ex={null} /> : <SorenessCard />}
+
+      {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}
+
+      {/* Ben 2026-11-23: Training status, body map, then Actual vs planned load; the other charts sit in the More cards drop-down. */}
+      <Arrange page="load-v3" cards={[
+        { id: 'pmc', label: 'Fitness · Fatigue', more: true, node: (
       <Card>
         <CardHeader className="pb-1"><CardTitle help="fitness-fatigue-form">Fitness · Fatigue</CardTitle><p className="text-xs text-muted-foreground">{sport === 'mix' ? `Combined: ${shown.map(sportLabel).join(' + ')}` : sportLabel(sport)}</p></CardHeader>
         <CardContent className="space-y-2">
@@ -260,10 +259,10 @@ export function Load() {
         </CardContent>
       </Card>
         ) },
-        { id: 'form', label: 'Form', node: (
+        { id: 'form', label: 'Form', more: true, node: (
         <ZoneChart title="Form" help="form-zones" data={data} keyA="formA" keyP="formP" zones={FORM_Z} ticks={[-30, -10, 5, 20]} lo={-40} hi={25} X={X} extra={<>{marksEls}{selLine}</>} />
         ) },
-        { id: 'ramp', label: 'Ramp rate', node: (
+        { id: 'ramp', label: 'Ramp rate', more: true, node: (
         <ZoneChart title="Ramp rate" help="ramp-rate" data={data} keyA="rampA" keyP="rampP" zones={RAMP_Z} ticks={[0, 3, 8]} lo={-4} hi={12} X={X} extra={<>{marksEls}{selLine}</>} />
         ) },
         { id: 'plan', label: 'Actual vs planned load', node: (
@@ -283,6 +282,7 @@ export function Load() {
             </ResponsiveContainer>
           </div>
           <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: ACT }} />Actual</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border align-middle" style={{ borderColor: PLAN, background: PLAN + '44' }} />Planned</span></div>
+          <WeekLoadTypes acts={(acts.data ?? []).filter((a) => sport === 'mix' || (sport === 'ride' ? isRide(a) : sport === 'run' ? isRun(a) : a.type === sport))} days={w0} />
           <p><b>This week so far</b> · {pa} done of {pp} planned{pct != null && <> · <b style={{ color: Math.abs(pct - 100) <= 10 ? '#22c55e' : Math.abs(pct - 100) <= 20 ? '#eab308' : '#ef4444' }}>{pct}%</b></>}<br />Whole week planned: {w0.reduce((s, x) => s + x.p, 0)}</p>
           {more > 0 && (
             <Accordion type="multiple">
@@ -341,6 +341,34 @@ function ZoneChart({ title, help, data, keyA, keyP, zones, ticks, lo, hi, X, ext
           </ResponsiveContainer>
         </div>
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">{zones.map((z) => <span key={z[3]}><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: z[2] }} />{z[3]}</span>)}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Next test, with the Form projected for that day (all sports). Lives on the Calendar tab (Ben 2026-11-23).
+export function NextTestCard() {
+  const p = useProfile().data!;
+  const today = todayIn(p.time_zone);
+  const load = useDailyLoad(p), tests = usePlannedTests(p);
+  const next = (tests.data ?? []).find((t) => t.day >= today && t.kind !== 'Durability test') ?? (tests.data ?? []).find((t) => t.day >= today);
+  const pts = useMemo(() => (next ? pmc(load.data ?? [], 'all', addDays(today, -LOAD_BACK), next.day > today ? next.day : addDays(today, 1), today) : []), [load.data, next?.day, today]);
+  const nextPt = next && pts.find((x) => x.day === next.day);
+  const daysTo = next ? Math.round((Date.parse(next.day) - Date.parse(today)) / 864e5) : null;
+  const inBand = nextPt && nextPt.form >= 5 && nextPt.form <= 15;
+  return (
+    <Card>
+      <CardHeader className="pb-2"><CardTitle help="next-test">Next test</CardTitle></CardHeader>
+      <CardContent className="text-sm">
+        {next ? (
+          <div className="flex items-center gap-4">
+            <div className="font-mono text-3xl">{daysTo}<span className="text-sm"> days</span></div>
+            <div><b>{next.kind}</b> · {shortDay(next.day)}
+              <div className="text-muted-foreground">Projected Form that day: <b style={{ color: inBand ? '#22c55e' : PLAN }}>{nextPt ? Math.round(nextPt.form) : '–'}</b>{' '}
+                {next.kind === 'Durability test' ? '(no target band for durability)' : inBand ? '✓ inside the +5 to +15 test band' : '· aim for +5 to +15'}</div>
+            </div>
+          </div>
+        ) : <p className="text-muted-foreground">No test in your intervals.icu plan yet. Name a workout "FTP test", "VO2 test" or "Durability test".</p>}
       </CardContent>
     </Card>
   );

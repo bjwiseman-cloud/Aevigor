@@ -21,21 +21,22 @@ export function Brand() {
   );
 }
 
-// Bottom tabs (Ben, 2026-11-18): Check-in · Training · Today (centre) · Trends · Plan
+// Bottom tabs (Ben, 2026-11-23): Check-in · Training · Today (centre) · Trends · Calendar. The Plan tab is gone:
+// My log and Records moved into Check-in, Performance into Trends, and the calendar became its own tab.
 const TABS = [
   { to: '/checkin', label: 'Check-in', icon: ClipboardCheck, match: ['/checkin'] },
   { to: '/training/load', label: 'Training', icon: TrendingUp, match: ['/training'] },
   { to: '/today', label: 'Today', icon: Home, match: ['/today'], centre: true },
   { to: '/trends', label: 'Trends', icon: LineChart, match: ['/trends'] },
-  { to: '/plan/schedule', label: 'Plan', icon: CalendarDays, match: ['/plan'] }
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays, match: ['/calendar'] }
 ];
 
-// Sub-tabs at the top of Training and Plan
-export function SubTabs({ tabs }: { tabs: { to: string; label: string }[] }) {
+// Sub-tabs at the top of Training and Trends
+export function SubTabs({ tabs }: { tabs: { to: string; label: string; end?: boolean }[] }) {
   return (
     <div className="mb-4 grid overflow-hidden rounded-md border" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
       {tabs.map((t) => (
-        <NavLink key={t.to} to={t.to}
+        <NavLink key={t.to} to={t.to} end={t.end}
           className={({ isActive }) => cn('py-2 text-center text-sm', isActive ? 'bg-primary font-semibold text-primary-foreground' : 'bg-card text-muted-foreground')}>
           {t.label}
         </NavLink>
@@ -43,8 +44,8 @@ export function SubTabs({ tabs }: { tabs: { to: string; label: string }[] }) {
     </div>
   );
 }
-export const TRAINING_TABS = [{ to: '/training/load', label: 'Load' }, { to: '/training/performance', label: 'Performance' }, { to: '/training/sessions', label: 'Activities' }];
-export const PLAN_TABS = [{ to: '/plan/schedule', label: 'Schedule' }, { to: '/plan/log', label: 'My log' }, { to: '/plan/records', label: 'Records' }];
+export const TRAINING_TABS = [{ to: '/training/load', label: 'Load' }, { to: '/training/sessions', label: 'Activities' }];
+export const TRENDS_TABS = [{ to: '/trends', label: 'Trends', end: true }, { to: '/trends/performance', label: 'Performance' }];
 
 function lastSyncText(iso: string | null | undefined) {
   return iso ? new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'never';

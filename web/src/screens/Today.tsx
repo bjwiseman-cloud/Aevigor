@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom';
-import { useLatestStatus, usePlannedTests, useProfile, useTodayCheckin } from '@/hooks/data';
-import { addDays } from '@rules';
-import { shortDay } from '@/components/charts';
-import { STATUS, WEEKLY, DOT, type Dot } from '@/lib/status';
+import { useLatestStatus, useProfile, useTodayCheckin } from '@/hooks/data';
+import { STATUS, DOT, type Dot } from '@/lib/status';
+import { LastWeekCard, WeeklyCheckCard } from '@/components/WeekCards';
 import { fmt, niceDay, todayIn } from '@/lib/time';
 import type { Profile, Signals } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -52,28 +51,47 @@ function signalLines(s: Signals, checkedIn: boolean) {
   ];
 }
 
-// What to change when the Weekly check flags (BUILD-LIST, Ben 2026-11-18): volume, lifting, the next test, sleep.
-// Common deload practice: cut volume, keep some intensity (Bosquet 2007 taper meta-analysis; Pritchard 2015 for lifting).
-function changes(weekly: string, test: { day: string; kind: string } | undefined, today: string): string[] {
-  const near = (d: number) => test && test.day <= addDays(today, d);
-  if (weekly === 'WATCH') return [
-    'Avoid two hard days in a row. Keep the next hard session, but stop early if it feels much harder than usual.',
-    'Aim for 8 hours in bed for the next 2 nights.',
-    'Check again tomorrow morning; one more low day turns this into a deload.'
-  ];
-  if (weekly === 'DELOAD') return [
-    'Cut this week\'s training volume by 30-40%: shorter rides and runs, keep one short quality session.',
-    'Lifting: keep the weights, do about half the sets, and stop each set with 3 or more reps in reserve.',
-    near(7) ? `Move your ${test!.kind} (${shortDay(test!.day)}) back about a week, so you test fresh.` : 'If a test is planned in the next week, move it back a week.',
-    'Aim for 8+ hours of sleep and eat enough carbohydrate on training days.'
-  ];
-  if (weekly === 'DELOAD - STRONG') return [
-    'Take 3-5 easy days: rest, or only easy zone 1-2 sessions under an hour.',
-    'Lifting: skip heavy lifts; light technique work only.',
-    near(10) ? `Move your ${test!.kind} (${shortDay(test!.day)}) until after these easy days.` : 'Move any test planned in the next 10 days.',
-    'Extra sleep and good food. If you feel unwell, rest.'
-  ];
-  return [];
+// Livelier status look (Ben 2026-11-23): a colourful hero per status, the "why" under the status word,
+// and Do / Avoid / Watch as coloured tiles. The status words themselves are unchanged.
+const HERO: Record<string, { bg: string; icon: string; glow: string }> = {
+  'GO': { bg: 'from-emerald-400 via-green-500 to-lime-500 text-white', icon: '⚡', glow: 'bg-lime-200' },
+  'OK': { bg: 'from-emerald-400 via-green-500 to-lime-500 text-white', icon: '⚡', glow: 'bg-lime-200' },
+  'CAUTION': { bg: 'from-amber-300 via-yellow-400 to-orange-400 text-amber-950', icon: '🧭', glow: 'bg-yellow-100' },
+  'GO EASY': { bg: 'from-rose-500 via-red-500 to-orange-500 text-white', icon: '🌿', glow: 'bg-rose-200' },
+  'NO DATA': { bg: 'from-slate-400 via-slate-500 to-zinc-500 text-white', icon: '⏳', glow: 'bg-slate-200' }
+};
+const DAW = [
+  { k: 'do', label: 'Do', icon: '✅', cls: 'border-emerald-300 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-500/10', pill: 'bg-emerald-500' },
+  { k: 'avoid', label: 'Avoid', icon: '⛔', cls: 'border-rose-300 bg-rose-50 dark:border-rose-500/40 dark:bg-rose-500/10', pill: 'bg-rose-500' },
+  { k: 'watch', label: 'Watch', icon: '👀', cls: 'border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10', pill: 'bg-amber-500' }
+] as const;
+
+function StatusCard({ code, reasons }: { code: string; reasons: string[] }) {
+  const st = STATUS[code as keyof typeof STATUS] ?? STATUS['NO DATA'];
+  const h = HERO[code] ?? HERO['NO DATA'];
+  const why = reasons.length ? reasons : ['All signals normal'];
+  return (
+    <Card className="overflow-hidden border-0 shadow-lg">
+      <div className={cn('relative overflow-hidden bg-gradient-to-br px-5 pb-5 pt-6 text-center', h.bg)}>
+        <span aria-hidden className={cn('pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full opacity-40 blur-2xl animate-breathe motion-reduce:animate-none', h.glow)} />
+        <span aria-hidden className={cn('pointer-events-none absolute -bottom-12 -left-8 h-36 w-36 rounded-full opacity-30 blur-2xl animate-breathe motion-reduce:animate-none [animation-delay:1.2s]', h.glow)} />
+        <div className="absolute right-3 top-3 rounded-full bg-white/80 p-1 text-slate-700"><HelpButton topic="daily-status" /></div>
+        <div className="relative mx-auto grid h-16 w-16 place-items-center rounded-full bg-white/25 text-4xl shadow-inner ring-4 ring-white/30 animate-float motion-reduce:animate-none">{h.icon}</div>
+        <div className="relative mt-3 font-display text-4xl font-extrabold uppercase italic leading-none tracking-wide drop-shadow-sm animate-pop motion-reduce:animate-none">{st.head}</div>
+        <div className="relative mt-3 flex flex-wrap justify-center gap-1.5">
+          {why.map((x) => <span key={x} className="rounded-full bg-white/25 px-2.5 py-0.5 text-xs font-medium backdrop-blur-sm">{x}</span>)}
+        </div>
+      </div>
+      <CardContent className="space-y-2 pt-4">
+        {DAW.map((d, i) => (
+          <div key={d.k} style={{ animationDelay: `${120 + i * 90}ms` }} className={cn('flex items-start gap-3 rounded-xl border p-2.5 text-left animate-pop motion-reduce:animate-none', d.cls)}>
+            <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm shadow', d.pill)}>{d.icon}</span>
+            <div><div className="font-display text-sm font-extrabold uppercase tracking-widest">{d.label}</div><div className="text-sm leading-snug">{st[d.k]}</div></div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
 }
 
 export function Today() {
@@ -81,8 +99,6 @@ export function Today() {
   const status = useLatestStatus(profile);
   const checkin = useTodayCheckin(profile);
   const day = todayIn(profile.time_zone);
-  const tests = usePlannedTests(profile);
-  const nextTest = (tests.data ?? []).find((t) => t.day >= day);
 
   if (status.isLoading) return <p className="text-muted-foreground">Loading today…</p>;
   const r = status.data;
@@ -105,8 +121,6 @@ export function Today() {
     );
   }
 
-  const st = STATUS[r.status] ?? STATUS['NO DATA'];
-  const wk = WEEKLY[r.weekly] ?? WEEKLY.OK;
   const s = r.signals;
   const lines = signalLines(s, !!checkin.data);
   if (s.sick) lines.push({ k: 'Sickness', range: null, sub: null, dot: s.sick === 'Yes' ? 'bad' : 'warn', v: s.sick === 'Yes' ? 'Below the neck' : 'Mild, above the neck' });
@@ -121,50 +135,13 @@ export function Today() {
         {niceDay(r.day)}{r.day !== day && <> · <b className="text-status-caution">latest available</b></>}
       </p>
 
-      <Arrange page="today" cards={[
-        { id: 'status', label: 'Daily status', node: (
-      <Card className={cn('relative border-2 text-center', st.cls.split(' ').filter((c) => c.startsWith('border-')).join(' '))}>
-        <div className="absolute right-4 top-4"><HelpButton topic="daily-status" /></div>
-        <CardContent className="pt-5">
-          <div className="text-4xl leading-none">{st.icon}</div>
-          <div className={cn('mt-2 font-serif text-2xl font-bold', st.cls.split(' ')[0])}>{st.head}</div>
-          <p className="mt-3">{st.advice}</p>
-          <dl className="mt-3 grid grid-cols-[72px_1fr] gap-x-3 gap-y-1.5 text-left text-sm">
-            <dt className="font-semibold text-muted-foreground">Do</dt><dd>{st.do}</dd>
-            <dt className="font-semibold text-muted-foreground">Avoid</dt><dd>{st.avoid}</dd>
-            <dt className="font-semibold text-muted-foreground">Watch</dt><dd>{st.watch}</dd>
-          </dl>
-        </CardContent>
-      </Card>
-        ) },
-        { id: 'why', label: 'Why', node: (
-      <Card>
-        <CardHeader className="pb-2"><CardTitle help="daily-status">Why</CardTitle></CardHeader>
-        <CardContent>
-          <ul className="list-disc space-y-1 pl-5">
-            {(r.reasons.length ? r.reasons : ['All signals normal']).map((x) => <li key={x}>{x}</li>)}
-          </ul>
-        </CardContent>
-      </Card>
-        ) },
-        { id: 'weekly', label: 'Weekly check', node: (
-      <Card className={wk.cls.split(' ')[1]}>
-        <CardHeader className="pb-2"><CardTitle help="weekly-check">Weekly check</CardTitle></CardHeader>
-        <CardContent>
-          <p><b className={wk.cls.split(' ')[0]}>{wk.icon} {r.weekly}</b></p>
-          <p className="mt-1 text-sm">{wk.text}</p>
-          {r.weekly_why && <p className="mt-2 text-sm"><b>Why:</b> {r.weekly_why}.</p>}
-          {changes(r.weekly, nextTest, day).length > 0 && (
-            <div className="mt-2 text-sm"><b>What to change</b>
-              <ul className="mt-1 list-disc space-y-1 pl-5">{changes(r.weekly, nextTest, day).map((c) => <li key={c}>{c}</li>)}</ul>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-        ) },
+      <Arrange page="today-v2" cards={[
+        { id: 'status', label: 'Daily status', node: <StatusCard code={r.status} reasons={r.reasons} /> },
+        { id: 'weekly', label: 'Weekly check', node: <WeeklyCheckCard r={r} /> },
+        { id: 'lastweek', label: 'Last week', node: <LastWeekCard /> },
         { id: 'signals', label: 'Signals', node: (
       <Card>
-        <CardHeader className="pb-2"><CardTitle help="signals">Signals</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="signals"><span className="font-display text-xl font-extrabold italic tracking-wide">📡 Signals</span></CardTitle></CardHeader>
         <CardContent className="space-y-4">
           {lines.map((l) => (
             <div key={l.k}>

@@ -35,6 +35,20 @@ const sets = [
   { id: '3', day: '2026-11-16', exercise: 'Squat', set_no: 1, reps: 3, weight: 110, rir: null, warmup: false, note: null, source: 'app' }];
 assert.deepEqual(L.weeklyVolume(sets, null).map((w) => [w.week, w.volume, w.sets]), [['2026-11-09', 500, 1], ['2026-11-16', 330, 1]]);
 assert.deepEqual(L.e1rmSeries(sets, 'Squat').map((p) => p.day), ['2026-11-10', '2026-11-16']);
+
+// Main lifts and heaviest actual lift (Achievements, Best lifts, 1RM picker)
+{
+  const S = (day, exercise, weight, reps, warmup = false) => ({ id: day + exercise + weight, day, exercise, set_no: 1, reps, weight, rir: null, warmup, note: null, source: 't' });
+  const sets = [S('2026-11-01', 'Squat (Barbell)', 140, 3), S('2026-11-08', 'Squat (Barbell)', 150, 1), S('2026-11-09', 'Front Squat', 160, 1),
+    S('2026-11-02', 'Flat Barbell Bench Press', 100, 5), S('2026-11-02', 'Incline Dumbbell Bench Press', 40, 8), S('2026-11-03', 'Romanian Deadlift', 120, 8),
+    S('2026-11-04', 'Deadlift', 180, 2), S('2026-11-05', 'Deadlift', 200, 1, true)];
+  const m = L.mainLiftNames(sets);
+  assert.deepEqual(m, { squat: 'Squat (Barbell)', bench: 'Flat Barbell Bench Press', deadlift: 'Deadlift' });
+  const h = L.heaviest(sets);
+  assert.equal(h.get('Squat (Barbell)').weight, 150);
+  assert.equal(h.get('Deadlift').weight, 180, 'warm-ups do not count');
+  assert.equal(L.mainLiftNames([S('2026-11-03', 'Romanian Deadlift', 120, 8)]).deadlift, null, 'a variation is not the main lift');
+}
 console.log('ok lifting');
 
 // Photo of my log: text from the photo reader turned into exercises and sets

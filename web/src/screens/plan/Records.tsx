@@ -15,7 +15,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Chip, Chips, Field } from '@/components/chips';
 import { C, axis, shortDay, tooltipStyle, Legend } from '@/components/charts';
 import { HealthConsent, NOT_MEDICAL } from '@/components/health';
-import { PLAN_TABS, SubTabs } from '@/screens/Layout';
+import { CheckinSeg } from '@/screens/Checkin';
 
 // Labs and diagnostics types (no icons, Ben 2026-11-18). Value types get a chart and table; file types list by date.
 const KINDS: { id: RecordKind; label: string; female?: boolean }[] = [
@@ -227,7 +227,7 @@ export function Records() {
   }, [labs.data, recs]);
   useEffect(() => { setMarker(null); }, [type]);
 
-  if (!on) return <><SubTabs tabs={PLAN_TABS} /><HealthConsent profile={profile} /></>;
+  if (!on) return <><CheckinSeg on="records" /><HealthConsent profile={profile} /></>;
   const open = async (path: string) => {
     const { data, error } = await supabase.storage.from('records').createSignedUrl(path, 300);
     if (error) toast.error(error.message); else window.open(data.signedUrl, '_blank', 'noopener');
@@ -237,7 +237,7 @@ export function Records() {
 
   return (
     <div className="space-y-4">
-      <SubTabs tabs={PLAN_TABS} />
+      <CheckinSeg on="records" />
       <Card>
         <CardHeader className="pb-2"><CardTitle help="labs">Labs and diagnostics</CardTitle></CardHeader>
         <CardContent className="space-y-3">

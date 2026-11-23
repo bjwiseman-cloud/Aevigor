@@ -13,9 +13,11 @@ import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
-export type ArrangeCard = { id: string; label: string; node: ReactNode; off?: boolean };
+// more: the card sits in the "More cards" drop-down under the main cards (Ben 2026-11-23).
+export type ArrangeCard = { id: string; label: string; node: ReactNode; off?: boolean; more?: boolean };
 type Saved = { card_order: string[]; hidden: string[] };
 const lsKey = (page: string) => `aev-layout-${page}`;
 
@@ -80,13 +82,20 @@ export function Arrange({ page, cards, chooser = true }: { page: string; cards: 
   const ids = cards.map((c) => c.id);
   const defHidden = cards.filter((c) => c.off).map((c) => c.id);
   const base = saved.data?.card_order ?? [];
-  const current = [...base.filter((x) => ids.includes(x)), ...ids.filter((x) => !base.includes(x))];
+  // New cards (not in the saved order yet) go in at their default place: just before the next card that follows them.
+  const current = base.filter((x) => ids.includes(x));
+  ids.forEach((id, i) => {
+    if (current.includes(id)) return;
+    const next = ids.slice(i + 1).find((x) => current.includes(x));
+    current.splice(next ? current.indexOf(next) : current.length, 0, id);
+  });
   const hid = saved.data ? saved.data.hidden.filter((x) => ids.includes(x)).concat(defHidden.filter((x) => !base.includes(x))) : defHidden;
   useEffect(() => { if (open) { setOrder(current); setHidden(hid); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const sensors = useHoldSensors();
   const listSensors = useSensors(useSensor(MouseSensor), useSensor(TouchSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const visible = current.filter((id) => !hid.includes(id));
   const byId = (id: string) => cards.find((c) => c.id === id)!;
+  const main = visible.filter((id) => !byId(id).more), extra = visible.filter((id) => byId(id).more);
   // Dragging on the page moves the card among the visible ones; hidden cards keep their places.
   const onPageDrop = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;
@@ -100,10 +109,18 @@ export function Arrange({ page, cards, chooser = true }: { page: string; cards: 
   return (
     <>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => navigator.vibrate?.(15)} onDragEnd={onPageDrop}>
-        <SortableContext items={visible} strategy={verticalListSortingStrategy}>
-          {visible.map((id) => <Movable key={id} id={id}>{byId(id).node}</Movable>)}
+        <SortableContext items={main} strategy={verticalListSortingStrategy}>
+          {main.map((id) => <Movable key={id} id={id}>{byId(id).node}</Movable>)}
         </SortableContext>
       </DndContext>
+      {extra.length > 0 && (
+        <Accordion type="single" collapsible className="rounded-xl border bg-card px-3">
+          <AccordionItem value="more" className="border-none">
+            <AccordionTrigger className="text-sm font-semibold">More cards ({extra.length})<span className="ml-2 mr-auto truncate text-xs font-normal text-muted-foreground">{extra.map((id) => byId(id).label).join(' · ')}</span></AccordionTrigger>
+            <AccordionContent className="space-y-4 pb-3">{extra.map((id) => <div key={id}>{byId(id).node}</div>)}</AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      )}
       {chooser && <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={() => setOpen(true)}><LayoutGrid /> Choose cards</Button>}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent className="overflow-y-auto">
