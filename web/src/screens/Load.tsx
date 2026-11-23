@@ -14,7 +14,8 @@ import { HowToRead, axis, shortDay, tooltipStyle } from '@/components/charts';
 import { useCalendar, useCheckins, useDailyLoad, usePlannedTests, useProfile, useWellness, LOAD_BACK } from '@/hooks/data';
 import { useActivities } from '@/hooks/perf';
 import { pmc, type PmcPoint } from '@/lib/metrics';
-import { testResults } from '@/lib/perf';
+import { isRide, isRun, testResults } from '@/lib/perf';
+import { WeekLoadTypes } from '@/components/Compare';
 import { TS_ORDER, mergeDays, statusColor, trainingStatus, weekPct, type Status } from '@/lib/training-status';
 import { todayIn } from '@/lib/time';
 import { cn } from '@/lib/utils';
@@ -281,6 +282,7 @@ export function Load() {
             </ResponsiveContainer>
           </div>
           <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: ACT }} />Actual</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border align-middle" style={{ borderColor: PLAN, background: PLAN + '44' }} />Planned</span></div>
+          <WeekLoadTypes acts={(acts.data ?? []).filter((a) => sport === 'mix' || (sport === 'ride' ? isRide(a) : sport === 'run' ? isRun(a) : a.type === sport))} days={w0} />
           <p><b>This week so far</b> · {pa} done of {pp} planned{pct != null && <> · <b style={{ color: Math.abs(pct - 100) <= 10 ? '#22c55e' : Math.abs(pct - 100) <= 20 ? '#eab308' : '#ef4444' }}>{pct}%</b></>}<br />Whole week planned: {w0.reduce((s, x) => s + x.p, 0)}</p>
           {more > 0 && (
             <Accordion type="multiple">

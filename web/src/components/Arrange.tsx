@@ -80,7 +80,13 @@ export function Arrange({ page, cards, chooser = true }: { page: string; cards: 
   const ids = cards.map((c) => c.id);
   const defHidden = cards.filter((c) => c.off).map((c) => c.id);
   const base = saved.data?.card_order ?? [];
-  const current = [...base.filter((x) => ids.includes(x)), ...ids.filter((x) => !base.includes(x))];
+  // New cards (not in the saved order yet) go in at their default place: just before the next card that follows them.
+  const current = base.filter((x) => ids.includes(x));
+  ids.forEach((id, i) => {
+    if (current.includes(id)) return;
+    const next = ids.slice(i + 1).find((x) => current.includes(x));
+    current.splice(next ? current.indexOf(next) : current.length, 0, id);
+  });
   const hid = saved.data ? saved.data.hidden.filter((x) => ids.includes(x)).concat(defHidden.filter((x) => !base.includes(x))) : defHidden;
   useEffect(() => { if (open) { setOrder(current); setHidden(hid); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const sensors = useHoldSensors();

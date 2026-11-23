@@ -124,3 +124,12 @@ import('../supabase/functions/_shared/intervals.js').then(({ extraOf }) => {
   assert.deepEqual(zoneTimes({}), {});
   console.log('ok zone times');
 }
+
+// Strain Score: top-level numbers kept, grouped ones flattened
+{
+  const { activityRow, strainFields } = await import('../supabase/functions/_shared/performance.js');
+  const r = activityRow({ id: 'i1', start_date_local: '2026-11-22T04:23:55', type: 'VirtualRide', strain_score: 120, ss_cp: 80, ss_w_prime: 30, ss_p_max: 10 }, 'u');
+  assert.equal(r.raw.strain_score, 120); assert.equal(r.raw.ss_cp, 80);
+  assert.deepEqual(strainFields({ strain: { total: 50, cp: 30, w_prime: 15, p_max: 5, note: 'x' }, other: { a: 1 } }), { strain_total: 50, strain_cp: 30, strain_w_prime: 15, strain_p_max: 5 });
+  console.log('ok strain fields');
+}

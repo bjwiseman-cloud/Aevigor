@@ -9,6 +9,7 @@ import { usePlannedTests, usePref, useProfile, useWellness } from '@/hooks/data'
 import { MY_ZONES_KEY, type MyZones } from '@/lib/myzones';
 import { RunEfCard, ThresholdCard, Vo2Card, ZonesCard, isLift, settingsFor, sportMatch, usePhaseShade, PhaseKey } from '@/screens/training/perfCards';
 import type { Profile } from '@/lib/types';
+import { PowerProfileCard, SignatureCard } from '@/components/Compare';
 import { useActivities, useCurves, usePaceCurves } from '@/hooks/perf';
 import { BEST_SECS, bestEfforts, isRide, isRun, latestWeight, mmss, n, pace, paceRows, secsLabel, testResults, type Activity, type Curve, type PaceCurve } from '@/lib/perf';
 import { todayIn } from '@/lib/time';
@@ -272,6 +273,8 @@ export function Performance() {
       </div>
       {sport === 'ride' && (
         <Arrange key="ride" page="performance" cards={[
+          { id: 'profile', label: 'Power profile (Coggan)', node: <PowerProfileCard rides={rides} curves={curves.data ?? []} today={today} weight={weight} /> },
+          { id: 'signature', label: 'PP · HIE · TP', node: <SignatureCard rides={rides} curves={curves.data ?? []} today={today} /> },
           { id: 'curve', label: 'Power curve', node: <PowerCurve rides={rides} curves={curves.data ?? []} today={today} weight={weight} onOpen={open} /> },
           zones,
           { id: 'tests', label: 'Test results', node: <Tests results={results} /> },

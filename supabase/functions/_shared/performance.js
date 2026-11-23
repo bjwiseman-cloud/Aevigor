@@ -26,8 +26,19 @@ export function activityRow(a, userId) {
     user_id: userId, id: String(a.id), day: start.slice(0, 10), start_local: start || null,
     type: a.type ? String(a.type) : 'Other', name: a.name ? String(a.name).slice(0, 200) : null,
     moving_time: num(a.moving_time), distance: num(a.distance), load: num(a.icu_training_load),
-    raw: { ...scalars(a), ...zoneTimes(a) }
+    raw: { ...scalars(a), ...zoneTimes(a), ...strainFields(a) }
   };
+}
+
+// intervals.icu Strain Score (SS) and its three sub-strains (SS CP, SS W′, SS Pmax). Top-level numbers are already
+// kept by scalars(); if intervals.icu sends them grouped in an object, flatten that object as <key>_<child>.
+export function strainFields(a) {
+  const out = {};
+  for (const [k, v] of Object.entries(a || {})) {
+    if (!/strain|^ss_?/i.test(k) || !v || typeof v !== 'object' || Array.isArray(v)) continue;
+    for (const [c, x] of Object.entries(v)) if (typeof x === 'number' && Number.isFinite(x)) out[`${k}_${c}`] = x;
+  }
+  return out;
 }
 
 // Time in each zone (seconds), as intervals.icu worked it out with the athlete's own zones. Stored as

@@ -284,7 +284,8 @@
       "calc": [
         "Load per session: power-based (TSS) for rides, pace-based for runs, and session RPE (effort 1 to 10 times minutes, divided by 10) for lifting, badminton and anything without power or pace.",
         "Only sports that have planned workouts are compared, so like is compared with like. The alert shows when the last 7 days are more than 20% above plan.",
-        "The acute:chronic workload ratio is not used, because of known flaws."
+        "The acute:chronic workload ratio is not used, because of known flaws.",
+        "This week by load type: TSS added up, next to intervals.icu's Strain Score (SS) and its three parts: SS CP, SS W′ and SS Pmax. Strain Score needs W′ and Pmax set in your intervals.icu Sport Settings."
       ],
       "refs": [
         "r12",
@@ -707,6 +708,69 @@
       ],
       "refs": [],
       "coach": []
+    },
+    {
+      "id": "compare",
+      "field": "cycling",
+      "title": "Compare sessions",
+      "short": "Puts 2 to 4 sessions side by side: coloured bars for each metric, two power radars for rides with power, and both kinds of load.",
+      "why": "Seeing the same numbers drawn next to each other makes it quick to spot which session was longer, harder or more tiring.",
+      "calc": [
+        "Bars: the longest bar is the highest of the sessions you picked. RPE is out of 10. Feel uses the intervals.icu words (Strong to Weak).",
+        "Power profile and PP · HIE · TP: see their own help topics.",
+        "Load: TSS is one number for the whole session. Strain Score (SS) from intervals.icu splits the strain into three parts: SS CP (steady work near threshold), SS W′ (hard efforts above threshold) and SS Pmax (short sprints)."
+      ],
+      "refs": [],
+      "coach": [],
+      "extra": [
+        {
+          "text": "intervals.icu forum: Strain Score, a 3-dimensional load model.",
+          "url": "https://forum.intervals.icu/"
+        }
+      ]
+    },
+    {
+      "id": "power-profile",
+      "field": "cycling",
+      "title": "Power profile (Coggan)",
+      "short": "Your best 5 s, 1 min, 5 min and threshold power, in watts per kilo, placed on Coggan's table from Untrained to World class.",
+      "why": "The shape shows your strong and weak points. Flat = all-rounder, sloping down = sprinter, sloping up = time trialist, peak in the middle = pursuiter.",
+      "calc": [
+        "Each spoke is your W/kg for that duration, placed on the table: 8 categories (Untrained, Fair, Moderate, Good, Very good, Excellent, Exceptional, World class), each 5 of the table's 40 equal steps.",
+        "FT (functional threshold) = 95% of your best 20 min power, or intervals.icu's eFTP if there is no 20 min effort.",
+        "Weight is the weight saved on the ride in intervals.icu, else your Profile weight. Men's or women's table from your Profile.",
+        "Coggan has no 'climber' type. Climbing needs power per kilo at threshold, so it sits with time trialist.",
+        "The table's top and bottom rows come from the book; the app spreads the steps evenly between them as Coggan describes, so a value can differ slightly from the printed table."
+      ],
+      "refs": [],
+      "coach": [],
+      "extra": [
+        {
+          "text": "Allen H, Coggan A. Training and Racing with a Power Meter (power profile chart).",
+          "url": "https://www.trainingpeaks.com/learn/articles/power-profiling/"
+        }
+      ]
+    },
+    {
+      "id": "pp-hie-tp",
+      "field": "cycling",
+      "title": "PP · HIE · TP",
+      "short": "Three numbers in Xert's terms: Peak Power (PP), High Intensity Energy (HIE) and Threshold Power (TP).",
+      "why": "Together they describe how your power is built: sprint, hard efforts above threshold, and long steady power.",
+      "calc": [
+        "PP, Peak Power: your best 5 s power.",
+        "HIE, High Intensity Energy: the energy you can spend above threshold before you run out. The app uses intervals.icu's W′ from its power model.",
+        "TP, Threshold Power: the highest power you can hold for a long time without tiring fast. The app uses intervals.icu's eFTP.",
+        "Each spoke is scaled to the highest value in the chart, so the shape compares the periods or sessions shown. These are Xert's names; the numbers come from intervals.icu, not from Xert."
+      ],
+      "refs": [],
+      "coach": [],
+      "extra": [
+        {
+          "text": "Xert: Fitness Signature (Peak Power, High Intensity Energy, Threshold Power).",
+          "url": "https://www.xertonline.com/"
+        }
+      ]
     }
   ]
 }
