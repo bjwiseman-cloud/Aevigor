@@ -182,7 +182,16 @@ export function loadVsPlan(day, acts, events) {
 }
 
 // ---------- Daily load per sport, for the Load and Trends pages ----------
-export const TEST_RE = { ftp: /ftp|20.?min.*(test|tt)/i, vo2: /vo2|5.?min.*test/i, dur: /durab/i };
+export const TEST_RE = { ftp: /ftp|20.?min.*(test|tt)/i, vo2: /vo2|5.?min.*test/i, dur: /durab/i, thr: /threshold|lthr|30.?min.*(test|tt)/i, meet: /mock.?meet|sbd.*(test|meet)|1rm.*test|max(es)?.?(test|day)/i };
+
+// Test kind from a planned workout's name and sport (Ben 2026-11-23): cycling FTP / VO2 / durability, running
+// threshold / VO2 (only when scheduled), and a squat-bench-deadlift mock meet at the end of a lifting block.
+export function testKind(name, type) {
+  const n = String(name || ''), t = String(type || '');
+  if (TEST_RE.meet.test(n)) return 'Mock meet';
+  if (/run/i.test(t) || /\brun/i.test(n)) return TEST_RE.vo2.test(n) ? 'Run VO2 test' : TEST_RE.thr.test(n) || TEST_RE.ftp.test(n) ? 'Run threshold test' : '';
+  return TEST_RE.ftp.test(n) ? 'FTP test' : TEST_RE.vo2.test(n) ? 'VO2 test' : TEST_RE.dur.test(n) ? 'Durability test' : '';
+}
 
 // Rows of { day, sport, actual, planned, rpe, sessions } for every day/sport with anything in it.
 export function dailyLoadRows(acts, events) {
@@ -211,7 +220,7 @@ export function calendarItems(events, from) {
     const day = String(e.start_date_local || '').slice(0, 10), name = String(e.name || ''), c = String(e.category || '');
     let kind = '';
     if (/^RACE_[ABC]$/.test(c)) kind = 'Race ' + c.slice(5);
-    else if (c === 'WORKOUT' || !c) kind = TEST_RE.ftp.test(name) ? 'FTP test' : TEST_RE.vo2.test(name) ? 'VO2 test' : TEST_RE.dur.test(name) ? 'Durability test' : '';
+    else if (c === 'WORKOUT' || !c) kind = testKind(name, e.type);
     else if (c === 'NOTE') kind = 'Event';
     return kind && day >= from ? { id: String(e.id ?? day + kind), day, kind, name: (name || kind).slice(0, 120) } : null;
   }).filter(Boolean).filter((t, i, all) => all.findIndex((x) => x.id === t.id) === i).sort((a, b) => (a.day < b.day ? -1 : 1));
@@ -221,7 +230,7 @@ export function calendarItems(events, from) {
 export function plannedTests(events, from) {
   return (events || []).filter((e) => !e.category || e.category === 'WORKOUT').map((e) => {
     const name = String(e.name || ''), day = String(e.start_date_local || '').slice(0, 10);
-    const kind = TEST_RE.ftp.test(name) ? 'FTP test' : TEST_RE.vo2.test(name) ? 'VO2 test' : TEST_RE.dur.test(name) ? 'Durability test' : '';
+    const kind = testKind(name, e.type);
     return kind && day >= from ? { day, kind, name: name.slice(0, 120) } : null;
   }).filter(Boolean).filter((t, i, all) => all.findIndex((x) => x.day === t.day && x.kind === t.kind) === i)
     .sort((a, b) => (a.day < b.day ? -1 : 1));

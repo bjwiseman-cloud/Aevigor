@@ -8,6 +8,7 @@ import { useRecords, useSave, type HealthRecord, type LabValue, type RecordKind 
 import { addDaysIso, shortDate } from '@/lib/plan';
 import { todayIn } from '@/lib/time';
 import { Button } from '@/components/ui/button';
+import { FunIcon, FunTile, type Tone } from '@/components/Fun';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,6 +24,9 @@ const KINDS: { id: RecordKind; label: string; female?: boolean }[] = [
   { id: 'ecg', label: 'ECG' }, { id: 'imaging', label: 'X-ray' }, { id: 'mammogram', label: 'Mammogram', female: true },
   { id: 'pap', label: 'Pap test', female: true }, { id: 'other', label: 'Other' }
 ];
+// Decoration only, never good or bad (health log rule).
+const KIND_ICON: Partial<Record<RecordKind, string>> = { blood: '🩸', urine: '🧪', dexa: '🦴', ecg: '💓', imaging: '🩻', mammogram: '🎗️', pap: '🔬', other: '📄' };
+const KIND_TONE: Partial<Record<RecordKind, Tone>> = { blood: 'rose', urine: 'amber', dexa: 'sky', ecg: 'fuchsia', imaging: 'violet', mammogram: 'fuchsia', pap: 'teal', other: 'teal' };
 const VALUE_KINDS: RecordKind[] = ['blood', 'urine', 'dexa'];
 const kindsFor = (sex: string | null | undefined) => KINDS.filter((k) => !k.female || sex !== 'male');
 const FLAGS = ['Below', 'Normal', 'High'] as const;
@@ -49,8 +53,8 @@ function BpPanel({ tz }: { tz: string }) {
   return (
     <div className="space-y-3">
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded-md bg-muted p-2"><div className="text-xs text-muted-foreground">Latest</div><b className="text-lg">{latest ? `${latest.systolic}/${latest.diastolic}` : '–'}</b>{latest && <div className="text-xs text-muted-foreground">{shortDate(latest.taken_at.slice(0, 10))}</div>}</div>
-          <div className="rounded-md bg-muted p-2"><div className="text-xs text-muted-foreground">30-day average</div><b className="text-lg">{last30.length ? `${avg('systolic')}/${avg('diastolic')}` : '–'}</b><div className="text-xs text-muted-foreground">{last30.length} readings</div></div>
+          <FunTile tone="sky" icon="🩺" top="Latest" big={latest ? `${latest.systolic}/${latest.diastolic}` : '–'} sub={latest ? shortDate(latest.taken_at.slice(0, 10)) : 'no readings yet'} />
+          <FunTile i={1} tone="violet" icon="📅" top="30-day average" big={last30.length ? `${avg('systolic')}/${avg('diastolic')}` : '–'} sub={`${last30.length} readings`} />
         </div>
         <Chips>{[[7, 'Week'], [30, 'Month'], [90, '3 mo'], [365, 'Year']].map(([d, l]) => <Chip key={d} on={range === d} onClick={() => setRange(d as number)}>{l}</Chip>)}</Chips>
         {data.length ? (
@@ -241,7 +245,7 @@ export function Records() {
       <Card>
         <CardHeader className="pb-2"><CardTitle help="labs">Labs and diagnostics</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <Chips><Chip on={type === 'bp'} onClick={() => setType('bp')}>Blood pressure</Chip>{kindsFor(profile.sex).map((k) => <Chip key={k.id} on={type === k.id} onClick={() => setType(k.id)}>{k.label}</Chip>)}</Chips>
+          <Chips><Chip on={type === 'bp'} onClick={() => setType('bp')}>🩺 Blood pressure</Chip>{kindsFor(profile.sex).map((k) => <Chip key={k.id} on={type === k.id} onClick={() => setType(k.id)}>{KIND_ICON[k.id] ?? '📄'} {k.label}</Chip>)}</Chips>
           {type === 'bp' ? <BpPanel tz={profile.time_zone} /> : <>
             {values && (markers.length ? <>
               <Chips>{markers.map((m) => <Chip key={m} on={marker === m} onClick={() => setMarker(m)}>{m}</Chip>)}</Chips>
@@ -251,17 +255,20 @@ export function Records() {
               {recs.length ? recs.map((r) => {
                 const vals = (labs.data ?? []).filter((l) => l.record_id === r.id);
                 return (
-                  <div key={r.id} className="space-y-1 px-3 py-2 text-sm">
+                  <div key={r.id} className="flex gap-3 px-3 py-2 text-sm">
+                    <FunIcon tone={KIND_TONE[r.kind] ?? 'teal'}>{KIND_ICON[r.kind] ?? '📄'}</FunIcon>
+                    <div className="min-w-0 flex-1 space-y-1">
                     <button type="button" className="w-full text-left" onClick={() => setSheet({ rec: r })}>
                       <span className="text-muted-foreground">{shortDate(r.day)}</span> <b>{r.title || kind?.label}</b>{r.source && <span className="text-muted-foreground"> · {r.source}</span>}
                       {!!vals.length && <span className="block text-xs text-muted-foreground">{vals.length} results{vals.some((v) => v.flag && v.flag !== 'Normal') ? ` · ${vals.filter((v) => v.flag && v.flag !== 'Normal').length} flagged on the report` : ''}</span>}
                     </button>
                     {r.files.map((f) => <button key={f} type="button" className="mr-2 text-xs underline" onClick={() => open(f)}>{f.split('/').pop()!.slice(37)}</button>)}
+                    </div>
                   </div>
                 );
               }) : <p className="p-3 text-sm text-muted-foreground">No {kind?.label ?? 'records'} yet.</p>}
             </div>
-            <Button className="w-full" onClick={() => setSheet({ rec: null })}><Plus /> Add {kind?.label ?? 'a record'}</Button>
+            <Button className="h-11 w-full bg-gradient-to-r from-sky-500 via-violet-500 to-fuchsia-500 font-semibold text-white shadow-md hover:opacity-95" onClick={() => setSheet({ rec: null })}><Plus /> Add {kind?.label ?? 'a record'}</Button>
           </>}
           <p className="text-xs text-muted-foreground">Flags are copied as printed on your report. {NOT_MEDICAL}</p>
         </CardContent>

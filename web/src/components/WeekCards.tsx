@@ -33,7 +33,7 @@ export function blockWeek(tests: { day: string; kind: string }[], mon: string): 
     const a = addDays(mon, 7 * k), b = addDays(a, 6);
     for (const t of tests) {
       if (t.day < a || t.day > b) continue;
-      const wk = /vo2/i.test(t.kind) ? 3 - k : /ftp/i.test(t.kind) ? 5 - k : null;
+      const wk = /^vo2/i.test(t.kind) ? 3 - k : /^ftp/i.test(t.kind) ? 5 - k : null;
       if (wk != null && wk >= 1 && wk <= 5 && (!best || Math.abs(k) < Math.abs(best.k))) best = { k, wk };
     }
   }

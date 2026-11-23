@@ -46,7 +46,7 @@ export function achievements(i: {
 
   // FTP: the highest FTP from a test (95% of 20 min) or intervals.icu eFTP, and the gain over the last 12 months
   const eftp = [...rides].sort((a, b) => a.day.localeCompare(b.day)).map((r) => ({ day: r.day, v: n(r, 'icu_pm_ftp', 'icu_eftp'), id: r.id })).filter((x): x is { day: string; v: number; id: string } => !!x.v);
-  const ftpTests = i.tests.filter((t) => /ftp/i.test(t.kind)).map((t) => ({ day: t.day, v: t.value, id: t.activityId }));
+  const ftpTests = i.tests.filter((t) => /^ftp/i.test(t.kind)).map((t) => ({ day: t.day, v: t.value, id: t.activityId }));
   const ftpAll = [...eftp, ...ftpTests].sort((a, b) => a.day.localeCompare(b.day));
   if (ftpAll.length) {
     const top = ftpAll.reduce((m, x) => (x.v > m.v ? x : m));
@@ -76,3 +76,62 @@ export function achievements(i: {
   }
   return out;
 }
+
+// ---- Streaks (Ben 2026-11-23): weeks in a row, Monday to Sunday ----
+// Activity streak: at least one activity that week. Plan streaks: the week's actual load against its planned load,
+// Moderate compliance = within ±30% of plan (70-130%), high compliance = within ±10% (90-110%) (Ben 2026-11-23).
+// Weeks with nothing planned are skipped for the plan streaks (they neither add nor break). The current week only
+// counts once it already meets the mark, so an unfinished week never breaks a streak.
+export type Streak = { id: string; icon: string; label: string; now: number; best: number; tone: Achievement['tone']; sub: string };
+const mondayOf = (d: string) => { const x = new Date(d + 'T12:00:00Z'); return addDays(d, -((x.getUTCDay() + 6) % 7)); };
+
+function run(weeks: (boolean | null)[]) {
+  // weeks: oldest -> newest (last = current week); null = skip
+  let best = 0, cur = 0;
+  for (const w of weeks) { if (w === null) continue; cur = w ? cur + 1 : 0; best = Math.max(best, cur); }
+  // current streak counts back from the newest week; an unmet current week is ignored
+  let now = 0; const list = weeks.filter((w) => w !== null) as boolean[];
+  const last = weeks[weeks.length - 1];
+  const upto = last === false ? list.length - 1 : list.length;
+  for (let k = upto - 1; k >= 0 && list[k]; k--) now++;
+  return { now, best };
+}
+
+export function streaks(i: { actDays: string[]; load: { day: string; actual: number | null; planned: number }[]; today: string }): Streak[] {
+  const first = [...i.actDays, ...i.load.filter((r) => (r.actual ?? 0) > 0).map((r) => r.day)].sort()[0];
+  if (!first) return [];
+  const mons: string[] = []; for (let m = mondayOf(first); m <= i.today; m = addDays(m, 7)) mons.push(m);
+  const acts = new Set(i.actDays.map(mondayOf));
+  const sum = new Map<string, { a: number; p: number }>();
+  for (const r of i.load) { if (r.day > i.today) continue; const m = mondayOf(r.day), s = sum.get(m) ?? { a: 0, p: 0 }; s.a += r.actual ?? 0; s.p += r.planned; sum.set(m, s); }
+  const ratio = (m: string) => { const s = sum.get(m); return s && s.p > 0 ? s.a / s.p : null; };
+  const a = run(mons.map((m) => acts.has(m)));
+  const p80 = run(mons.map((m) => { const r = ratio(m); return r == null ? null : r >= 0.7 && r <= 1.3; }));
+  const p100 = run(mons.map((m) => { const r = ratio(m); return r == null ? null : r >= 0.9 && r <= 1.1; }));
+  const out: Streak[] = [{ id: 'streak-act', icon: '🔥', label: 'Weekly streak', now: a.now, best: a.best, tone: 'orange', sub: 'weeks with at least 1 activity' }];
+  if (mons.some((m) => ratio(m) != null)) {
+    out.push({ id: 'streak-80', icon: '🎯', label: 'Moderate compliance', now: p80.now, best: p80.best, tone: 'sky', sub: 'weeks within ±30% of planned load' });
+    out.push({ id: 'streak-100', icon: '💯', label: 'High compliance', now: p100.now, best: p100.best, tone: 'violet', sub: 'weeks within ±10% of planned load' });
+  }
+  return out;
+}
+
+// ---- Firsts (Ben 2026-11-23): an achievement the first time you use each feature ----
+export type First = { id: string; icon: string; label: string; day: string | null };
+export const FIRSTS: { id: string; icon: string; label: string }[] = [
+  { id: 'connect', icon: '🔗', label: 'Connected intervals.icu' },
+  { id: 'checkin', icon: '🌅', label: 'First morning check-in' },
+  { id: 'post', icon: '📨', label: 'First Post Activity' },
+  { id: 'manual', icon: '✍️', label: 'First manual activity' },
+  { id: 'lift', icon: '🏋️', label: 'First lifting log' },
+  { id: 'import', icon: '📥', label: 'First import' },
+  { id: 'reminder', icon: '⏰', label: 'First reminder set' },
+  { id: 'push', icon: '📲', label: 'Phone alerts on' },
+  { id: 'supplement', icon: '💊', label: 'First supplement logged' },
+  { id: 'medication', icon: '🩺', label: 'First medication logged' },
+  { id: 'meal', icon: '🥗', label: 'First meal logged' },
+  { id: 'event', icon: '📅', label: 'First calendar item' },
+  { id: 'record', icon: '📁', label: 'First health record' },
+  { id: 'bp', icon: '🩸', label: 'First blood pressure' },
+  { id: 'cycle', icon: '🌙', label: 'First cycle log' }
+];

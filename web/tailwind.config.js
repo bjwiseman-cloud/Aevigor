@@ -36,12 +36,16 @@ export default {
         pop: { '0%': { opacity: '0', transform: 'scale(0.85) translateY(8px)' }, '70%': { opacity: '1', transform: 'scale(1.04)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
         float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-4px)' } },
         shine: { '0%': { backgroundPosition: '200% 0' }, '100%': { backgroundPosition: '-200% 0' } },
-        breathe: { '0%, 100%': { opacity: '0.55', transform: 'scale(1)' }, '50%': { opacity: '0.9', transform: 'scale(1.08)' } }
+        breathe: { '0%, 100%': { opacity: '0.55', transform: 'scale(1)' }, '50%': { opacity: '0.9', transform: 'scale(1.08)' } },
+        'spin-slow': { to: { transform: 'translate(-50%, -50%) rotate(360deg)' } },
+        confetti: { '0%': { transform: 'translateY(0) rotate(0deg)', opacity: '1' }, '100%': { transform: 'translateY(115vh) rotate(720deg)', opacity: '0.7' } },
+        burst: { '0%': { opacity: '0', transform: 'scale(0.3) rotate(-8deg)' }, '60%': { opacity: '1', transform: 'scale(1.12) rotate(2deg)' }, '100%': { opacity: '1', transform: 'scale(1) rotate(0)' } }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out', 'accordion-up': 'accordion-up 0.2s ease-out',
         pop: 'pop 0.5s cubic-bezier(.2,.9,.3,1.2) both', float: 'float 3s ease-in-out infinite',
-        shine: 'shine 3s linear infinite', breathe: 'breathe 3.5s ease-in-out infinite'
+        shine: 'shine 3s linear infinite', breathe: 'breathe 3.5s ease-in-out infinite',
+        'spin-slow': 'spin-slow 24s linear infinite', confetti: 'confetti 3s linear infinite', burst: 'burst 0.7s cubic-bezier(.2,.9,.3,1.3) both'
       }
     }
   },

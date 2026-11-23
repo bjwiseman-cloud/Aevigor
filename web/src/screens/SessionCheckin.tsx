@@ -15,23 +15,24 @@ import { useSets, useUnit } from '@/hooks/lifting';
 import { useActivities } from '@/hooks/perf';
 import { isRide, n, type Activity } from '@/lib/perf';
 import { e1rm, exercises, fromKg, showW, toKg } from '@/lib/lifting';
-import { HelpQ } from '@/components/HelpQ';
 import { BodyMapEditor, figureSex, type MapMode, type MapValue } from '@/components/BodyMap';
 import { PhotoLogButton } from '@/components/PhotoLog';
 import { ExercisePicker } from '@/components/ExercisePicker';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { shortDay } from '@/components/charts';
+import { FunIcon, FunNumber, FunOpts, FunQ, rpeTone, TONE, type Tone } from '@/components/Fun';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { CheckinSeg } from '@/screens/Checkin';
 
 const RPE_LABELS = ['', 'Very easy', 'Easy', 'Moderate', 'Somewhat hard', 'Hard', 'Hard+', 'Very hard', 'Very hard+', 'Near max', 'Max'];
 // intervals.icu activity Feel: 1 Strong … 5 Weak (same words as intervals.icu)
 const FEEL = ['Strong', 'Good', 'Normal', 'Poor', 'Weak'];
+const FEEL_FACES = ['💪', '🙂', '😐', '😕', '🥴'];
 const LIFT_MODES: MapMode[] = [{ id: 'sore', label: 'Sore', scale: 'sore', target: 'muscle' }, { id: 'joint', label: 'Joint pain', scale: 'joint', target: 'joint' }, { id: 'pump', label: 'Pump', scale: 'pump', target: 'muscle' }];
 const OTHER_MODES = LIFT_MODES.slice(0, 2);
 const RPE_HELP = 'Session RPE (Foster CR-10): how hard the whole session felt, rated about 30 min after it ended. RPE × minutes gives the session load used for lifting and badminton. Saved to this activity in intervals.icu.';
@@ -56,24 +57,19 @@ const COND_INFO: Record<string, [string, string, string, string]> = {
   zero: ['', 'Power meter zeroed before the ride', '', 'Zeroing (calibrating) the power meter before a test keeps readings accurate from test to test.'],
   meal: ['', 'Usual meal before the ride', '', 'What and when you eat before a test changes your energy, especially in long efforts like durability.']
 };
-const BACK: [number, string][] = [[7, 'Last 7 days'], [14, 'Last 2 weeks'], [31, 'Last month'], [92, 'Last 3 months'], [183, 'Last 6 months'], [365, 'Last year'], [0, 'All time']];
+const BACK: [number, string][] = [[-7, '7 most recent'], [7, 'Last 7 days'], [14, 'Last 2 weeks'], [31, 'Last month'], [92, 'Last 3 months'], [183, 'Last 6 months'], [365, 'Last year'], [0, 'All time']];
 const TEST_RE = /ftp|20.?min.*(test|tt)|vo2|5.?min.*test|durab|race|crit|\btt\b|time trial|fondo/i;
 const isLift = (a: Activity) => a.type === 'WeightTraining';
 const median = (a: (number | null | undefined)[]) => { const v = a.filter((x): x is number => typeof x === 'number' && isFinite(x)).sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : null; };
 const hourOf = (a: Activity) => Number(String(a.start_local ?? '').slice(11, 13)) || null;
 
 function Opts({ opts, value, onPick, cols }: { opts: string[]; value: number | null | undefined; onPick: (v: number) => void; cols: number }) {
-  return (
-    <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-      {opts.map((o, i) => (
-        <button key={o} type="button" onClick={() => onPick(i)}
-          className={cn('rounded-md border px-1 py-2 text-xs leading-tight', value === i ? 'border-primary bg-primary text-primary-foreground' : 'bg-card hover:bg-muted')}>{o}</button>
-      ))}
-    </div>
-  );
+  return <FunOpts opts={opts} value={value} onPick={onPick} cols={cols} icons={opts === FEEL ? FEEL_FACES : undefined} />;
 }
+const SEC_LOOK: [RegExp, string, Tone][] = [[/feel/i, '😊', 'amber'], [/gym|session|lift/i, '🏋️', 'fuchsia'], [/ride cond/i, '🚴', 'sky'], [/sore|muscle|body/i, '💪', 'orange'], [/note/i, '📝', 'teal'], [/test|race/i, '⏱️', 'rose']];
 function Sec({ title, help, children }: { title: string; help?: string; children: React.ReactNode }) {
-  return <Card><CardContent className="space-y-2 py-3"><div className="flex items-center justify-between gap-2"><b>{title}</b>{help && <HelpQ text={help} />}</div>{children}</CardContent></Card>;
+  const look = SEC_LOOK.find(([re]) => re.test(title)) ?? [null, '⚡', 'violet' as Tone];
+  return <FunQ icon={look[1]} tone={look[2]} title={title} help={help}>{children}</FunQ>;
 }
 export function Auto({ on }: { on: boolean }) {
   return on ? <span className="ml-1.5 rounded border border-primary/50 px-1 py-px align-middle text-[10px] font-semibold uppercase tracking-wide text-primary" title="Filled in automatically">Auto</span> : null;
@@ -90,12 +86,12 @@ export function SessionCheckin() {
   const [unit] = useUnit();
   const qc = useQueryClient();
   // How far back the list goes (Ben 2026-11-23): a drop-down, newest first, 5 at a time
-  const [back, setBack] = useState<number>(7);
-  const [withLogged, setWithLogged] = useState(false);
+  const [back, setBack] = useState<number>(-7);
+  const [withLogged, setWithLogged] = useState(true);
   const [pages, setPages] = useState(1);
   const sessions = useMemo(() => (acts.data ?? []).filter((a) => (a.moving_time ?? 0) >= 900)
     .sort((a, b) => String(b.start_local ?? b.day).localeCompare(String(a.start_local ?? a.day))), [acts.data]);
-  const recent = useMemo(() => sessions.filter((a) => back <= 0 || a.day >= addDays(today, -(back - 1))), [sessions, back, today]);
+  const recent = useMemo(() => back < 0 ? sessions.slice(0, -back) : sessions.filter((a) => back === 0 || a.day >= addDays(today, -(back - 1))), [sessions, back, today]);
   const logged = (a: Activity) => (logs.data ?? []).some((l) => l.activity_id === a.id);
   // ?a=<activity id> comes from a Post Activity reminder (email or phone alert)
   const [params] = useSearchParams();
@@ -250,20 +246,26 @@ export function SessionCheckin() {
       }
       toast.success(manual ? (copied ? 'Saved, and added to intervals.icu' : 'Saved') : copied ? 'Saved and sent to intervals.icu' : 'Saved to this session');
       await qc.invalidateQueries({ queryKey: ['session_logs'] }); await qc.invalidateQueries({ queryKey: ['lift_sets'] }); if (manual) await qc.invalidateQueries({ queryKey: ['activities'] });
-    } catch (e) { toast.error((e as Error).message); } finally { setSaving(false); }
+      return true;
+    } catch (e) { toast.error((e as Error).message); return false; } finally { setSaving(false); }
   }
   function liftSummary() {
     return lifts.filter((l) => l.sets.some((s) => Number(s.reps) >= 1)).map((l) => `${l.name}: ${l.sets.filter((s) => Number(s.reps) >= 1).map((s) => `${s.kg || 0}${unit}×${s.reps}${s.rir !== '' ? ` @${s.rir} RIR` : ''}`).join(', ')}`).join('; ').slice(0, 1500);
   }
 
-  const item = (x: Activity) => (
-    <button key={x.id} type="button" onClick={() => { photoHold.current = false; setFromPhoto(false); setId(x.id); }} className={cn('flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm', x.id === a?.id ? 'border-primary bg-muted' : 'bg-card')}>
-      <span>{x.name || x.type}<br /><small className="text-muted-foreground">{shortDay(x.day)} · {Math.round((x.moving_time ?? 0) / 60)} min</small></span>
-      <small className="text-muted-foreground">{logged(x) ? '✓ logged' : 'not logged'}</small>
-    </button>
-  );
+  const item = (x: Activity, i: number) => {
+    const on = x.id === a?.id && !manual, done = logged(x);
+    return (
+      <button key={x.id} type="button" onClick={() => { photoHold.current = false; setFromPhoto(false); setId(x.id); }} style={{ animationDelay: `${i * 50}ms` }}
+        className={cn('flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm animate-pop motion-reduce:animate-none', on ? 'border-transparent bg-gradient-to-r from-orange-100 via-rose-100 to-fuchsia-100 shadow-md ring-2 ring-rose-400 dark:from-orange-950 dark:via-rose-950 dark:to-fuchsia-950' : 'bg-card')}>
+        <FunIcon tone={isRide(x) ? 'sky' : isLift(x) ? 'fuchsia' : /run/i.test(x.type) ? 'emerald' : 'violet'}>{isRide(x) ? '🚴' : isLift(x) ? '🏋️' : /run/i.test(x.type) ? '🏃' : /badminton|racquet|tennis/i.test(`${x.type} ${x.name}`) ? '🏸' : '⚡'}</FunIcon>
+        <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{x.name || x.type}</span><small className="text-muted-foreground">{shortDay(x.day)} · {Math.round((x.moving_time ?? 0) / 60)} min</small></span>
+        <span className={cn('shrink-0 rounded-full bg-gradient-to-br px-2 py-0.5 text-[11px] font-bold shadow-sm', done ? TONE.emerald : TONE.amber)}>{done ? '✓ Logged' : '✍️ To log'}</span>
+      </button>
+    );
+  };
   const listed = recent.filter((x) => withLogged || !logged(x) || x.id === a?.id);
-  const shownList = listed.slice(0, pages * 5);
+  const per = back < 0 ? -back : 5, shownList = listed.slice(0, pages * per);
 
   const liftCard = (
     <Sec title="Lifts" help="Log each exercise and its sets: weight, reps and RIR (reps in reserve, how many more reps you could have done). e1RM = weight × (1 + (reps + RIR) ÷ 30), the Epley formula, for 12 or fewer total reps. Hard sets (0-4 RIR) count toward weekly volume. Saved to your lifting log and this activity.">
@@ -305,18 +307,23 @@ export function SessionCheckin() {
             {BACK.map(([d, l]) => <option key={d} value={d}>{l}</option>)}
           </select>
           <button type="button" onClick={() => { setWithLogged(!withLogged); setPages(1); }}
-            className={cn('h-8 rounded-full border px-3 text-sm', withLogged ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>Show logged too</button>
+            className={cn('h-8 rounded-full border px-3 text-sm', withLogged ? cn('border-transparent bg-gradient-to-br font-semibold shadow-sm', TONE.emerald) : 'bg-card text-muted-foreground')}>{withLogged ? '✓ ' : ''}Show logged too</button>
         </div>
         <div className="space-y-1.5">{shownList.map(item)}</div>
-        {!listed.length && <p className="text-xs text-muted-foreground">{recent.length ? 'Every session in this range is logged. Pick a longer range above, or turn on Show logged too.' : 'No sessions of 15 min or more in this range. Pick a longer range above, or pull down to sync.'}</p>}
+        {!listed.length && <p className="text-xs text-muted-foreground">{recent.length ? 'Every session here is logged. Pick a longer range above, or turn on Show logged too.' : 'No sessions of 15 min or more in this range. Pick a longer range above, or pull down to sync.'}</p>}
         {listed.length > shownList.length && (
-          <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setPages(pages + 1)}>Next 5 <span className="ml-1 text-muted-foreground">({listed.length - shownList.length} more)</span></Button>
+          <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setPages(pages + 1)}>Next {per} <span className="ml-1 text-muted-foreground">({listed.length - shownList.length} more)</span></Button>
         )}
-        <button type="button" onClick={() => { if (!manual) { setRpe(5); setFeel(null); setNote(''); } setId('manual'); }} className={cn('w-full rounded-md border border-dashed px-3 py-2 text-left text-sm', manual ? 'border-primary bg-muted' : 'text-muted-foreground')}>Log a lift without a watch activity</button>
+        <button type="button" onClick={() => { if (!manual) { setRpe(5); setFeel(null); setNote(''); } setId('manual'); }} className="flex w-full items-center gap-3 rounded-xl border border-dashed border-fuchsia-400 px-3 py-2 text-left text-sm font-semibold"><FunIcon tone="fuchsia">➕</FunIcon>Log a lift without a watch activity</button>
       </Sec>
 
-      {manual && (
-        <>
+      <Sheet open={manual} onOpenChange={(o) => { if (!o) { photoHold.current = false; setFromPhoto(false); setId(null); } }}>
+        <SheetContent className="h-[94vh] max-h-[94vh] max-w-2xl overflow-y-auto md:bottom-[3vh] md:rounded-xl">
+          <SheetHeader>
+            <SheetTitle className="font-display text-2xl font-extrabold italic">🏋️ Log a lift</SheetTitle>
+            <SheetDescription>No watch activity needed. Saving adds it to intervals.icu when you are connected.</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-3 pb-4">
           {fromPhoto && (
             <div className="rounded-lg border-2 border-primary bg-primary/10 p-3 text-sm animate-in fade-in slide-in-from-top-2 motion-reduce:animate-none">
               <b>📸 Lifts read from your photo.</b> Now add how it went: time and duration, session RPE, Feel and a note. Check the sets below, then Save.
@@ -331,7 +338,8 @@ export function SessionCheckin() {
             </div>
             <div className="text-xs font-semibold uppercase tracking-wide">Session RPE (1-10)</div>
             <Slider min={1} max={10} step={1} value={[rpe]} onValueChange={([v]) => setRpe(v)} aria-label="Session RPE" />
-            <p className="text-sm">{rpe} · {RPE_LABELS[rpe]}{mMin ? <span className="text-muted-foreground"> · session load about {rpe * Number(mMin)}</span> : null}</p>
+            <FunNumber tone={rpeTone(rpe)} value={rpe} label={RPE_LABELS[rpe]} />
+            <p className="text-sm">{mMin ? <span className="text-muted-foreground"> · session load about {rpe * Number(mMin)}</span> : null}</p>
           </Sec>
           <Sec title="Feel" help={FEEL_HELP}>
             <Opts cols={5} opts={FEEL} value={feel === null ? null : feel - 1} onPick={(i) => setFeel(i + 1)} />
@@ -343,8 +351,10 @@ export function SessionCheckin() {
           </Sec>
           <Sec title="Note"><Input type="text" maxLength={300} placeholder="Optional" value={note} onChange={(e) => setNote(e.target.value)} /></Sec>
           <p className="text-xs text-muted-foreground">Saving adds this session to intervals.icu (as a weight training activity) when you are connected, so it counts toward your Load.</p>
-        </>
-      )}
+            <Button type="button" className="h-12 w-full bg-gradient-to-r from-orange-500 via-rose-500 to-fuchsia-500 font-display text-lg font-extrabold italic text-white shadow-md hover:opacity-95" disabled={saving} onClick={async () => { if (await save()) setId(null); }}>{saving ? 'Saving…' : '✅ Save'}</Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {a && !manual && (
         <>
@@ -352,7 +362,7 @@ export function SessionCheckin() {
             <p className="text-xs text-muted-foreground">{niceDay(a.day)} · {Math.round((a.moving_time ?? 0) / 60)} min{a.load != null ? ` · load ${Math.round(a.load)}` : ''}</p>
             <div className="text-xs font-semibold uppercase tracking-wide">Session RPE (1-10)<Auto on={autoRpe && !touched.rpe} /></div>
             <Slider min={1} max={10} step={1} value={[rpe]} onValueChange={([v]) => { setRpe(v); touch('rpe'); }} aria-label="Session RPE" />
-            <p className="text-sm">{rpe} · {RPE_LABELS[rpe]}</p>
+            <FunNumber tone={rpeTone(rpe)} value={rpe} label={RPE_LABELS[rpe]} />
           </Sec>
 
           <Sec title="Feel" help={FEEL_HELP}>
@@ -391,7 +401,7 @@ export function SessionCheckin() {
           <Sec title="Note"><Input type="text" maxLength={300} placeholder="Optional" value={note} onChange={(e) => setNote(e.target.value)} /></Sec>
         </>
       )}
-      {(a || manual) && <Button type="button" className="w-full" disabled={saving} onClick={() => save()}>{saving ? 'Saving…' : 'Save'}</Button>}
+      {a && !manual && <Button type="button" className="h-12 w-full bg-gradient-to-r from-orange-500 via-rose-500 to-fuchsia-500 font-display text-lg font-extrabold italic text-white shadow-md hover:opacity-95" disabled={saving} onClick={() => save()}>{saving ? 'Saving…' : '✅ Save'}</Button>}
     </div>
   );
 }

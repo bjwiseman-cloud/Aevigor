@@ -18,13 +18,14 @@ import { isRide, isRun, testResults } from '@/lib/perf';
 import { WeekLoadTypes } from '@/components/Compare';
 import { TS_ORDER, mergeDays, statusColor, trainingStatus, weekPct, type Status } from '@/lib/training-status';
 import { todayIn } from '@/lib/time';
+import { FunTile, type Tone } from '@/components/Fun';
 import { cn } from '@/lib/utils';
 import { useSets, useUnit } from '@/hooks/lifting';
 import { Volume } from '@/screens/training/liftCards';
 import { HelpQ } from '@/components/HelpQ';
-import { Arrange } from '@/components/Arrange';
+import { Arrange, type ArrangeCard } from '@/components/Arrange';
 import { SorenessCard } from '@/components/SorenessMap';
-import { SubTabs, TRAINING_TABS } from '@/screens/Layout';
+import { ANALYSIS_TABS, SubTabs, TRAINING_TABS } from '@/screens/Layout';
 
 const FIT = '#14b8a6', FAT = '#fb7185', ACT = '#8b5cf6', PLAN = '#f59e0b';
 type Zone = [number, number, string, string];
@@ -102,7 +103,9 @@ function Ribbon({ hist, days, sel }: { hist: Status[]; days: string[]; sel: numb
 
 const M = { top: 8, right: 6, bottom: 0, left: -18 };
 
-export function Load() {
+// charts: the Analysis › Load charts view (Fitness · Fatigue, Form, Ramp rate and the day slider). Without it,
+// the Training › Load tab: Training status, body map and Actual vs planned load (Ben 2026-11-23).
+export function Load({ charts = false }: { charts?: boolean } = {}) {
   const p = useProfile().data!;
   const today = todayIn(p.time_zone);
   const load = useDailyLoad(p), tests = usePlannedTests(p), cal = useCalendar(p), acts = useActivities(p), wellness = useWellness(p), checkins = useCheckins(p), lifts = useSets();
@@ -185,12 +188,12 @@ export function Load() {
   const selLine = cur ? <ReferenceLine x={cur.day} stroke="currentColor" strokeOpacity={0.6} /> : null;
   const X = <XAxis dataKey="day" {...axis} tickFormatter={shortDay} minTickGap={24} />;
 
-  if (load.isLoading) return <><SubTabs tabs={TRAINING_TABS} /><p className="text-muted-foreground">Loading…</p></>;
+  if (load.isLoading) return <><SubTabs tabs={charts ? ANALYSIS_TABS : TRAINING_TABS} /><p className="text-muted-foreground">Loading…</p></>;
   const hasData = rows.some((r) => r.actual > 0 || r.planned > 0);
 
   return (
     <div className="space-y-4">
-      <SubTabs tabs={TRAINING_TABS} />
+      <SubTabs tabs={charts ? ANALYSIS_TABS : TRAINING_TABS} />
       <div className="flex flex-wrap items-center gap-1.5">
         {FIXED.map((k) => <Chip key={k} on={sport === k} onClick={() => setPick(k)}>{sportLabel(k)}</Chip>)}
         <Chip on={sport === 'mix'} onClick={() => setPick('mix')}>Combined</Chip>
@@ -201,6 +204,7 @@ export function Load() {
         )}
         <span className="ml-auto"><HelpQ text="Combined adds up all your sports. More sports lists every other sport in your intervals.icu history. Add more sports by creating them in intervals.icu > Settings > Sport Settings; they show up here after the next sync." /></span>
       </div>
+      {!charts && (<>
       {/* Every sport (Ben 2026-11-23): Training status first, then the body map. Lifting shows weekly volume by
           muscle, with soreness and injury one tap away; other sports show soreness and injury. */}
 
@@ -221,10 +225,11 @@ export function Load() {
       )}
       {sport === 'WeightTraining' && liftMap === 'volume' ? <Volume sets={lifts.data ?? []} unit={liftUnit} ex={null} /> : <SorenessCard />}
 
+      </>)}
       {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}
 
       {/* Ben 2026-11-23: Training status, body map, then Actual vs planned load; the other charts sit in the More cards drop-down. */}
-      <Arrange page="load-v3" cards={[
+      <Arrange page={charts ? 'analysis-load' : 'load-v4'} cards={([
         { id: 'pmc', label: 'Fitness · Fatigue', more: true, node: (
       <Card>
         <CardHeader className="pb-1"><CardTitle help="fitness-fatigue-form">Fitness · Fatigue</CardTitle><p className="text-xs text-muted-foreground">{sport === 'mix' ? `Combined: ${shown.map(sportLabel).join(' + ')}` : sportLabel(sport)}</p></CardHeader>
@@ -272,18 +277,28 @@ export function Load() {
           <div className="h-36">
             <ResponsiveContainer>
               <BarChart data={w0} margin={M} barGap={2}>
-                <defs><pattern id="stripes" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill={PLAN + '22'} /><line x1="0" y1="0" x2="0" y2="6" stroke={PLAN} strokeWidth="2" strokeOpacity={0.55} /></pattern></defs>
+                <defs><linearGradient id="actG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f43f5e" /><stop offset="55%" stopColor="#f97316" /><stop offset="100%" stopColor="#facc15" /></linearGradient><pattern id="stripes" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill={PLAN + '22'} /><line x1="0" y1="0" x2="0" y2="6" stroke={PLAN} strokeWidth="2" strokeOpacity={0.55} /></pattern></defs>
                 <CartesianGrid vertical={false} strokeOpacity={0.15} />
                 <XAxis dataKey="n" {...axis} /><YAxis {...axis} />
                 <Tooltip {...tooltipStyle} labelFormatter={(_l, pl) => (pl?.[0] ? shortDay(String(pl[0].payload.day)) : '')} />
-                <Bar dataKey="a" name="Actual" fill={ACT} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                <Bar dataKey="a" name="Actual" fill="url(#actG)" radius={[6, 6, 0, 0]} animationDuration={700} />
                 <Bar dataKey="p" name="Planned" fill="url(#stripes)" stroke={PLAN} strokeWidth={1.5} radius={[4, 4, 0, 0]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: ACT }} />Actual</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border align-middle" style={{ borderColor: PLAN, background: PLAN + '44' }} />Planned</span></div>
+          <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-gradient-to-b from-rose-500 via-orange-500 to-yellow-400 align-middle" />Actual</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border align-middle" style={{ borderColor: PLAN, background: PLAN + '44' }} />Planned</span></div>
           <WeekLoadTypes acts={(acts.data ?? []).filter((a) => sport === 'mix' || (sport === 'ride' ? isRide(a) : sport === 'run' ? isRun(a) : a.type === sport))} days={w0} />
-          <p><b>This week so far</b> · {pa} done of {pp} planned{pct != null && <> · <b style={{ color: Math.abs(pct - 100) <= 10 ? '#22c55e' : Math.abs(pct - 100) <= 20 ? '#eab308' : '#ef4444' }}>{pct}%</b></>}<br />Whole week planned: {w0.reduce((s, x) => s + x.p, 0)}</p>
+          <div className="grid grid-cols-3 gap-2">
+            <FunTile tone="orange" icon="🔥" top="Done so far" big={pa} sub="this week" />
+            <FunTile i={1} tone="violet" icon="🗓️" top="Planned so far" big={pp} sub={`whole week ${w0.reduce((s, x) => s + x.p, 0)}`} />
+            <FunTile i={2} tone={pct == null ? 'sky' : Math.abs(pct - 100) <= 10 ? 'emerald' : Math.abs(pct - 100) <= 20 ? 'amber' : 'rose'} icon={pct == null ? '➖' : Math.abs(pct - 100) <= 10 ? '🎯' : pct > 100 ? '⚠️' : '⏳'} top="Of plan" big={pct == null ? '–' : `${pct}%`} sub={pct == null ? 'nothing planned' : Math.abs(pct - 100) <= 10 ? 'on target' : pct > 100 ? 'above plan' : 'below plan'} />
+          </div>
+          {pct != null && (
+            <div className="relative h-4 overflow-hidden rounded-full bg-muted" aria-label={`${pct}% of planned load so far`}>
+              <div className="h-full rounded-full bg-gradient-to-r from-yellow-400 via-orange-500 to-rose-500 transition-all duration-700" style={{ width: `${Math.min(100, (pct / 150) * 100)}%` }} />
+              <span className="absolute inset-y-0 w-0.5 bg-foreground/70" style={{ left: `${(100 / 150) * 100}%` }} />
+            </div>
+          )}
           {more > 0 && (
             <Accordion type="multiple">
               {Array.from({ length: more }, (_, k) => week(addDays(mon, 7 * (k + 1)))).map((w) => (
@@ -295,14 +310,14 @@ export function Load() {
             </Accordion>
           )}
           <Button variant="outline" size="sm" disabled={more >= 26} onClick={() => setMore(Math.min(26, more + 4))}>{more ? 'Show 4 more weeks ▾' : 'Next 4 weeks ▾'}</Button>
-          <HowToRead>This week day by day: what you did next to what intervals.icu has planned. Within 10% of plan is green, within 20% gold. The only load alert on Today is the last 7 days running more than 20% above plan.</HowToRead>
+          <HowToRead>This week day by day: what you did next to what intervals.icu has planned. Within 10% of plan is green, within 20% gold, further off rose. The bar fills toward the plan line (100%). The only load alert on Today is the last 7 days running more than 20% above plan.</HowToRead>
         </CardContent>
       </Card>
         ) }
-      ]} />
+      ] as ArrangeCard[]).filter((c) => (charts ? c.id !== 'plan' : c.id === 'plan')).map((c) => ({ ...c, more: false }))} />
 
       {/* Day picker for the charts: pinned to the bottom of the screen while you scroll (Ben 2026-11-19) */}
-      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-[5] -mx-4 space-y-2 border-t bg-background/95 px-4 py-2 backdrop-blur">
+      {charts && <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-[5] -mx-4 space-y-2 border-t bg-background/95 px-4 py-2 backdrop-blur">
           <Slider min={a0} max={Math.max(a0, a1)} step={1} value={[sel]} onValueChange={([v]) => setSelDay(all[v]?.day ?? null)} aria-label="Pick a day" />
           {cur && (
             <p className="text-xs">
@@ -311,7 +326,7 @@ export function Load() {
               <span style={{ color: rz?.[2] }}>Ramp <b>{cur.ramp == null ? '–' : cur.ramp}</b>/wk {rz?.[3]}</span> · <span style={{ color: ACT }}>Load <b>{sel > iToday ? '–' : Math.round(cur.actual ?? 0)}</b></span> · <span style={{ color: PLAN }}>planned <b>{Math.round(cur.planned) || '–'}</b></span>
             </p>
           )}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -347,28 +362,36 @@ function ZoneChart({ title, help, data, keyA, keyP, zones, ticks, lo, hi, X, ext
 }
 
 // Next test, with the Form projected for that day (all sports). Lives on the Calendar tab (Ben 2026-11-23).
+// Tests this week (Ben 2026-11-23): only the current Monday-to-Sunday week, as colourful tiles with a countdown
+// and the projected Form for each test. When none falls this week, one line names the next one.
+const TEST_LOOK: [RegExp, string, Tone][] = [[/^ftp/i, '⚡', 'rose'], [/^vo2/i, '🫁', 'violet'], [/^durab/i, '🔋', 'amber'], [/^run/i, '🏃', 'sky'], [/meet/i, '🏆', 'fuchsia']];
+export const daysAway = (day: string, today: string) => { const d = Math.round((Date.parse(day) - Date.parse(today)) / 864e5); return d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : d < 0 ? `${-d} days ago` : `In ${d} days`; };
+export const weekOf = (today: string) => { const mon = addDays(today, -((new Date(today + 'T12:00:00Z').getUTCDay() + 6) % 7)); return [mon, addDays(mon, 6)] as const; };
 export function NextTestCard() {
   const p = useProfile().data!;
   const today = todayIn(p.time_zone);
   const load = useDailyLoad(p), tests = usePlannedTests(p);
-  const next = (tests.data ?? []).find((t) => t.day >= today && t.kind !== 'Durability test') ?? (tests.data ?? []).find((t) => t.day >= today);
-  const pts = useMemo(() => (next ? pmc(load.data ?? [], 'all', addDays(today, -LOAD_BACK), next.day > today ? next.day : addDays(today, 1), today) : []), [load.data, next?.day, today]);
-  const nextPt = next && pts.find((x) => x.day === next.day);
-  const daysTo = next ? Math.round((Date.parse(next.day) - Date.parse(today)) / 864e5) : null;
-  const inBand = nextPt && nextPt.form >= 5 && nextPt.form <= 15;
+  const [mon, sun] = weekOf(today);
+  const week = (tests.data ?? []).filter((t) => t.day >= mon && t.day <= sun);
+  const later = (tests.data ?? []).find((t) => t.day > sun);
+  const end = week.length ? week[week.length - 1].day : today;
+  const pts = useMemo(() => (week.length ? pmc(load.data ?? [], 'all', addDays(today, -LOAD_BACK), end > today ? end : addDays(today, 1), today) : []), [load.data, end, today, week.length]);
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle help="next-test">Next test</CardTitle></CardHeader>
-      <CardContent className="text-sm">
-        {next ? (
-          <div className="flex items-center gap-4">
-            <div className="font-mono text-3xl">{daysTo}<span className="text-sm"> days</span></div>
-            <div><b>{next.kind}</b> · {shortDay(next.day)}
-              <div className="text-muted-foreground">Projected Form that day: <b style={{ color: inBand ? '#22c55e' : PLAN }}>{nextPt ? Math.round(nextPt.form) : '–'}</b>{' '}
-                {next.kind === 'Durability test' ? '(no target band for durability)' : inBand ? '✓ inside the +5 to +15 test band' : '· aim for +5 to +15'}</div>
-            </div>
+      <CardHeader className="pb-2"><CardTitle help="next-test">Tests this week</CardTitle><p className="text-xs text-muted-foreground">Week of {shortDay(mon)}</p></CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        {week.length ? (
+          <div className="grid grid-cols-2 gap-2">
+            {week.map((t, i) => {
+              const look = TEST_LOOK.find(([re]) => re.test(t.kind)) ?? [null, '🎯', 'teal' as Tone];
+              const f = pts.find((x) => x.day === t.day), inBand = f && f.form >= 5 && f.form <= 15, band = /^(ftp|vo2|run)/i.test(t.kind);
+              return (
+                <FunTile key={t.day + t.kind} i={i} tone={t.day < today ? 'sky' : look[2]} icon={t.day < today ? '✅' : look[1]} top={`${t.kind} · ${shortDay(t.day)}`} big={daysAway(t.day, today)}
+                  sub={band && f && t.day >= today ? `Form ${Math.round(f.form)} ${inBand ? '✓ in the +5 to +15 band' : '· aim +5 to +15'}` : t.day < today ? 'done this week' : undefined} />
+              );
+            })}
           </div>
-        ) : <p className="text-muted-foreground">No test in your intervals.icu plan yet. Name a workout "FTP test", "VO2 test" or "Durability test".</p>}
+        ) : <p className="text-muted-foreground">No test this week.{later ? <> Next: <b>{later.kind}</b> on {shortDay(later.day)} ({daysAway(later.day, today).toLowerCase()}).</> : ' Name a workout "FTP test", "VO2 test", "Durability test", "Run threshold test" or "Mock meet" in intervals.icu.'}</p>}
       </CardContent>
     </Card>
   );
@@ -428,12 +451,12 @@ export function LoadTrendCards({ from, to, show, selDay }: { from: string; to: s
                   <CartesianGrid vertical={false} strokeOpacity={0.15} />
                   <XAxis dataKey="w" {...axis} tickFormatter={shortDay} /><YAxis {...axis} />
                   <Tooltip {...tooltipStyle} labelFormatter={(l) => `Week of ${shortDay(String(l))}`} />
-                  <Bar dataKey="a" name="Actual" fill={ACT} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                  <Bar dataKey="a" name="Actual" fill="url(#actG)" radius={[6, 6, 0, 0]} animationDuration={700} />
                   <Bar dataKey="p" name="Planned" fill="url(#tStripes)" stroke={PLAN} strokeWidth={1.5} radius={[4, 4, 0, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: ACT }} />Actual</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border align-middle" style={{ borderColor: PLAN, background: PLAN + '44' }} />Planned</span></div>
+            <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-gradient-to-b from-rose-500 via-orange-500 to-yellow-400 align-middle" />Actual</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border align-middle" style={{ borderColor: PLAN, background: PLAN + '44' }} />Planned</span></div>
           </CardContent>
         </Card>
       )}

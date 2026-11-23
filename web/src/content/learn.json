@@ -333,12 +333,14 @@
     {
       "id": "tests",
       "field": "cycling",
-      "title": "Test results",
-      "short": "A table of your test rides: 5-minute max (VO2), 20-minute time trial (FTP) and durability.",
+      "title": "Tests",
+      "short": "One card per test: VO2 (5-min max), FTP (20-min time trial), durability, efficiency (EF) and decoupling, plus 5 km and running efficiency for runs. Each shows your latest result next to your best of all time, the last 3 months or this month.",
       "why": "Doing the same test the same way, every block, is the fairest way to track yourself.",
       "calc": [
         "FTP = 95% of your 20-minute average power. It is good for tracking but may not match a lab threshold, so the app only compares you with yourself.",
-        "Tests are found by the name of the planned workout in your intervals.icu calendar: \"FTP test\", \"VO2 test\" (or \"5 min test\") and \"Durability test\". The ride with power on that day is used."
+        "Tests are found by the name of the planned workout in your intervals.icu calendar: \"FTP test\", \"VO2 test\" (or \"5 min test\") and \"Durability test\". The ride with power on that day is used.",
+        "Durability = how far the 5-min max at the end of a Saturday ride of 1500 kJ or more sits below your fresh best 5-min of the 90 days before. Lower is better; about 5% or less is the target. Saturdays where the end effort was skipped (more than 25% down) are left out.",
+        "EF and decoupling use steady rides of 60 minutes or more (intensity 55-78%). EF = normalised power ÷ heart rate, higher is better. Decoupling = how far heart rate drifts up against power; under 5% is the usual guide (Friel). For runs, EF = speed in m/min ÷ heart rate on runs of 45 minutes or more."
       ],
       "refs": [
         "r23",
@@ -704,7 +706,9 @@
       "why": "Seeing bests and how they move keeps the long view in sight. A New badge marks anything set in the last 14 days.",
       "calc": [
         "Power bests come from your intervals.icu all-time power curve (or your synced rides). FTP is the higher of intervals.icu eFTP and your FTP tests (95% of the 20-minute test), and the gain compares the latest value with the first one in the last 12 months.",
-        "Running pace is your fastest 5 km from your pace curve (or the longest standard distance you have run). Lifts are the heaviest weight actually lifted for at least 1 rep, not an estimate."
+        "Running pace is your fastest 5 km from your pace curve (or the longest standard distance you have run). Lifts are the heaviest weight actually lifted for at least 1 rep, not an estimate.",
+        "Firsts: a badge the first time you use each feature (check-in, Post Activity, manual activity, lifting log, import, reminders, phone alerts, supplement, medication or meal log, calendar item, health record, blood pressure, cycle log, connecting intervals.icu). Locked ones show a padlock.",
+        "Streaks count weeks in a row, Monday to Sunday. Weekly streak: at least one activity. Moderate compliance: the week's actual load is within ±30% of the planned load (70 to 130%). High compliance: within ±10% (90 to 110%). Weeks with nothing planned are skipped, and this week only counts once it reaches the mark, so an unfinished week never breaks a streak."
       ],
       "refs": [],
       "coach": []

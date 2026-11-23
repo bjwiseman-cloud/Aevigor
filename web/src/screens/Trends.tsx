@@ -18,7 +18,7 @@ import { useCycle } from '@/hooks/cycle';
 import { Arrange } from '@/components/Arrange';
 import { PHASES, phaseRuns, showsPhases } from '@/lib/cycle';
 import { LoadTrendCards } from '@/screens/Load';
-import { SubTabs, TRENDS_TABS } from '@/screens/Layout';
+import { ANALYSIS_TABS, SubTabs } from '@/screens/Layout';
 
 const ALL: [string, string][] = [
   ['feel', 'Feel · check-in score'], ['hrv', 'HRV · 7-day trend'], ['cv', 'HRV day-to-day variation (CV)'], ['sleep', 'Sleep'], ['sleepScore', 'Sleep score'], ['rhr', 'Resting HR'],
@@ -90,7 +90,7 @@ export function Trends() {
   useEffect(() => { setIdx(data.length - 1); }, [data.length]);
   const sel: TrendPoint | undefined = data[idx];
 
-  if (wellness.isLoading || checkins.isLoading || load.isLoading) return <><SubTabs tabs={TRENDS_TABS} /><p className="text-muted-foreground">Loading…</p></>;
+  if (wellness.isLoading || checkins.isLoading || load.isLoading) return <><SubTabs tabs={ANALYSIS_TABS} /><p className="text-muted-foreground">Loading…</p></>;
   const hasData = data.some((d) => d.hrv !== null || d.rhr !== null || d.feel !== null || d.sleep !== null);
   const runs = flagRuns(data);
   const fatigueShade = runs.map(([a, b]) => <ReferenceArea key={a} x1={a} x2={b} fill={FATIGUE} fillOpacity={1} stroke="none" ifOverflow="hidden" />);
@@ -268,7 +268,7 @@ export function Trends() {
 
   return (
     <div className="space-y-4">
-      <SubTabs tabs={TRENDS_TABS} />
+      <SubTabs tabs={ANALYSIS_TABS} />
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-xl font-bold tracking-wide">Trends</h1>
         <Chips><Chip on={range === 28} onClick={() => setRange(28)}>4 weeks</Chip><Chip on={range === 84} onClick={() => setRange(84)}>12 weeks</Chip></Chips>
