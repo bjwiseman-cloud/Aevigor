@@ -6,7 +6,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { callApi } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
 import { browserTimeZone } from '@/lib/time';
 import { useProfile } from '@/hooks/data';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,6 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Message } from './Message';
-import { notNow } from '@/components/ConnectPrompt';
 import { TimeZoneSelect } from './TimeZoneSelect';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { startIcuConnect, takeIcuPending } from '@/lib/icu-oauth';
@@ -118,12 +116,7 @@ export function Connect() {
         </AccordionItem>
       </Accordion>
       <p className="mt-4 text-sm">Your connection is encrypted before it is saved. You can disconnect any time in Settings, which also removes Aevigor's access on intervals.icu.</p>
-      {profile?.intervals_connected_at
-        ? <Button variant="outline" className="mt-4 w-full" onClick={() => navigate('/settings')}>Cancel</Button>
-        : <>
-          <Button variant="outline" className="mt-4 w-full" onClick={() => { notNow(); navigate('/today'); }}>Not now, use Aevigor without it</Button>
-          <Button variant="ghost" className="mt-2 w-full" onClick={() => supabase.auth.signOut()}>Sign out</Button>
-        </>}
+      <Button variant="outline" className="mt-4 w-full" onClick={() => navigate('/settings')}>Back to Settings</Button>
     </Message>
   );
 }

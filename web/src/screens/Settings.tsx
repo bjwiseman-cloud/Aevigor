@@ -172,8 +172,8 @@ export function Settings() {
             </>
           ) : (
             <>
-              <p className="text-muted-foreground">Not connected.</p>
-              <Button variant="outline" className="w-full" onClick={() => navigate('/connect')}>Connect</Button>
+              <p className="text-muted-foreground">Not connected. Optional: connecting brings in your watch's HRV, resting heart rate, sleep and workouts for Today, Load, Performance and Trends.</p>
+              <Button variant="outline" className="w-full" onClick={() => navigate('/connect')}>Connect with intervals.icu</Button>
             </>
           )}
       </Section>

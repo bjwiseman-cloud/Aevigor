@@ -12,7 +12,6 @@ import { cn } from '@/lib/utils';
 import { CycleCard } from '@/components/Cycle';
 import { RangeBar, RangeKey, scale, type Range } from '@/components/RangeBar';
 import { Arrange } from '@/components/Arrange';
-import { ConnectSteps } from '@/components/ConnectPrompt';
 
 export function SyncLine({ profile }: { profile: Profile }) {
   const t = profile.last_sync
@@ -98,8 +97,7 @@ export function Today() {
           </> : <>
             <p className="font-semibold">Connect intervals.icu to see your daily status.</p>
             <p className="text-sm text-muted-foreground">Today's status reads your watch's HRV, resting heart rate and sleep through intervals.icu. Everything else (check-ins, lifting, your log and records) works without it.</p>
-            <ConnectSteps />
-            <Button asChild className="w-full"><Link to="/connect">Connect now</Link></Button>
+            <p className="text-sm text-muted-foreground">You can connect it any time in <Link className="text-primary underline" to="/settings">Settings › intervals.icu</Link>.</p>
           </>}
         </CardContent></Card>
         <SyncLine profile={profile} />
