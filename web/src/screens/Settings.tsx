@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { IcuConnectButton } from '@/components/IcuConnect';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -189,7 +190,8 @@ export function Settings() {
           ) : (
             <>
               <p className="text-muted-foreground">Not connected. Optional: connecting brings in your watch's HRV, resting heart rate, sleep and workouts for Today, Load, Performance and Trends.</p>
-              <Button variant="outline" className="w-full" onClick={() => navigate('/connect')}>Connect with intervals.icu</Button>
+              <IcuConnectButton />
+              <button type="button" className="w-full text-center text-xs text-muted-foreground underline" onClick={() => navigate('/connect')}>Use an API key instead</button>
             </>
           )}
       </Section>

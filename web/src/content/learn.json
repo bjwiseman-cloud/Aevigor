@@ -86,7 +86,8 @@
       "why": "How you feel predicts how training is going better than most watch numbers, so it carries the most weight.",
       "calc": [
         "Each answer goes from 1 (best, 5 points) to 4 (worst, 1 point). The score is the average of the answers you gave, times 5. At least 3 answers are needed.",
-        "The score is compared with your average over the last 4 weeks. A little below your normal means Train with care. Well below your normal (more than one standard deviation, never less than 1.5 points), or any answer at the worst level, means Go easy today."
+        "The score is compared with your average over the last 4 weeks. A little below your normal means Train with care. Well below your normal (more than one standard deviation, never less than 1.5 points), or any answer at the worst level, means Go easy today.",
+        "Joint pain (Achilles, below the kneecap, hamstring at the sit bone, knees, hips, elbows, shoulders, sole of the foot and more) is a plain log: you pick Joint pain on the body map and set Mild, Moderate or Severe. It goes into your intervals.icu comments but is not part of the Feel score or the status, gets no load number, and is not a diagnosis. Pain that lasts or gets worse is a reason to see a health professional."
       ],
       "refs": [
         "r1"
@@ -582,6 +583,38 @@
       "coach": [
         "E"
       ]
+    },
+    {
+      "id": "muscle-load",
+      "field": "strength",
+      "title": "Muscle load (rides and runs)",
+      "short": "An estimate of how this week's rides and runs spread over your leg muscles, shown as a % of your usual week (the 4 weeks before = 100%). Lifting uses hard sets per muscle the same way, and Combined averages the two.",
+      "why": "Lifting volume is counted in sets per muscle, but a ride or run has no sets. This card turns endurance load into the same kind of picture so you can see, for example, that a week of sprints and hills leans on your hamstrings and glutes more than a week of easy spinning. It is a general wellness view: it does not measure strain or damage and does not predict injury.",
+      "calc": [
+        "Step 1, session load: the activity's Load (TSS) from intervals.icu. If there is none, session RPE × minutes ÷ 6 (an hour at RPE 6 ≈ 60, close to a steady hour's TSS). Activities with neither are left out.",
+        "Step 2, how hard: time in zones is split into 3 bands: Easy = zones 1-2, Hard = zones 3-4, Max = zone 5 and up. Power zones are used if the activity has them, else pace zones, else heart-rate zones. No zone data: the whole session counts as Easy.",
+        "Step 3, band weights: each band's time is weighted by how hard it is (Easy × 1, Hard × 2, Max × 3), then turned into a share of the session. Example: 50 min Easy and 10 min Max → 50 and 30 → Easy 62.5%, Max 37.5% of the load.",
+        "Step 4, muscle shares (estimates from lab studies, %). Cycling Easy: quads 40, glutes 20, hamstrings 12, calves 15, hip flexors 8, shins 5. Cycling Max: quads 25, glutes 22, hamstrings 22, calves 10, hip flexors 15, shins 6. Running Easy: quads 25, glutes 20, hamstrings 10, calves 35, hip flexors 10. Running Max: quads 15, glutes 20, hamstrings 25, calves 20, hip flexors 20. Hard = the average of Easy and Max.",
+        "Why those shares: in cycling, going from 150 W to an all-out sprint raised muscle activity about 7-9 times in the hip flexors, 5-7 times in the hamstrings and glutes, but only 2-3 times in the quads and calves (Dorel 2012), so sprints shift load to the back of the leg and hip. In running, the calves do most of the support work up to fast pace; near sprint speed the hip muscles (hip flexors, glutes, hamstrings) take over (Dorn 2012).",
+        "The figure has no hip-flexor area, so the hip-flexor share is shown on the quads (the rectus femoris is both a quad and a hip flexor). Running shins are counted in the calves area.",
+        "Step 5, running counts 1.5 × cycling at the same load, because landing makes muscles brake while they stretch. After 3 days of 2.5 h a day at 70% of VO2max, runners had about 133% more CK, 404% more myoglobin and 87% more soreness than cyclists (Nieman 2014); muscle-damage markers also rose after running but not cycling at the same intensity (Stocchero 2014). The 1.5 is our rounded, conservative choice, not a measured constant.",
+        "Step 6, muscle load = session load × (1.5 for runs, 1 for rides) × Σ over bands (band share × muscle share ÷ 100). Example: a 60 TSS easy ride gives the quads 60 × 0.48 = 28.8 (40 quads + 8 hip flexors).",
+        "Step 7, your usual week: the muscle's total over the 4 weeks before this week ÷ 4. The map shows this week ÷ usual week × 100%. Colours: well below (under 50%), below (50-89%), usual (90-110%), above (111-150%), well above (over 150%). A muscle with nothing in the 4 weeks before but load this week shows as well above.",
+        "Early in the week most muscles show below usual, because the week is not finished yet. Use the ‹ button to look at a full past week.",
+        "Lifting view: hard sets per muscle (sets at 0-4 reps in reserve, primary muscles 1 set, secondary 0.5), this week against the same 4-week usual. Combined view: the average of the endurance % and the lifting % where both exist, else whichever exists. It does not convert rides into sets.",
+        "Not included yet: hills and cadence. Uphill running loads the calves, Achilles and shin more and downhill running the front of the knee more, and a higher cadence lowered load on all three (Van Hooren 2024; Heiderscheit 2011). The app does not yet have the uphill/downhill split of each run, so hills are not counted.",
+        "Limits: these are averages from small lab studies, not you. Bike fit, terrain, shoes, technique and strength change the real shares. No validated per-muscle load formula for running or cycling has been published, so treat this as a picture of trends, not a number to train to. It does not detect or predict injury. Joint pain you log is a plain log with no load number. Not medical advice."
+      ],
+      "refs": [
+        "r59",
+        "r60",
+        "r61",
+        "r62",
+        "r63",
+        "r64",
+        "r65"
+      ],
+      "coach": []
     },
     {
       "id": "lifting-log",

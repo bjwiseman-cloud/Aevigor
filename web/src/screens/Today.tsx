@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { IcuConnectButton } from '@/components/IcuConnect';
 import { useLatestStatus, useProfile, useTodayCheckin } from '@/hooks/data';
 import { STATUS, type Dot } from '@/lib/status';
 import { LastWeekCard, WeeklyCheckCard } from '@/components/WeekCards';
@@ -121,7 +122,8 @@ export function Today() {
           </> : <>
             <p className="font-semibold">Connect intervals.icu to see your daily status.</p>
             <p className="text-sm text-muted-foreground">Today's status reads your watch's HRV, resting heart rate and sleep through intervals.icu. Everything else (check-ins, lifting, your log and records) works without it.</p>
-            <p className="text-sm text-muted-foreground">You can connect it any time in <Link className="text-primary underline" to="/settings">Settings › intervals.icu</Link>.</p>
+            <IcuConnectButton />
+            <p className="text-sm text-muted-foreground">To add or remove intervals.icu later, go to <Link className="text-primary underline" to="/settings">Settings › intervals.icu</Link>.</p>
           </>}
         </CardContent></Card>
         <SyncLine profile={profile} />

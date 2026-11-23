@@ -57,10 +57,11 @@ export function CheckinSeg({ on }: { on: (typeof SEG)[number]['id'] }) {
 
 type V = Record<string, number | null>;
 type BodyMap = Record<string, { sore?: number; injury?: number }>;
-const MORNING_MODES: MapMode[] = [{ id: 'sore', label: 'Sore', scale: 'sore', target: 'muscle' }, { id: 'injury', label: 'Injured', scale: 'injury', target: 'muscle' }];
+const MORNING_MODES: MapMode[] = [{ id: 'sore', label: 'Sore', scale: 'sore', target: 'muscle' }, { id: 'injury', label: 'Injured', scale: 'injury', target: 'muscle' }, { id: 'joint', label: 'Joint pain', scale: 'joint', target: 'joint' }];
 function fromBody(b: BodyMap | null | undefined): MapValue {
-  const v: MapValue = { sore: {}, injury: {} };
+  const v: MapValue = { sore: {}, injury: {}, joint: { ...((b as Record<string, unknown> | null)?._joint as Record<string, number> | undefined) } };
   for (const [k, x] of Object.entries(upgradeKeys(b))) {
+    if (k === '_joint') continue;
     if (x.sore) v.sore[k] = x.sore;
     if (x.injury && x.injury >= 2) v.injury[k] = x.injury;
   }
@@ -70,6 +71,7 @@ function toBody(v: MapValue): BodyMap {
   const out: BodyMap = {};
   for (const [k, n] of Object.entries(v.sore ?? {})) (out[k] ??= {}).sore = n;
   for (const [k, n] of Object.entries(v.injury ?? {})) (out[k] ??= {}).injury = n;
+  if (Object.keys(v.joint ?? {}).length) (out as Record<string, unknown>)._joint = v.joint;
   return out;
 }
 
@@ -81,7 +83,7 @@ export function CheckinPage() {
   const day = todayIn(profile.time_zone);
   const [v, setV] = useState<V>({});
   const [sick, setSick] = useState<'No' | 'Mild' | 'Yes'>('No');
-  const [body, setBody] = useState<MapValue>({ sore: {}, injury: {} });
+  const [body, setBody] = useState<MapValue>({ sore: {}, injury: {}, joint: {} });
   const [notes, setNotes] = useState('');
   const [more, setMore] = useState<Record<string, string>>({});
   const [libOn, setLibOn] = useState(!!profile.libido_log);
@@ -190,7 +192,7 @@ export function CheckinPage() {
         </AccordionItem>
       </Accordion>
 
-      <Q icon="💪" tone="orange" title="Soreness and injury" help="Pick Sore or Injured, tap a muscle, then set the level. Swipe across the body or tap Front / Back to turn. The highest sore level is saved as Soreness (part of Feel), the highest injury level as Injury, and the muscles go into your intervals.icu comments.">
+      <Q icon="💪" tone="orange" title="Soreness, injury and joint pain" help="Pick Sore, Injured or Joint pain, then tap a muscle (or a joint dot for joint pain) and set the level. Swipe across the body or tap Front / Back to turn. The highest sore level is saved as Soreness (part of Feel), the highest injury level as Injury, and the muscles go into your intervals.icu comments.">
         <BodyMapEditor sex={figureSex(profile.sex)} modes={MORNING_MODES} value={body} onChange={setBody} />
       </Q>
 

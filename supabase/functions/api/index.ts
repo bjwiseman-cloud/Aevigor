@@ -155,7 +155,8 @@ const BODY_LABELS: Record<string, string> = {
   glutes: 'Glutes', hamstrings: 'Hamstrings', quads: 'Quads', adductors: 'Hip adductors', abductors: 'Hip abductors', calves: 'Calves', shins: 'Shins',
   shoulders: 'Shoulders', arms: 'Arms', upperBack: 'Upper back/neck'
 };
-const JOINT_LABELS: Record<string, string> = { neck: 'Neck', shoulders: 'Shoulders', elbows: 'Elbows', wrists: 'Wrists', lowerBack: 'Lower back', hips: 'Hips', knees: 'Knees', ankles: 'Ankles' };
+// Joints plus the common tendon spots (Ben 2026-11-23: one plain "Joint pain" log, no joint/tendon/ligament choice)
+const JOINT_LABELS: Record<string, string> = { neck: 'Neck', shoulders: 'Shoulders', elbows: 'Elbows', wrists: 'Wrists', lowerBack: 'Lower back', hips: 'Hips', knees: 'Knees', ankles: 'Ankles', belowKnee: 'Below the kneecap', sitBone: 'Hamstring at sit bone', achilles: 'Achilles', sole: 'Sole of foot' };
 const FEEL_WORDS = ['Strong', 'Good', 'Normal', 'Poor', 'Weak'];
 // {key: level} limited to known keys and a level range
 function levels(v: unknown, labels: Record<string, string>, lo: number, hi: number) {
@@ -175,6 +176,9 @@ function cleanBody(v: unknown): BodyMap | null {
     for (const f of ['sore', 'injury'] as const) { const n = Number((x as Record<string, unknown>)[f]); if (Number.isInteger(n) && n >= 1 && n <= 4) o[f] = n; }
     if (o.sore || o.injury) out[k] = o;
   }
+  // Morning joint pain sits under its own key so joint names never mix with muscle names
+  const j = levels((v as Record<string, unknown>)._joint, JOINT_LABELS, 1, 3);
+  if (Object.keys(j).length) (out as Record<string, unknown>)._joint = j;
   return Object.keys(out).length ? out : null;
 }
 function bodySummary(b: BodyMap | null) {
@@ -182,7 +186,8 @@ function bodySummary(b: BodyMap | null) {
   const keys = Object.keys(BODY_LABELS).filter((k) => b[k]);
   const sore = keys.filter((k) => b[k].sore).map((k) => `${BODY_LABELS[k]} (${SORE_LEVELS[b[k].sore! - 1]})`);
   const inj = keys.filter((k) => b[k].injury).map((k) => `${BODY_LABELS[k]} (${INJURY_LEVELS[b[k].injury! - 1]})`);
-  return [sore.length ? 'Sore: ' + sore.join(', ') : '', inj.length ? 'Injured: ' + inj.join(', ') : ''].filter(Boolean).join(' · ');
+  const jt = Object.entries(((b as Record<string, unknown>)._joint ?? {}) as Record<string, number>).map(([k, n]) => `${JOINT_LABELS[k] ?? k} (${['Mild', 'Moderate', 'Severe'][n - 1] ?? n})`);
+  return [sore.length ? 'Sore: ' + sore.join(', ') : '', inj.length ? 'Injured: ' + inj.join(', ') : '', jt.length ? 'Joint pain: ' + jt.join(', ') : ''].filter(Boolean).join(' · ');
 }
 
 const COND_KEYS = ['type', 'len', 'time', 'fan', 'strap', 'fuel', 'heat', 'hyd', 'ill', 'sleep', 'hard', 'caf', 'warm', 'zero', 'meal'];
@@ -283,8 +288,9 @@ const routes: Record<string, (req: Request, body: any) => Promise<unknown>> = {
     let injury: number | null = null;
     if (body.body !== undefined) {
       const b = (row.body ?? {}) as BodyMap;
-      row.soreness = Math.max(1, ...Object.values(b).map((x) => x.sore ?? 0));
-      injury = Math.max(1, ...Object.values(b).map((x) => x.injury ?? 0));
+      const muscles = Object.entries(b).filter(([k]) => k !== '_joint').map(([, x]) => x);
+      row.soreness = Math.max(1, ...muscles.map((x) => x.sore ?? 0));
+      injury = Math.max(1, ...muscles.map((x) => x.injury ?? 0));
     }
     const { error } = await admin.from('checkins').upsert(row);
     if (error) throw error;

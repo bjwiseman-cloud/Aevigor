@@ -20,10 +20,12 @@ export const MUSCLES: { k: MuscleKey; label: string; group: string }[] = [
 export const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Arms', 'Core', 'Legs', 'Neck'];
 export const muscleLabel = (k: string) => MUSCLES.find((m) => m.k === k)?.label ?? LEGACY_LABELS[k] ?? k;
 
-export type JointKey = 'neck' | 'shoulders' | 'elbows' | 'wrists' | 'lowerBack' | 'hips' | 'knees' | 'ankles';
+export type JointKey = 'neck' | 'shoulders' | 'elbows' | 'wrists' | 'lowerBack' | 'hips' | 'knees' | 'ankles' | 'belowKnee' | 'sitBone' | 'achilles' | 'sole';
 export const JOINTS: { k: JointKey; label: string }[] = [
   { k: 'neck', label: 'Neck' }, { k: 'shoulders', label: 'Shoulders' }, { k: 'elbows', label: 'Elbows' }, { k: 'wrists', label: 'Wrists' },
-  { k: 'lowerBack', label: 'Lower back' }, { k: 'hips', label: 'Hips' }, { k: 'knees', label: 'Knees' }, { k: 'ankles', label: 'Ankles' }
+  { k: 'lowerBack', label: 'Lower back' }, { k: 'hips', label: 'Hips' }, { k: 'knees', label: 'Knees' }, { k: 'ankles', label: 'Ankles' },
+  // Common tendon spots (Ben 2026-11-23): logged as plain joint pain, no joint/tendon/ligament choice
+  { k: 'belowKnee', label: 'Below the kneecap' }, { k: 'sitBone', label: 'Hamstring at sit bone' }, { k: 'achilles', label: 'Achilles' }, { k: 'sole', label: 'Sole of foot' }
 ];
 export const jointLabel = (k: string) => JOINTS.find((j) => j.k === k)?.label ?? k;
 
