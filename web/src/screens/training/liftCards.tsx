@@ -5,8 +5,7 @@ import type { ReadLift } from '@/lib/logreader';
 import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Search, Upload } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { callApi } from '@/lib/api';
@@ -232,46 +231,45 @@ export function LiftImport({ sets, unit }: { sets: LiftSet[]; unit: Unit }) {
 }
 
 
-// Best lifts (Ben 2026-11-23): the heaviest weight actually lifted for every exercise (not an estimate).
-// Squat, Bench and Deadlift always sit at the top; a search box finds any other exercise.
+// Best lifts (Ben 2026-11-23): the heaviest weight actually lifted (not an estimate). Squat, Bench and Deadlift
+// always show as colourful tiles (same look as Achievements); any other exercise is picked from a drop-down.
+const LIFT_TONE = ['from-rose-400 via-pink-500 to-red-500', 'from-violet-400 via-purple-500 to-indigo-500', 'from-amber-300 via-orange-400 to-red-400 text-amber-950', 'from-sky-300 via-cyan-400 to-blue-500 text-sky-950'];
+function LiftTile({ label, name, b, unit, i }: { label: string; name: string | null; b?: { weight: number; reps: number; day: string }; unit: Unit; i: number }) {
+  const fresh = !!b && Date.now() - Date.parse(b.day + 'T12:00:00Z') < 14 * 864e5;
+  return (
+    <div style={{ animationDelay: `${i * 80}ms` }}
+      className={cn('relative overflow-hidden rounded-xl bg-gradient-to-br p-3 text-white shadow-md animate-pop motion-reduce:animate-none', LIFT_TONE[i % LIFT_TONE.length], fresh && 'ring-2 ring-yellow-300 ring-offset-2 ring-offset-card')}>
+      <span aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,0.35)_50%,transparent_70%)] bg-[length:200%_100%] animate-shine motion-reduce:hidden" />
+      {fresh && <span className="absolute right-2 top-2 rounded-full bg-white px-1.5 py-px text-[10px] font-extrabold uppercase tracking-wider text-rose-600 shadow animate-pulse">New</span>}
+      <div className="relative text-2xl leading-none animate-float motion-reduce:animate-none" style={{ animationDelay: `${i * 230}ms` }}>🏋️</div>
+      <div className="relative mt-1.5 truncate text-[11px] font-semibold uppercase tracking-wide opacity-90">{label}</div>
+      <div className="relative font-display text-2xl font-extrabold italic leading-tight">{b ? `${showW(b.weight, unit)} ${unit}` : '–'}</div>
+      <div className="relative truncate text-[11px] opacity-85">{b ? `${b.reps} rep${b.reps > 1 ? 's' : ''} · ${shortDay(b.day)}` : 'not logged yet'}{name && name.toLowerCase() !== label.toLowerCase() ? ` · ${name}` : ''}</div>
+    </div>
+  );
+}
+
 export function BestLifts({ sets, unit }: { sets: LiftSet[]; unit: Unit }) {
-  const [q, setQ] = useState('');
-  const [all, setAll] = useState(false);
   const top = useMemo(() => heaviest(sets), [sets]);
   const main = useMemo(() => mainLiftNames(sets), [sets]);
   const mainNames = MAIN_LIFTS.map((m) => main[m.key]).filter(Boolean) as string[];
-  const rest = useMemo(() => exercises(sets).filter((e) => !mainNames.includes(e) && top.has(e)), [sets, top, mainNames.join()]);
-  const found = q.trim() ? rest.filter((e) => e.toLowerCase().includes(q.trim().toLowerCase())) : rest;
-  const shown = q.trim() || all ? found : found.slice(0, 10);
-  const row = (label: string, name: string | null, strong = false) => {
-    const b = name ? top.get(name) : undefined;
-    return (
-      <tr key={label} className={cn('border-t', strong && 'font-semibold')}>
-        <td className="py-1.5">{label}{strong && name && name.toLowerCase() !== label.toLowerCase() && <span className="block text-[11px] font-normal text-muted-foreground">{name}</span>}</td>
-        <td className="font-mono">{b ? `${showW(b.weight, unit)} ${unit}` : '–'}</td>
-        <td className="text-xs text-muted-foreground">{b ? `${b.reps} rep${b.reps > 1 ? 's' : ''} · ${shortDay(b.day)}` : 'not logged yet'}</td>
-      </tr>
-    );
-  };
+  const rest = useMemo(() => exercises(sets).filter((e) => !mainNames.includes(e) && top.has(e)).sort((a, b) => a.localeCompare(b)), [sets, top, mainNames.join()]);
+  const [pick, setPick] = useState('');
+  const other = pick && rest.includes(pick) ? pick : '';
   return (
     <Card>
       <CardHeader className="pb-2"><CardTitle help="strength">Best lifts</CardTitle></CardHeader>
       <CardContent className="space-y-3">
-        <table className="w-full text-sm">
-          <thead className="text-xs text-muted-foreground"><tr><th className="text-left">Exercise</th><th className="text-left">🏋️ Heaviest</th><th className="text-left">Set</th></tr></thead>
-          <tbody>
-            {MAIN_LIFTS.map((m) => row(m.label, main[m.key], true))}
-            {shown.map((e) => row(e, e))}
-          </tbody>
-        </table>
+        <div className="grid grid-cols-2 gap-2.5">
+          {MAIN_LIFTS.map((m, i) => <LiftTile key={m.key} label={m.label} name={main[m.key]} b={main[m.key] ? top.get(main[m.key]!) : undefined} unit={unit} i={i} />)}
+          {other && <LiftTile key={other} label={other} name={other} b={top.get(other)} unit={unit} i={3} />}
+        </div>
         {rest.length > 0 && (
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-8" placeholder={`Search ${rest.length} other exercises`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search exercises" />
-          </div>
+          <select className="h-9 w-full rounded-md border bg-card px-3 text-sm" aria-label="Other exercises" value={other} onChange={(e) => setPick(e.target.value)}>
+            <option value="">Other exercises ({rest.length}) ▾</option>
+            {rest.map((e) => <option key={e} value={e}>{e} · {showW(top.get(e)!.weight, unit)} {unit}</option>)}
+          </select>
         )}
-        {q.trim() && !found.length && <p className="text-sm text-muted-foreground">No exercise matches “{q}”.</p>}
-        {!q.trim() && found.length > 10 && <Button variant="ghost" size="sm" className="w-full" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `Show all ${found.length}`}</Button>}
         <p className="text-xs text-muted-foreground">The heaviest weight you actually lifted for at least 1 rep, warm-ups left out.</p>
       </CardContent>
     </Card>

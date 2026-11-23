@@ -5,7 +5,7 @@
 // Last week: Monday to Sunday of the week before: new bests, load vs plan and other compliance, test results.
 import { useMemo, type ReactNode } from 'react';
 import { addDays } from '@rules';
-import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { shortDay } from '@/components/charts';
 import { useCalendar, useCheckins, useDailyLoad, usePlannedTests, useProfile, useSessionLogs, useWellness } from '@/hooks/data';
 import { usePlanData } from '@/hooks/plan';
@@ -45,12 +45,12 @@ function localDay(iso: string, tz: string) {
   try { return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(iso)); } catch { return iso.slice(0, 10); }
 }
 
-function Section({ icon, title, tone, children }: { icon: string; title: string; tone: string; children: ReactNode }) {
+function Section({ icon, title, children }: { icon: string; title: string; children: ReactNode }) {
   return (
     <div className="flex gap-3">
-      <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-full text-base shadow-sm', tone)}>{icon}</span>
+      <span className="w-6 shrink-0 text-center text-base">{icon}</span>
       <div className="min-w-0 flex-1">
-        <div className="font-display text-base font-bold uppercase tracking-wide">{title}</div>
+        <div className="font-medium">{title}</div>
         <div className="space-y-1 text-sm">{children}</div>
       </div>
     </div>
@@ -131,23 +131,20 @@ export function WeeklyCheckCard({ r }: { r: DailyStatus | null }) {
   const todo = r ? changes(r.weekly, v.nextTest, today) : [];
 
   return (
-    <Card className="overflow-hidden">
-      <div className="bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 px-4 py-3 text-white">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle help="weekly-check" className="text-white [&_button]:text-white/80"><Title>📅 Weekly check</Title></CardTitle>
-          <span className="text-xs opacity-90">{shortDay(mon)} – {shortDay(sun)}</span>
-        </div>
-        {v.wk && <div className="mt-1 inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-0.5 font-display text-sm font-bold uppercase tracking-wider">Week {v.wk} of 5 · {BLOCK[v.wk]}</div>}
-      </div>
-      <CardContent className="space-y-4 pt-4">
-        <Section icon="🎯" title="Key sessions" tone="bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300">
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle help="weekly-check"><Title>📅 Weekly check</Title></CardTitle>
+        <p className="text-xs text-muted-foreground">{shortDay(mon)} – {shortDay(sun)}{v.wk ? <> · <b className="text-foreground">Week {v.wk} of 5 · {BLOCK[v.wk]}</b></> : null}</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Section icon="🎯" title="Key sessions">
           {v.key.length ? v.key.map((k) => <p key={k.day}><b>{dow(k.day)}</b> · {[...new Set(k.sports)].join(' + ')} <span className="text-muted-foreground">· planned load {Math.round(k.planned)}</span></p>)
             : <p className="text-muted-foreground">Nothing planned for the rest of the week in intervals.icu.</p>}
           {v.races.map((c) => <p key={c.id}>🏁 <b>{dow(c.day)}</b> · {c.name}</p>)}
         </Section>
 
         {(v.weekTests.length > 0 || v.soonTest || v.wk === 3 || v.wk === 4) && (
-          <Section icon="⏱" title="Tests and deload" tone="bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
+          <Section icon="⏱" title="Tests and deload">
             {v.weekTests.map((t) => <p key={t.day + t.kind}><b>{t.kind}</b> on {dow(t.day)}. Arrive fresh: keep the day before easy and sleep well.</p>)}
             {v.wk === 4 && <p><b>Deload week.</b> Shorter, easier sessions and no hard Wednesday race, so you are fresh for next week's FTP test.</p>}
             {v.wk === 3 && <p>Deload week coming next week.</p>}
@@ -156,12 +153,12 @@ export function WeeklyCheckCard({ r }: { r: DailyStatus | null }) {
         )}
 
         {v.appts.length > 0 && (
-          <Section icon="📌" title="Appointments" tone="bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300">
+          <Section icon="📌" title="Appointments">
             {v.appts.map((a, i) => <p key={i}>{a.icon} <b>{dow(a.day)}</b> · {a.title}{a.prep && <span className="block text-xs text-muted-foreground">Prep: {a.prep}</span>}</p>)}
           </Section>
         )}
 
-        <Section icon="👀" title="Monitor this week" tone="bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+        <Section icon="👀" title="Monitor this week">
           {wkly && r!.weekly !== 'OK' && <p><b className={wkly.cls.split(' ')[0]}>{wkly.icon} {r!.weekly}</b>{todo.length ? null : <> · {wkly.text}</>}</p>}
           {todo.length > 0 && <ul className="list-disc space-y-1 pl-5">{todo.map((c) => <li key={c}>{c}</li>)}</ul>}
           {watch.length ? watch.map((w) => <p key={w}>{w}</p>) : <p>✨ Sleep, HRV and resting heart rate all look normal. Keep it up.</p>}
@@ -197,21 +194,19 @@ export function LastWeekCard() {
   const pctCls = pct == null ? '' : Math.abs(pct - 100) <= 10 ? 'text-emerald-600 dark:text-emerald-400' : Math.abs(pct - 100) <= 20 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400';
   const h = Math.floor(v.secs / 3600), m = Math.round((v.secs % 3600) / 60);
   const Stat = ({ label, value, sub, cls }: { label: string; value: ReactNode; sub?: string; cls?: string }) => (
-    <div className="rounded-xl border bg-muted/40 p-2.5">
+    <div className="rounded-md border p-2.5">
       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={cn('font-display text-2xl font-extrabold italic leading-tight', cls)}>{value}</div>
+      <div className={cn('font-mono text-lg font-semibold leading-tight', cls)}>{value}</div>
       {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
     </div>
   );
   return (
-    <Card className="overflow-hidden">
-      <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 px-4 py-3 text-white">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle help="last-week" className="text-white [&_button]:text-white/80"><Title>🗓️ Last week</Title></CardTitle>
-          <span className="text-xs opacity-90">{shortDay(mon)} – {shortDay(sun)}</span>
-        </div>
-      </div>
-      <CardContent className="space-y-4 pt-4">
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle help="last-week"><Title>🗓️ Last week</Title></CardTitle>
+        <p className="text-xs text-muted-foreground">{shortDay(mon)} – {shortDay(sun)}</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
           <Stat label="Load vs plan" value={pct != null ? `${pct}%` : v.actual || '–'} sub={v.planned ? `${v.actual} of ${v.planned} planned` : 'nothing planned'} cls={pctCls} />
           <Stat label="Planned days done" value={v.planDays ? `${v.doneDays}/${v.planDays}` : '–'} sub={`${v.sessions} session${v.sessions === 1 ? '' : 's'} · ${h ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`}`} />
@@ -219,12 +214,12 @@ export function LastWeekCard() {
           <Stat label="Post Activity" value={v.loggable ? `${v.logged}/${v.loggable}` : '–'} sub="sessions logged" />
         </div>
         {v.res.length > 0 && (
-          <Section icon="⏱" title="Test results" tone="bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
-            {v.res.map((t) => <p key={t.day + t.kind}><b>{t.kind}</b> · {dow(t.day)}: <b className="font-display text-lg italic">{t.value} {t.unit}</b> <span className="text-muted-foreground">({t.label})</span></p>)}
+          <Section icon="⏱" title="Test results">
+            {v.res.map((t) => <p key={t.day + t.kind}><b>{t.kind}</b> · {dow(t.day)}: <b className="font-mono">{t.value} {t.unit}</b> <span className="text-muted-foreground">({t.label})</span></p>)}
           </Section>
         )}
         <div>
-          <div className="mb-2 font-display text-base font-bold uppercase tracking-wide">🏆 New bests</div>
+          <div className="mb-2 font-medium">🏆 New bests</div>
           {bests.length ? <div className="grid grid-cols-2 gap-2">{bests.map((a, i) => <AchievementTile key={a.id} a={a} today={ach.today} i={i} />)}</div>
             : <p className="text-sm text-muted-foreground">No new all-time bests last week. See them all under Trends › Performance.</p>}
         </div>

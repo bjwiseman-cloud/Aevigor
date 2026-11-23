@@ -51,19 +51,25 @@ function ZoneGradient({ id, values, zones }: { id: string; values: (number | nul
   return <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">{stops.map((s, i) => <stop key={i} offset={Math.min(1, Math.max(0, s.o))} stopColor={s.c} />)}</linearGradient>;
 }
 
-// Today's training status as one large word glowing in its status colour (Ben 2026-11-19, replaces the dial)
+// Today's training status as a colourful, gently animated tile in its Garmin-style colour
+// (Ben 2026-11-23: same playful look as Achievements; replaces the glowing word)
+const TS_ICON: Record<string, string> = { Detraining: '📉', Recovery: '🔋', Peaking: '🏔️', Maintaining: '⚖️', Productive: '🚀', Unproductive: '🌀', Strained: '⚠️', Overreaching: '🛑', Paused: '⏸️' };
 function StatusWord({ st }: { st: Status }) {
   const idx = TS_ORDER.findIndex((t) => t[0] === st.word);
-  const col = idx >= 0 ? TS_ORDER[idx][1] : undefined;
+  const col = idx >= 0 ? TS_ORDER[idx][1] : '#9ca3af';
   const desc = idx >= 0 ? TS_ORDER[idx][2] : st.word === 'Paused' ? 'You logged being sick, so training status is paused until you are well.' : 'Needs about 6 weeks of training history.';
+  const dark = st.word === 'Maintaining';
   return (
-    <div className="space-y-3 py-2">
-      <div className="relative mx-auto w-fit px-6 py-3">
-        {col && <div aria-hidden className="absolute inset-0 rounded-full opacity-25 blur-2xl" style={{ background: col }} />}
-        <div role="img" aria-label={`Training status: ${st.word}`} className="relative text-center font-serif text-5xl font-bold tracking-wide"
-          style={col ? { color: col, textShadow: `0 0 10px ${col}, 0 0 28px ${col}99, 0 0 56px ${col}55` } : undefined}>{st.word}</div>
+    <div className="space-y-3 py-1">
+      <div role="img" aria-label={`Training status: ${st.word}`}
+        className={cn('relative overflow-hidden rounded-2xl px-4 py-5 text-center shadow-lg animate-pop motion-reduce:animate-none', dark ? 'text-amber-950' : 'text-white')}
+        style={{ background: `linear-gradient(135deg, ${col}cc 0%, ${col} 45%, ${col}ee 100%)` }}>
+        <span aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/40 blur-2xl animate-breathe motion-reduce:animate-none" />
+        <span aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,0.35)_50%,transparent_70%)] bg-[length:200%_100%] animate-shine motion-reduce:hidden" />
+        <div className="relative text-4xl leading-none animate-float motion-reduce:animate-none">{TS_ICON[st.word] ?? '⏳'}</div>
+        <div className="relative mt-2 font-display text-4xl font-extrabold uppercase italic leading-none tracking-wide drop-shadow-sm">{st.word}</div>
+        <p className="relative mt-2 text-sm opacity-95">{desc}</p>
       </div>
-      <p className="text-center text-sm text-muted-foreground">{desc}</p>
       <StatusLegend on={(w) => w === st.word} />
       <div className="flex flex-wrap justify-center gap-1.5">{st.chips.map(([t, flag]) => <span key={t} className={cn('rounded-full border px-2 py-0.5 text-xs', flag && 'border-status-caution text-status-caution')}>{t}</span>)}</div>
     </div>
