@@ -227,7 +227,7 @@ export function Load({ charts = false }: { charts?: boolean } = {}) {
         </div>
       )}
       {sport === 'WeightTraining' && liftMap === 'volume' ? <Volume sets={lifts.data ?? []} unit={liftUnit} ex={null} />
-        : endo && liftMap === 'volume' ? <MuscleLoadCard key={endo} sport={endo} /> : <SorenessCard />}
+        : endo && liftMap === 'volume' ? <MuscleLoadCard key={endo} sport={endo} lifting={<Volume sets={lifts.data ?? []} unit={liftUnit} ex={null} />} /> : <SorenessCard />}
 
       </>)}
       {!hasData && <Card><CardContent className="pt-6 text-sm text-muted-foreground">No training load yet. Tap Sync after your sessions reach intervals.icu. Planned workouts in your intervals.icu calendar show up here too.</CardContent></Card>}

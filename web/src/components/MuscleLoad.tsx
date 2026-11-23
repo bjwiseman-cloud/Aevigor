@@ -15,7 +15,8 @@ import { useSets } from '@/hooks/lifting';
 import { isRide, isRun, type Activity } from '@/lib/perf';
 import { MUSCLES, muscleLabel, type MuscleKey } from '@/lib/muscles';
 import { hardSets, weekStart } from '@/lib/volume';
-import { LEG_MUSCLES, pctLevel, percentOfUsual, rangeLoad, weeks } from '@/lib/enduranceLoad';
+import { LEG_MUSCLES, addLoads, liftLoad, pctLevel, percentOfUsual, rangeLoad, weeks } from '@/lib/enduranceLoad';
+import type { ReactNode } from 'react';
 import { todayIn } from '@/lib/time';
 import { addDays } from '@rules';
 import { cn } from '@/lib/utils';
@@ -25,7 +26,7 @@ type View = 'endurance' | 'lifting' | 'combined';
 export const PCT_COLORS = ['#3b82f6', '#5eead4', '#22c55e', '#f97316', '#e11d48'];
 const PCT_LABELS = ['Well below', 'Below', 'Usual', 'Above', 'Well above'];
 
-export function MuscleLoadCard({ sport }: { sport: 'ride' | 'run' | 'mix' }) {
+export function MuscleLoadCard({ sport, lifting }: { sport: 'ride' | 'run' | 'mix'; lifting: ReactNode }) {
   const p = useProfile().data!;
   const acts = useActivities(p), sets = useSets(), all = useExercises();
   const [view, setView] = useState<View>(sport === 'mix' ? 'combined' : 'endurance');
@@ -45,24 +46,28 @@ export function MuscleLoadCard({ sport }: { sport: 'ride' | 'run' | 'mix' }) {
     const list = acts.data ?? [], s = sets.data ?? [], look = (x: string) => byName.get(x.toLowerCase()) ?? null;
     const eWeek = rangeLoad(list, w.from, w.to, keep), eBefore = rangeLoad(list, w.before, w.beforeTo, keep);
     const lWeek = hardSets(s, look, w.from, w.to), lBefore = hardSets(s, look, w.before, w.beforeTo);
-    const ePct = percentOfUsual(eWeek, eBefore, LEG_MUSCLES), lPct = percentOfUsual(lWeek, lBefore, keys);
-    // Combined: the average of the two percentages where both exist, else whichever exists
-    const cPct: Partial<Record<MuscleKey, number>> = {};
-    for (const k of keys) { const a = ePct[k], b = lPct[k]; if (a != null || b != null) cPct[k] = a != null && b != null ? Math.round((a + b) / 2) : (a ?? b)!; }
-    return { eWeek, eBefore, lWeek, lBefore, ePct, lPct, cPct };
+    const ePct = percentOfUsual(eWeek, eBefore, LEG_MUSCLES);
+    // Combined: total load from every activity on one scale. Lifting session load is split over the muscles by
+    // hard sets, then added to the ride and run load, and compared with the usual week.
+    const lfWeek = liftLoad(list, lWeek, w.from, w.to), lfBefore = liftLoad(list, lBefore, w.before, w.beforeTo);
+    const cWeek = addLoads(eWeek, lfWeek), cBefore = addLoads(eBefore, lfBefore);
+    const cPct = percentOfUsual(cWeek, cBefore, keys);
+    return { eWeek, eBefore, lWeek, lBefore, lfWeek, lfBefore, cWeek, cBefore, ePct, cPct };
   }, [acts.data, sets.data, byName, w.from, sport]); // eslint-disable-line react-hooks/exhaustive-deps
-  const pct = view === 'endurance' ? d.ePct : view === 'lifting' ? d.lPct : d.cPct;
+  const pct = view === 'endurance' ? d.ePct : d.cPct;
   const lvl = (k: string) => pctLevel(pct[k as MuscleKey]);
   const shown = keys.filter((k) => lvl(k) > 0), worked = keys.filter((k) => (pct[k] ?? 0) > 0);
   const above = shown.filter((k) => lvl(k) >= 4).length, usual = shown.filter((k) => lvl(k) === 3).length;
   const turn = () => setSide(side === 'front' ? 'back' : 'front');
   const ck = cur as MuscleKey | null;
+  const chips = <Chips>{(['endurance', 'lifting', 'combined'] as View[]).map((v) => <Chip key={v} on={view === v} onClick={() => setView(v)}>{v === 'endurance' ? (sport === 'ride' ? '🚴 Rides' : sport === 'run' ? '🏃 Runs' : '🚴🏃 Endurance') : v === 'lifting' ? '🏋️ Lifting volume' : '✨ All activities'}</Chip>)}</Chips>;
+  if (view === 'lifting') return <div className="space-y-3">{chips}{lifting}</div>;
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle help="muscle-load">Muscle load</CardTitle>
-        <p className="text-xs text-muted-foreground">This week against your usual week (the 4 weeks before = 100%). An estimate, not a measurement.</p></CardHeader>
+      <CardHeader className="pb-2"><CardTitle help="muscle-load">{view === 'combined' ? 'Total muscle load' : 'Muscle load'}</CardTitle>
+        <p className="text-xs text-muted-foreground">{view === 'combined' ? 'Rides, runs and lifting together, this week' : 'This week'} against your usual week (the 4 weeks before = 100%). An estimate, not a measurement.</p></CardHeader>
       <CardContent className="space-y-3">
-        <Chips>{(['endurance', 'lifting', 'combined'] as View[]).map((v) => <Chip key={v} on={view === v} onClick={() => setView(v)}>{v === 'endurance' ? (sport === 'ride' ? '🚴 Rides' : sport === 'run' ? '🏃 Runs' : '🚴🏃 Endurance') : v === 'lifting' ? '🏋️ Lifting' : '✨ Combined'}</Chip>)}</Chips>
+        {chips}
         <div className="flex items-center justify-between text-sm">
           <Button size="sm" variant="outline" onClick={() => setBack(Math.min(26, back + 1))} aria-label="Earlier week">‹</Button>
           <span>Week of {shortDay(w.from)}</span>
@@ -89,11 +94,11 @@ export function MuscleLoadCard({ sport }: { sport: 'ride' | 'run' | 'mix' }) {
         {ck && (
           <div className="space-y-1 rounded-lg border p-3 text-sm">
             <b>{muscleLabel(ck)}</b>: {pct[ck] != null ? <><b>{pct[ck]}%</b> of a usual week</> : 'nothing this week or in the 4 weeks before'}
-            {(view !== 'lifting') && LEG_MUSCLES.includes(ck) && <div className="text-xs text-muted-foreground">Endurance load {Math.round(d.eWeek[ck] ?? 0)} this week · usual {Math.round((d.eBefore[ck] ?? 0) / 4)} a week</div>}
-            {(view !== 'endurance') && <div className="text-xs text-muted-foreground">Hard sets {d.lWeek[ck] ?? 0} this week · usual {Math.round(((d.lBefore[ck] ?? 0) / 4) * 10) / 10} a week</div>}
+            {LEG_MUSCLES.includes(ck) && <div className="text-xs text-muted-foreground">Ride and run load {Math.round(d.eWeek[ck] ?? 0)} this week · usual {Math.round((d.eBefore[ck] ?? 0) / 4)} a week</div>}
+            {view === 'combined' && <div className="text-xs text-muted-foreground">Lifting load {Math.round(d.lfWeek[ck] ?? 0)} this week ({d.lWeek[ck] ?? 0} hard sets) · usual {Math.round((d.lfBefore[ck] ?? 0) / 4)} a week</div>}
           </div>
         )}
-        <p className={cn('text-[11px] text-muted-foreground')}>Rides and runs are spread over the leg muscles by how hard they were (easy, hard, max), using lab study averages. Not measured strain, not injury risk, not medical advice. Tap ? for the full maths.</p>
+        <p className={cn('text-[11px] text-muted-foreground')}>Rides and runs are spread over the leg muscles by how hard they were (easy, hard, max), using lab study averages.{view === 'combined' ? ' Lifting session load is spread by hard sets per muscle. Lifting volume against your landmarks is under Lifting volume.' : ''} Not measured strain, not injury risk, not medical advice. Tap ? for the full maths.</p>
       </CardContent>
     </Card>
   );
