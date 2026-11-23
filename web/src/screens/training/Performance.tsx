@@ -10,6 +10,7 @@ import { MY_ZONES_KEY, type MyZones } from '@/lib/myzones';
 import { RunEfCard, ThresholdCard, Vo2Card, ZonesCard, isLift, settingsFor, sportMatch, usePhaseShade, PhaseKey } from '@/screens/training/perfCards';
 import type { Profile } from '@/lib/types';
 import { PowerProfileCard, SignatureCard } from '@/components/Compare';
+import { FunTile } from '@/components/Fun';
 import { useActivities, useCurves, usePaceCurves } from '@/hooks/perf';
 import { BEST_SECS, bestEfforts, isRide, isRun, latestWeight, mmss, n, pace, paceRows, secsLabel, testResults, type Activity, type Curve, type PaceCurve } from '@/lib/perf';
 import { todayIn } from '@/lib/time';
@@ -59,33 +60,37 @@ function PowerCurve({ rides, curves, today, weight, onOpen, sport = 'ride' }: { 
           <div className="h-52">
             <ResponsiveContainer>
               <ComposedChart data={plot} margin={{ top: 5, right: 8, left: -14, bottom: 0 }}>
-                <defs><linearGradient id="pc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.cyan} stopOpacity={0.45} /><stop offset="100%" stopColor={C.cyan} stopOpacity={0.02} /></linearGradient></defs>
+                <defs>
+                  {/* Sprint end hot, endurance end cool: the same colour run as the tiles below */}
+                  <linearGradient id={`pcs-${sport}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#f43f5e" /><stop offset="30%" stopColor="#f97316" /><stop offset="55%" stopColor="#eab308" /><stop offset="80%" stopColor="#10b981" /><stop offset="100%" stopColor="#0ea5e9" /></linearGradient>
+                  <linearGradient id={`pcf-${sport}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#f43f5e" stopOpacity={0.35} /><stop offset="30%" stopColor="#f97316" stopOpacity={0.3} /><stop offset="55%" stopColor="#eab308" stopOpacity={0.25} /><stop offset="80%" stopColor="#10b981" stopOpacity={0.22} /><stop offset="100%" stopColor="#0ea5e9" stopOpacity={0.2} /></linearGradient>
+                </defs>
                 <CartesianGrid stroke={C.grid} vertical={false} />
                 <XAxis dataKey="label" {...axis} interval="preserveStartEnd" minTickGap={8} />
                 <YAxis {...axis} />
                 <Tooltip {...tooltipStyle} labelFormatter={(l) => String(l)} formatter={(v, name) => [`${v}${unit}`, String(name)]} />
-                <Line type="monotone" dataKey="all" name="All-time best" stroke={C.orange} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
-                <Area type="monotone" dataKey="rec" name={recLabel} stroke={C.cyan} strokeWidth={2.5} fill="url(#pc)" connectNulls isAnimationActive={false} />
+                <Line type="monotone" dataKey="all" name="All-time best" stroke="#a855f7" strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
+                <Area type="monotone" dataKey="rec" name={recLabel} stroke={`url(#pcs-${sport})`} strokeWidth={3.5} fill={`url(#pcf-${sport})`} connectNulls animationDuration={900} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
         ) : <p className="text-sm text-muted-foreground">{sport === 'run' ? 'No runs with power yet. Running power comes from a Stryd pod or a watch that records it; it fills in after the next sync.' : 'No rides with power yet. This fills in after the next sync.'}</p>}
-        <Legend items={[{ label: recLabel, color: C.cyan, area: true }, { label: 'All-time best', color: C.orange, dashed: true }]} />
-        <div className="text-sm font-semibold">
-          <div className="grid grid-cols-3 gap-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground"><span>Effort</span><span>{wkg ? 'W/kg' : 'Watts'}</span><span>Activity</span></div>
-          {TABLE_SECS.map((s) => {
+        <Legend items={[{ label: recLabel, color: '#f97316', area: true }, { label: 'All-time best', color: '#a855f7', dashed: true }]} />
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">🏅 All-time bests · tap to open</div>
+        <div className="grid grid-cols-3 gap-2">
+          {TABLE_SECS.map((s, i) => {
             const b = allAt(s);
             if (!b) return null;
+            const r = recAt(s), fresh = !!(r && b.id && r.id === b.id);
             return (
-              <div key={s} className="grid grid-cols-3 gap-2 border-t py-1.5">
-                <span>{secsLabel(s)}</span>
-                <span>{wkg ? b.wkg ?? '–' : b.watts}</span>
-                {b.id ? <button type="button" onClick={() => onOpen(b.id!)} className="text-left underline decoration-dotted">{b.day ? shortDay(b.day) : sport === 'run' ? 'Open run' : 'Open ride'}</button> : <span className="text-muted-foreground">–</span>}
-              </div>
+              <FunTile key={s} i={i} tone={s <= 15 ? 'rose' : s <= 60 ? 'orange' : s <= 300 ? 'amber' : s <= 1200 ? 'lime' : s <= 3600 ? 'emerald' : 'sky'} top={secsLabel(s)}
+                big={<>{wkg ? b.wkg ?? '–' : b.watts}<span className="text-sm">{wkg ? ' W/kg' : ' W'}</span></>}
+                sub={<>{b.day ? shortDay(b.day) : '–'}{fresh ? ' · ⭐ in range' : ''}</>}
+                onClick={b.id ? () => onOpen(b.id!) : undefined} className="p-2" />
             );
           })}
         </div>
-        <HowToRead>Your best average power for each length of effort. The shaded curve is your best over the range you pick (1M, 3M or 1Y); the dashed curve is your all-time best. Where the two meet, that all-time best was set in the range you picked. The table lists your all-time bests; tap the date to open that ride. W/kg uses the weight saved on each ride in intervals.icu.</HowToRead>
+        <HowToRead>Your best average power for each length of effort. The shaded curve is your best over the range you pick (1M, 3M or 1Y); the dashed curve is your all-time best. Where the two meet, that all-time best was set in the range you picked. The tiles are your all-time bests (⭐ = set in the range you picked); tap one to open that ride. W/kg uses the weight saved on each ride in intervals.icu.</HowToRead>
       </CardContent>
     </Card>
   );
@@ -106,8 +111,9 @@ function Tests({ results }: { results: ReturnType<typeof testResults> }) {
             <div key={k} className="space-y-2">
               <div className="text-sm font-medium">{k} · <span className="text-muted-foreground">{latest.label}</span></div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-md bg-muted p-2"><div className="text-xs text-muted-foreground">Latest · {shortDay(latest.day)}</div><b className="text-lg">{latest.value} {latest.unit}</b></div>
-                <div className="rounded-md bg-muted p-2"><div className="text-xs text-muted-foreground">{prev ? `Compared with ${shortDay(prev.day)}` : 'No earlier test'}</div>{prev && diff != null && <b className="text-lg">{diff >= 0 ? '+' : ''}{diff} W ({((diff / prev.value) * 100).toFixed(1)}%)</b>}</div>
+                <FunTile tone="violet" icon="⏱️" top={`Latest · ${shortDay(latest.day)}`} big={`${latest.value} ${latest.unit}`} />
+                <FunTile i={1} tone={!prev || diff == null ? 'sky' : diff >= 0 ? 'emerald' : 'amber'} icon={!prev || diff == null ? '🆕' : diff >= 0 ? '📈' : '📉'} top={prev ? `vs ${shortDay(prev.day)}` : 'No earlier test'}
+                  big={prev && diff != null ? `${diff >= 0 ? '+' : ''}${diff} W` : '–'} sub={prev && diff != null ? `${((diff / prev.value) * 100).toFixed(1)}%` : 'First test'} />
               </div>
               {list.length > 2 && <Chips>{list.slice(1).map((r, i) => <Chip key={r.day} on={(pick[k] ?? 1) === i + 1} onClick={() => setPick({ ...pick, [k]: i + 1 })}>{shortDay(r.day)} · {r.value} W</Chip>)}</Chips>}
             </div>

@@ -9,7 +9,6 @@ import { callApi } from '@/lib/api';
 import { niceDay, todayIn } from '@/lib/time';
 import { useProfile, useTodayCheckin } from '@/hooks/data';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,14 +20,15 @@ import { BodyMapEditor, figureSex, upgradeKeys, type MapMode, type MapValue } fr
 import { DayLog } from '@/components/Cycle';
 import { useCycle } from '@/hooks/cycle';
 import { cn } from '@/lib/utils';
+import { FunOpts, FunQ, SCALE, type Tone } from '@/components/Fun';
 
 // intervals.icu stores these answers as 1-4 (1 = best). Soreness comes from the body map.
 const QUESTIONS = [
-  { key: 'sleep_quality', label: 'Sleep quality', opts: ['Great', 'Good', 'Average', 'Poor'], help: 'How well you slept, in your own words. Part of Feel (out of 25), which is weighted most in the status.' },
-  { key: 'fatigue', label: 'Fatigue', opts: ['Low', 'Average', 'High', 'Extreme'], help: 'How tired your body feels this morning. Part of Feel. Extreme sets Go easy on its own.' },
-  { key: 'stress', label: 'Stress', opts: ['Low', 'Average', 'High', 'Extreme'], help: 'Life and work stress, not training. Part of Feel.' },
-  { key: 'mood', label: 'Mood', opts: ['Great', 'Good', 'OK', 'Grumpy'], help: 'Your mood this morning. Part of Feel.' },
-  { key: 'motivation', label: 'Motivation', opts: ['Extreme', 'High', 'Average', 'Low'], help: 'How keen you are to train. Saved to intervals.icu and shown on Trends; it is not part of the Feel score.' }
+  { key: 'sleep_quality', icon: '😴', tone: 'violet', faces: ['🤩', '🙂', '😐', '😫'], label: 'Sleep quality', opts: ['Great', 'Good', 'Average', 'Poor'], help: 'How well you slept, in your own words. Part of Feel (out of 25), which is weighted most in the status.' },
+  { key: 'fatigue', icon: '🔋', tone: 'lime', faces: ['⚡', '🙂', '🥱', '🪫'], label: 'Fatigue', opts: ['Low', 'Average', 'High', 'Extreme'], help: 'How tired your body feels this morning. Part of Feel. Extreme sets Go easy on its own.' },
+  { key: 'stress', icon: '🧘', tone: 'teal', faces: ['😌', '🙂', '😬', '🤯'], label: 'Stress', opts: ['Low', 'Average', 'High', 'Extreme'], help: 'Life and work stress, not training. Part of Feel.' },
+  { key: 'mood', icon: '😊', tone: 'amber', faces: ['😄', '🙂', '😐', '😠'], label: 'Mood', opts: ['Great', 'Good', 'OK', 'Grumpy'], help: 'Your mood this morning. Part of Feel.' },
+  { key: 'motivation', icon: '🔥', tone: 'orange', faces: ['🚀', '💪', '🙂', '😴'], label: 'Motivation', opts: ['Extreme', 'High', 'Average', 'Low'], help: 'How keen you are to train. Saved to intervals.icu and shown on Trends; it is not part of the Feel score.' }
 ] as const;
 const CLARITY = ['Very foggy', 'Foggy', 'Normal', 'Clear', 'Very sharp'];
 const LIBIDO = ['None', 'Very low', 'Low', 'Slightly low', 'Moderate', 'Slightly high', 'High', 'Very high'];
@@ -39,29 +39,15 @@ const MORE = [
 ] as const;
 
 function Note({ children }: { children: ReactNode }) { return <p className="text-xs text-muted-foreground">{children}</p>; }
-function Q({ title, help, extra, children }: { title: ReactNode; help?: string; extra?: ReactNode; children: ReactNode }) {
-  return (
-    <Card><CardContent className="space-y-2 py-3">
-      <div className="flex items-center justify-between gap-2"><b>{title}</b>{help && <HelpQ text={help} />}</div>
-      {extra}{children}
-    </CardContent></Card>
-  );
-}
-function Opts({ opts, value, onPick, cols }: { opts: string[]; value: number | null | undefined; onPick: (v: number | null) => void; cols: number }) {
-  return (
-    <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-      {opts.map((o, i) => (
-        <button key={o} type="button" onClick={() => onPick(value === i + 1 ? null : i + 1)}
-          className={cn('rounded-md border px-1 py-2 text-xs leading-tight', value === i + 1 ? 'border-primary bg-primary text-primary-foreground' : 'bg-card hover:bg-muted')}>{o}</button>
-      ))}
-    </div>
-  );
+function Q(props: { title: ReactNode; help?: string; extra?: ReactNode; icon?: string; tone?: Tone; children: ReactNode }) { return <FunQ {...props} />; }
+function Opts({ opts, value, onPick, cols, tones, icons }: { opts: string[]; value: number | null | undefined; onPick: (v: number | null) => void; cols: number; tones?: Tone[]; icons?: string[] }) {
+  return <FunOpts opts={opts} cols={cols} tones={tones} icons={icons} value={value == null ? null : value - 1} onPick={(i) => onPick(value === i + 1 ? null : i + 1)} />;
 }
 
 // Check-in tab parts (Ben 2026-11-23): My log and Records moved here from the old Plan tab
 const SEG = [{ id: 'morning', to: '/checkin', label: 'Morning' }, { id: 'session', to: '/checkin/session', label: 'Post Activity' }, { id: 'log', to: '/checkin/log', label: 'My log' }, { id: 'records', to: '/checkin/records', label: 'Records' }] as const;
 export function CheckinSeg({ on }: { on: (typeof SEG)[number]['id'] }) {
-  const cls = (x: boolean) => cn('flex-1 rounded-md px-1 py-1.5 text-center text-[13px] leading-tight', x ? 'bg-primary font-semibold text-primary-foreground' : 'text-muted-foreground');
+  const cls = (x: boolean) => cn('flex-1 rounded-md px-1 py-1.5 text-center text-[13px] leading-tight', x ? 'bg-gradient-to-br from-orange-400 via-rose-500 to-fuchsia-500 font-semibold text-white shadow-sm' : 'text-muted-foreground');
   return (
     <div className="mb-3 flex gap-1 rounded-lg border bg-card p-1">
       {SEG.map((x) => <Link key={x.id} to={x.to} className={cls(on === x.id)}>{x.label}</Link>)}
@@ -148,21 +134,21 @@ export function CheckinPage() {
       <CheckinSeg on="morning" />
       <p className="text-center font-mono text-xs text-muted-foreground">{niceDay(day)}{existing.data ? ' · saved, you can change it' : ''} · saves to intervals.icu</p>
 
-      <Q title="Feeling sick?" help="Mild = above the neck (stuffy nose, sore throat). Yes = below the neck (fever, chest, body aches, stomach). Sickness overrides the other signals: Yes = Go easy, Mild = one step lower.">
-        <Opts cols={3} opts={['No', 'Mild · above the neck', 'Yes · below the neck']} value={['No', 'Mild', 'Yes'].indexOf(sick) + 1} onPick={(x) => setSick((['No', 'Mild', 'Yes'] as const)[(x ?? 1) - 1])} />
+      <Q icon="🤒" tone="rose" title="Feeling sick?" help="Mild = above the neck (stuffy nose, sore throat). Yes = below the neck (fever, chest, body aches, stomach). Sickness overrides the other signals: Yes = Go easy, Mild = one step lower.">
+        <Opts cols={3} icons={['💪', '🤧', '🤒']} opts={['No', 'Mild · above the neck', 'Yes · below the neck']} value={['No', 'Mild', 'Yes'].indexOf(sick) + 1} onPick={(x) => setSick((['No', 'Mild', 'Yes'] as const)[(x ?? 1) - 1])} />
       </Q>
 
       {QUESTIONS.map((q) => (
-        <Q key={q.key} title={q.label} help={q.help}><Opts cols={4} opts={[...q.opts]} value={v[q.key]} onPick={pick(q.key)} /></Q>
+        <Q key={q.key} icon={q.icon} tone={q.tone} title={q.label} help={q.help}><Opts cols={4} icons={[...q.faces]} opts={[...q.opts]} value={v[q.key]} onPick={pick(q.key)} /></Q>
       ))}
 
       <PeriodQ day={day} />
 
-      <Q title="Mental clarity" help="How clear your thinking feels, 1 very foggy to 5 very sharp. A log only: it does not change the status.">
-        <Opts cols={5} opts={CLARITY} value={v.clarity} onPick={pick('clarity')} />
+      <Q icon="🧠" tone="sky" title="Mental clarity" help="How clear your thinking feels, 1 very foggy to 5 very sharp. A log only: it does not change the status.">
+        <Opts cols={5} tones={[...SCALE[5]].reverse()} icons={['🌫️', '☁️', '🙂', '🔆', '✨']} opts={CLARITY} value={v.clarity} onPick={pick('clarity')} />
       </Q>
 
-      <Q title={<>Libido <span className="text-xs font-normal text-muted-foreground">· optional</span></>} help="Optional private log, 0-7, saved to your account and intervals.icu and charted on Trends. It does not change the status. Turn it off or delete every entry at any time. Not medical advice.">
+      <Q icon="💞" tone="fuchsia" title={<>Libido <span className="text-xs font-normal text-muted-foreground">· optional</span></>} help="Optional private log, 0-7, saved to your account and intervals.icu and charted on Trends. It does not change the status. Turn it off or delete every entry at any time. Not medical advice.">
         {!libOn ? (
           <>
             <Note>Off</Note>
@@ -204,15 +190,15 @@ export function CheckinPage() {
         </AccordionItem>
       </Accordion>
 
-      <Q title="Soreness and injury" help="Pick Sore or Injured, tap a muscle, then set the level. Swipe across the body or tap Front / Back to turn. The highest sore level is saved as Soreness (part of Feel), the highest injury level as Injury, and the muscles go into your intervals.icu comments.">
+      <Q icon="💪" tone="orange" title="Soreness and injury" help="Pick Sore or Injured, tap a muscle, then set the level. Swipe across the body or tap Front / Back to turn. The highest sore level is saved as Soreness (part of Feel), the highest injury level as Injury, and the muscles go into your intervals.icu comments.">
         <BodyMapEditor sex={figureSex(profile.sex)} modes={MORNING_MODES} value={body} onChange={setBody} />
       </Q>
 
-      <Q title="Comments">
+      <Q icon="📝" tone="sky" title="Comments">
         <Textarea maxLength={2000} placeholder="Anything else worth remembering?" value={notes} onChange={(e) => setNotes(e.target.value)} />
       </Q>
 
-      <Button type="button" className="w-full" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save check-in'}</Button>
+      <Button type="button" className="h-12 w-full bg-gradient-to-r from-orange-500 via-rose-500 to-fuchsia-500 font-display text-lg font-extrabold italic text-white shadow-md hover:opacity-95" disabled={saving} onClick={save}>{saving ? 'Saving…' : '✅ Save check-in'}</Button>
       <p className="text-center text-xs text-muted-foreground">Training guidance, not medical advice. <HelpButton topic="feel" /></p>
     </div>
   );
@@ -222,5 +208,5 @@ export function CheckinPage() {
 function PeriodQ({ day }: { day: string }) {
   const c = useCycle(useProfile().data);
   if (!c.on) return null;
-  return <Q title="Period" help="Saved straight away to your cycle log (private). Phases on Trends are estimates from these days. Not medical advice."><DayLog day={day} compact /></Q>;
+  return <Q icon="🩸" tone="rose" title="Period" help="Saved straight away to your cycle log (private). Phases on Trends are estimates from these days. Not medical advice."><DayLog day={day} compact /></Q>;
 }

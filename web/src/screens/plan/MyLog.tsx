@@ -5,6 +5,8 @@ import { useProfile } from '@/hooks/data';
 import { usePlanData, useSave } from '@/hooks/plan';
 import { addDaysIso, amountText, buildRule, CATEGORIES, describe, occursOn, parseRule, type Category, type Ends, type LogGroup, type LogItem, type Repeat } from '@/lib/plan';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { FunIcon, FunTile, TONE, type Tone } from '@/components/Fun';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -190,6 +192,9 @@ function GroupSheet({ open, onOpenChange, group, today }: { open: boolean; onOpe
   );
 }
 
+// Category colours are decoration only, never good or bad (health log rule).
+const CAT_TONE: Tone[] = ['violet', 'sky', 'teal', 'fuchsia', 'amber', 'lime'];
+
 export function MyLog() {
   const profile = useProfile().data!;
   const d = usePlanData(profile);
@@ -213,11 +218,11 @@ export function MyLog() {
         <CardHeader className="pb-2"><CardTitle help="my-log">My log</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">Add things you do or take on a schedule</p>
-          <div className="grid grid-cols-2 gap-2 text-center">
-            <div className="rounded-md border p-2"><div className="font-mono text-lg">{monthDoses.filter((x) => x.status === 'taken').length}</div><div className="text-xs text-muted-foreground">Logged as taken this month</div></div>
-            <div className="rounded-md border p-2"><div className="font-mono text-lg">{monthDoses.filter((x) => x.status === 'skipped').length}</div><div className="text-xs text-muted-foreground">Logged as skipped this month</div></div>
+          <div className="grid grid-cols-2 gap-2">
+            <FunTile tone="sky" icon="✅" top="Taken" big={monthDoses.filter((x) => x.status === 'taken').length} sub="logged this month" />
+            <FunTile i={1} tone="violet" icon="⏭️" top="Skipped" big={monthDoses.filter((x) => x.status === 'skipped').length} sub="logged this month" />
           </div>
-          <Button className="w-full" onClick={() => open(null)}><Plus /> Add an item</Button>
+          <Button className="h-11 w-full bg-gradient-to-r from-sky-500 via-violet-500 to-fuchsia-500 font-semibold text-white shadow-md hover:opacity-95" onClick={() => open(null)}><Plus /> Add an item</Button>
           <p className="text-xs text-muted-foreground">Not medical advice.</p>
         </CardContent>
       </Card>
@@ -230,6 +235,7 @@ export function MyLog() {
             const its = items.filter((i) => i.group_id === g.id && i.active);
             return (
               <div key={g.id} className="flex items-start gap-3 py-2.5">
+                <FunIcon tone="teal">⏰</FunIcon>
                 <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setGroupSheet({ g, key: Date.now() })}>
                   <div className="font-semibold">{g.name}</div>
                   <div className="text-xs text-muted-foreground">{describe(parseRule(g.rrule, d.today).repeat, parseRule(g.rrule, d.today).ends, g.times, d.today)}</div>
@@ -243,12 +249,12 @@ export function MyLog() {
         </CardContent>
       </Card>
         ) },
-        ...CATEGORIES.map((c) => {
+        ...CATEGORIES.map((c, ci) => {
         const its = items.filter((i) => i.category === c.id);
         if (!its.length) return null;
         const node = (
           <Card key={c.id}>
-            <CardHeader className="pb-2"><CardTitle>{c.label}</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle><span className="flex items-center gap-2"><FunIcon tone={CAT_TONE[ci % CAT_TONE.length]}>{c.icon}</FunIcon>{c.label}</span></CardTitle></CardHeader>
             <CardContent className="divide-y">
               {its.map((i) => {
                 const g = groups.find((x) => x.id === i.group_id);
@@ -257,6 +263,7 @@ export function MyLog() {
                 return (
                   <div key={i.id} className="py-2.5">
                     <div className="flex items-start gap-3">
+                      <span aria-hidden className={cn('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-gradient-to-br shadow-sm', TONE[CAT_TONE[ci % CAT_TONE.length]])} />
                       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => open(i)}>
                         <div><b>{i.name}</b>{(i.amount != null || i.strength) && <> · {amountText(i).split(' · ')[1]}</>}</div>
                         <div className="text-xs text-muted-foreground">{g ? `In ${g.name}` : describe(pr.repeat, pr.ends, i.times, i.start_date)}</div>

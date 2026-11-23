@@ -12,6 +12,7 @@ import { duration, isRide, isRun, n, weightOf, type Activity } from '@/lib/perf'
 import { CATEGORIES, COGGAN_LABEL, COGGAN_SECS, category, cogganProfile, cogganStep, categoryFloor, riderType, mortonPower, strain, morton } from '@/lib/compare';
 import { cn } from '@/lib/utils';
 import { TONE } from '@/components/Achievements';
+import { FunTile } from '@/components/Fun';
 import { Chip, Chips } from '@/components/chips';
 
 export const SESSION_COLOURS = ['#0ea5e9', '#f43f5e', '#a855f7', '#f59e0b'];
@@ -99,20 +100,7 @@ function LoadGauges({ cmp }: { cmp: Activity[] }) {
   );
 }
 
-// Playful gradient tile, the same look as the Achievements tiles.
-function Tile({ tone, icon, top, big, sub, i = 0, dot, children }: { tone: keyof typeof TONE; icon: string; top: string; big?: string; sub?: string; i?: number; dot?: string; children?: React.ReactNode }) {
-  return (
-    <div style={{ animationDelay: `${i * 70}ms` }} className={cn('relative overflow-hidden rounded-xl bg-gradient-to-br p-3 shadow-md animate-pop motion-reduce:animate-none', TONE[tone])}>
-      <span aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,0.35)_50%,transparent_70%)] bg-[length:200%_100%] animate-shine motion-reduce:hidden" />
-      {dot && <span className="absolute right-2 top-2 h-3 w-3 rounded-full ring-2 ring-white" style={{ background: dot }} />}
-      <div className="relative text-2xl leading-none animate-float motion-reduce:animate-none" style={{ animationDelay: `${i * 230}ms` }}>{icon}</div>
-      <div className="relative mt-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-90">{top}</div>
-      {big && <div className="relative font-display text-2xl font-extrabold italic leading-tight">{big}</div>}
-      {sub && <div className="relative text-[11px] opacity-90">{sub}</div>}
-      {children && <div className="relative">{children}</div>}
-    </div>
-  );
-}
+const Tile = FunTile;
 // Category colours climb from cool (Untrained) to hot (World class).
 const CAT_TONE: (keyof typeof TONE)[] = ['sky', 'teal', 'emerald', 'lime', 'amber', 'orange', 'rose', 'fuchsia'];
 const TYPE_LOOK: Record<string, [keyof typeof TONE, string]> = {

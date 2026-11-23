@@ -6,7 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { addDays } from '@rules';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BodyFigure, ScaleLegend, figureSex, upgradeKeys } from '@/components/BodyMap';
+import { BodyFigure, MODE_ICON, MODE_TONE, ScaleLegend, figureSex, upgradeKeys } from '@/components/BodyMap';
+import { FunTile, TONE } from '@/components/Fun';
 import { shortDay } from '@/components/charts';
 import { useProfile } from '@/hooks/data';
 import { colorFor, levelName, muscleLabel } from '@/lib/muscles';
@@ -44,7 +45,7 @@ export function SorenessCard() {
         <div className="flex gap-1 rounded-lg border bg-card p-1">
           {(['sore', 'injury'] as const).map((m) => (
             <button key={m} type="button" onClick={() => { setMode(m); setCur(null); }}
-              className={cn('flex-1 rounded-md px-2 py-1.5 text-sm', mode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>{m === 'sore' ? 'Sore' : 'Injured'}</button>
+              className={cn('flex-1 rounded-md px-2 py-1.5 text-sm', mode === m ? cn('bg-gradient-to-br font-semibold shadow-sm', TONE[MODE_TONE[m]]) : 'text-muted-foreground')}>{MODE_ICON[m]} {m === 'sore' ? 'Sore' : 'Injured'}</button>
           ))}
         </div>
         <div className="mx-auto w-full max-w-[220px] touch-pan-y select-none"
@@ -61,11 +62,21 @@ export function SorenessCard() {
           </div>
         </div>
         <ScaleLegend scale={mode} />
+        {latest && (() => {
+          const sore = Object.keys(body).filter((k) => body[k]?.sore), inj = Object.keys(body).filter((k) => (body[k]?.injury ?? 0) >= 2);
+          const top = Math.max(0, ...sore.map((k) => body[k].sore!));
+          return (
+            <div className="grid grid-cols-2 gap-2">
+              <FunTile tone={sore.length ? 'orange' : 'emerald'} icon={sore.length ? '🔥' : '✨'} top="Sore muscles" big={sore.length} sub={sore.length ? `worst: ${levelName('sore', top)}` : 'all fresh'} />
+              <FunTile i={1} tone={inj.length ? 'rose' : 'teal'} icon={inj.length ? '🩹' : '🛡️'} top="Injuries" big={inj.length} sub={inj.length ? inj.map(muscleLabel).slice(0, 2).join(', ') : 'none logged'} />
+            </div>
+          );
+        })()}
         {listed.length ? (
           <div className="flex flex-wrap gap-1.5">
             {listed.map((k) => (
-              <button key={k} type="button" onClick={() => setCur(k)} className={cn('flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs', cur === k && 'border-primary')}>
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: colorFor(mode, val(k)!) }} />{muscleLabel(k)} · {levelName(mode, val(k)!)}
+              <button key={k} type="button" onClick={() => setCur(k)} className={cn('flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium animate-pop motion-reduce:animate-none', cur === k && 'ring-2 ring-foreground/40')} style={{ borderColor: colorFor(mode, val(k)!), background: `${colorFor(mode, val(k)!)}26` }}>
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: colorFor(mode, val(k)!), boxShadow: `0 0 6px ${colorFor(mode, val(k)!)}` }} />{muscleLabel(k)} · {levelName(mode, val(k)!)}
               </button>
             ))}
           </div>

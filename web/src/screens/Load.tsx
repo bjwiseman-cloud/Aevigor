@@ -18,6 +18,7 @@ import { isRide, isRun, testResults } from '@/lib/perf';
 import { WeekLoadTypes } from '@/components/Compare';
 import { TS_ORDER, mergeDays, statusColor, trainingStatus, weekPct, type Status } from '@/lib/training-status';
 import { todayIn } from '@/lib/time';
+import { FunTile } from '@/components/Fun';
 import { cn } from '@/lib/utils';
 import { useSets, useUnit } from '@/hooks/lifting';
 import { Volume } from '@/screens/training/liftCards';
@@ -276,18 +277,28 @@ export function Load({ charts = false }: { charts?: boolean } = {}) {
           <div className="h-36">
             <ResponsiveContainer>
               <BarChart data={w0} margin={M} barGap={2}>
-                <defs><pattern id="stripes" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill={PLAN + '22'} /><line x1="0" y1="0" x2="0" y2="6" stroke={PLAN} strokeWidth="2" strokeOpacity={0.55} /></pattern></defs>
+                <defs><linearGradient id="actG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f43f5e" /><stop offset="55%" stopColor="#f97316" /><stop offset="100%" stopColor="#facc15" /></linearGradient><pattern id="stripes" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill={PLAN + '22'} /><line x1="0" y1="0" x2="0" y2="6" stroke={PLAN} strokeWidth="2" strokeOpacity={0.55} /></pattern></defs>
                 <CartesianGrid vertical={false} strokeOpacity={0.15} />
                 <XAxis dataKey="n" {...axis} /><YAxis {...axis} />
                 <Tooltip {...tooltipStyle} labelFormatter={(_l, pl) => (pl?.[0] ? shortDay(String(pl[0].payload.day)) : '')} />
-                <Bar dataKey="a" name="Actual" fill={ACT} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                <Bar dataKey="a" name="Actual" fill="url(#actG)" radius={[6, 6, 0, 0]} animationDuration={700} />
                 <Bar dataKey="p" name="Planned" fill="url(#stripes)" stroke={PLAN} strokeWidth={1.5} radius={[4, 4, 0, 0]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: ACT }} />Actual</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border align-middle" style={{ borderColor: PLAN, background: PLAN + '44' }} />Planned</span></div>
+          <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-gradient-to-b from-rose-500 via-orange-500 to-yellow-400 align-middle" />Actual</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border align-middle" style={{ borderColor: PLAN, background: PLAN + '44' }} />Planned</span></div>
           <WeekLoadTypes acts={(acts.data ?? []).filter((a) => sport === 'mix' || (sport === 'ride' ? isRide(a) : sport === 'run' ? isRun(a) : a.type === sport))} days={w0} />
-          <p><b>This week so far</b> · {pa} done of {pp} planned{pct != null && <> · <b style={{ color: Math.abs(pct - 100) <= 10 ? '#22c55e' : Math.abs(pct - 100) <= 20 ? '#eab308' : '#ef4444' }}>{pct}%</b></>}<br />Whole week planned: {w0.reduce((s, x) => s + x.p, 0)}</p>
+          <div className="grid grid-cols-3 gap-2">
+            <FunTile tone="orange" icon="🔥" top="Done so far" big={pa} sub="this week" />
+            <FunTile i={1} tone="violet" icon="🗓️" top="Planned so far" big={pp} sub={`whole week ${w0.reduce((s, x) => s + x.p, 0)}`} />
+            <FunTile i={2} tone={pct == null ? 'sky' : Math.abs(pct - 100) <= 10 ? 'emerald' : Math.abs(pct - 100) <= 20 ? 'amber' : 'rose'} icon={pct == null ? '➖' : Math.abs(pct - 100) <= 10 ? '🎯' : pct > 100 ? '⚠️' : '⏳'} top="Of plan" big={pct == null ? '–' : `${pct}%`} sub={pct == null ? 'nothing planned' : Math.abs(pct - 100) <= 10 ? 'on target' : pct > 100 ? 'above plan' : 'below plan'} />
+          </div>
+          {pct != null && (
+            <div className="relative h-4 overflow-hidden rounded-full bg-muted" aria-label={`${pct}% of planned load so far`}>
+              <div className="h-full rounded-full bg-gradient-to-r from-yellow-400 via-orange-500 to-rose-500 transition-all duration-700" style={{ width: `${Math.min(100, (pct / 150) * 100)}%` }} />
+              <span className="absolute inset-y-0 w-0.5 bg-foreground/70" style={{ left: `${(100 / 150) * 100}%` }} />
+            </div>
+          )}
           {more > 0 && (
             <Accordion type="multiple">
               {Array.from({ length: more }, (_, k) => week(addDays(mon, 7 * (k + 1)))).map((w) => (
@@ -299,7 +310,7 @@ export function Load({ charts = false }: { charts?: boolean } = {}) {
             </Accordion>
           )}
           <Button variant="outline" size="sm" disabled={more >= 26} onClick={() => setMore(Math.min(26, more + 4))}>{more ? 'Show 4 more weeks ▾' : 'Next 4 weeks ▾'}</Button>
-          <HowToRead>This week day by day: what you did next to what intervals.icu has planned. Within 10% of plan is green, within 20% gold. The only load alert on Today is the last 7 days running more than 20% above plan.</HowToRead>
+          <HowToRead>This week day by day: what you did next to what intervals.icu has planned. Within 10% of plan is green, within 20% gold, further off rose. The bar fills toward the plan line (100%). The only load alert on Today is the last 7 days running more than 20% above plan.</HowToRead>
         </CardContent>
       </Card>
         ) }
@@ -432,12 +443,12 @@ export function LoadTrendCards({ from, to, show, selDay }: { from: string; to: s
                   <CartesianGrid vertical={false} strokeOpacity={0.15} />
                   <XAxis dataKey="w" {...axis} tickFormatter={shortDay} /><YAxis {...axis} />
                   <Tooltip {...tooltipStyle} labelFormatter={(l) => `Week of ${shortDay(String(l))}`} />
-                  <Bar dataKey="a" name="Actual" fill={ACT} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                  <Bar dataKey="a" name="Actual" fill="url(#actG)" radius={[6, 6, 0, 0]} animationDuration={700} />
                   <Bar dataKey="p" name="Planned" fill="url(#tStripes)" stroke={PLAN} strokeWidth={1.5} radius={[4, 4, 0, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ background: ACT }} />Actual</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border align-middle" style={{ borderColor: PLAN, background: PLAN + '44' }} />Planned</span></div>
+            <div className="flex gap-3 text-xs"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-gradient-to-b from-rose-500 via-orange-500 to-yellow-400 align-middle" />Actual</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm border align-middle" style={{ borderColor: PLAN, background: PLAN + '44' }} />Planned</span></div>
           </CardContent>
         </Card>
       )}

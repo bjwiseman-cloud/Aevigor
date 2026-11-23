@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { HelpQ } from '@/components/HelpQ';
+import { TONE, type Tone } from '@/components/Fun';
 import { JOINTS, LEGACY_TO_NEW, MUSCLES, SCALES, colorFor, jointLabel, levelName, muscleLabel, type ScaleKey } from '@/lib/muscles';
 
 type Fig = { viewBox: string; outline: string; shapes: ([string, string] | [string, string, number[]])[]; joints: Record<string, number[][]> };
@@ -34,7 +35,10 @@ export function BodyFigure({ sex, side, fill, selected, onMuscle, joints, classN
   if (!fig) return <div className={cn('aspect-[1/2] w-full animate-pulse rounded-lg bg-muted', className)} />;
   const id = `${sex}${side}`;
   return (
-    <svg viewBox={fig.viewBox} className={cn('w-full', className)} role="group" aria-label={`Body, ${side}`}>
+    <div className="relative">
+    {/* Soft colourful halo behind the figure (Ben 2026-11-23: playful look) */}
+    <div aria-hidden className="pointer-events-none absolute inset-x-[-10%] inset-y-[4%] rounded-full opacity-60 blur-2xl animate-breathe motion-reduce:animate-none" style={{ background: 'radial-gradient(closest-side, rgba(251,146,60,0.35), rgba(236,72,153,0.22) 55%, rgba(56,189,248,0.12) 80%, transparent)' }} />
+    <svg viewBox={fig.viewBox} className={cn('relative w-full', className)} role="group" aria-label={`Body, ${side}`}>
       <defs>{fig.shapes.map((s, i) => (s[2] ? <clipPath key={i} id={`${id}c${i}`}><rect x={s[2][0]} y={s[2][1]} width={s[2][2]} height={s[2][3]} /></clipPath> : null))}</defs>
       <path d={fig.outline} fill="hsl(var(--card))" stroke="hsl(var(--border))" strokeWidth={3} />
       {fig.shapes.map(([k, d, clip], i) => {
@@ -44,7 +48,8 @@ export function BodyFigure({ sex, side, fill, selected, onMuscle, joints, classN
           <path key={i} d={d} clipPath={clip ? `url(#${id}c${i})` : undefined}
             fill={c ?? (k ? 'hsl(var(--muted-foreground) / 0.28)' : 'hsl(var(--muted-foreground) / 0.12)')}
             stroke={selected && k === selected ? 'hsl(var(--foreground))' : 'hsl(var(--card))'} strokeWidth={selected && k === selected ? 4 : 1.5}
-            className={tappable ? 'cursor-pointer' : undefined} onClick={tappable ? () => onMuscle!(k) : undefined}>
+            style={c ? { filter: `drop-shadow(0 0 5px ${c})` } : undefined}
+            className={cn(tappable && 'cursor-pointer', 'transition-[fill] duration-300')} onClick={tappable ? () => onMuscle!(k) : undefined}>
             {k && <title>{muscleLabel(k)}</title>}
           </path>
         );
@@ -58,6 +63,7 @@ export function BodyFigure({ sex, side, fill, selected, onMuscle, joints, classN
         );
       }))}
     </svg>
+    </div>
   );
 }
 
@@ -89,7 +95,7 @@ export function BodyMapEditor({ sex, modes, value, onChange, help }: {
           <div className="flex flex-1 gap-1 rounded-lg border bg-card p-1">
             {modes.map((m) => (
               <button key={m.id} type="button" onClick={() => { setModeId(m.id); setCur(null); }}
-                className={cn('flex-1 rounded-md px-2 py-1.5 text-sm', m.id === mode.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>{m.label}</button>
+                className={cn('flex-1 rounded-md px-2 py-1.5 text-sm', m.id === mode.id ? cn('bg-gradient-to-br font-semibold shadow-sm', TONE[MODE_TONE[m.id] ?? 'violet']) : 'text-muted-foreground')}>{MODE_ICON[m.id] ?? ''} {m.label}</button>
             ))}
           </div>
         )}
@@ -104,7 +110,7 @@ export function BodyMapEditor({ sex, modes, value, onChange, help }: {
           joints={mode.target === 'joint' ? { fill: (k) => (vals[k] != null ? colorFor(mode.scale, vals[k]) : undefined), onTap: tap, selected: cur } : undefined} />
         <div className="mt-1 flex justify-center gap-1">
           {(['front', 'back'] as const).map((s) => (
-            <button key={s} type="button" onClick={() => setSide(s)} className={cn('rounded-full border px-3 py-0.5 text-xs', side === s ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>{s === 'front' ? 'Front' : 'Back'}</button>
+            <button key={s} type="button" onClick={() => setSide(s)} className={cn('rounded-full border px-3 py-0.5 text-xs', side === s ? cn('border-transparent bg-gradient-to-br font-semibold', TONE.sky) : 'bg-card text-muted-foreground')}>{s === 'front' ? 'Front' : 'Back'}</button>
           ))}
         </div>
       </div>
@@ -130,8 +136,8 @@ export function BodyMapEditor({ sex, modes, value, onChange, help }: {
               <div key={m.id} className="flex flex-wrap items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">{m.label}:</span>
                 {keys.map((k) => (
-                  <button key={k} type="button" onClick={() => { setModeId(m.id); setCur(k); }} className="flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: colorFor(m.scale, v[k]) }} />
+                  <button key={k} type="button" onClick={() => { setModeId(m.id); setCur(k); }} className="flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium animate-pop motion-reduce:animate-none" style={{ borderColor: colorFor(m.scale, v[k]), background: `${colorFor(m.scale, v[k])}26` }}>
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: colorFor(m.scale, v[k]), boxShadow: `0 0 6px ${colorFor(m.scale, v[k])}` }} />
                     {m.target === 'joint' ? jointLabel(k) : muscleLabel(k)} · {levelName(m.scale, v[k])}
                   </button>
                 ))}
@@ -148,8 +154,13 @@ export function BodyMapEditor({ sex, modes, value, onChange, help }: {
 export function ScaleLegend({ scale }: { scale: ScaleKey }) {
   const sc = SCALES[scale];
   return (
-    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-      {sc.levels.map((l, i) => <span key={l} className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: sc.colors[i] }} />{l}</span>)}
+    <div className="mx-auto max-w-xs space-y-1">
+      <div className="h-2.5 rounded-full shadow-inner" style={{ background: `linear-gradient(90deg, ${sc.colors.join(', ')})` }} />
+      <div className="flex justify-between gap-1 text-[10px] font-medium text-muted-foreground">{sc.levels.map((l) => <span key={l} className="text-center">{l}</span>)}</div>
     </div>
   );
 }
+
+/** Mode colours and icons for the body map toggles. */
+export const MODE_TONE: Record<string, Tone> = { sore: 'orange', injury: 'rose', joint: 'violet', pump: 'fuchsia', volume: 'sky' };
+export const MODE_ICON: Record<string, string> = { sore: '🔥', injury: '🩹', joint: '🦴', pump: '💪', volume: '📊' };

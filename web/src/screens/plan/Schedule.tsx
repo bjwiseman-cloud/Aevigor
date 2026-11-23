@@ -13,6 +13,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Chip, Chips, Field } from '@/components/chips';
 import { HealthConsent } from '@/components/health';
 import { NextTestCard } from '@/screens/Load';
+import { TONE } from '@/components/Fun';
 import { cn } from '@/lib/utils';
 
 type View = 'day' | 'week' | 'month' | 'quarter';
@@ -35,8 +36,8 @@ function toInstant(day: string, time: string, tz: string) {
   return new Date(guess.getTime() - diff).toISOString();
 }
 
-function EventSheet({ open, onOpenChange, ev, tz, today }: { open: boolean; onOpenChange: (o: boolean) => void; ev: PlanEvent | null; tz: string; today: string }) {
-  const p = ev ? localParts(ev.starts_at, tz) : { day: addDaysIso(today, 7), time: '09:00' };
+function EventSheet({ open, onOpenChange, ev, tz, today, startDay }: { open: boolean; onOpenChange: (o: boolean) => void; ev: PlanEvent | null; tz: string; today: string; startDay?: string }) {
+  const p = ev ? localParts(ev.starts_at, tz) : { day: startDay ?? addDaysIso(today, 7), time: '09:00' };
   const [kind, setKind] = useState<EventKind>(ev?.kind ?? 'medical');
   const [title, setTitle] = useState(ev?.title ?? '');
   const [day, setDay] = useState(p.day);
@@ -92,7 +93,7 @@ export function Schedule() {
   const tests = usePlannedTests(profile);
   const [view, setView] = useState<View>('month');
   const [show, setShow] = useState<Show[]>(['training', 'tests', 'log', 'appointments']);
-  const [sheet, setSheet] = useState<{ ev: PlanEvent | null; key: number } | null>(null);
+  const [sheet, setSheet] = useState<{ ev: PlanEvent | null; key: number; day?: string } | null>(null);
   const tz = profile.time_zone, today = d.today;
 
   const range = useMemo(() => {
@@ -131,9 +132,16 @@ export function Schedule() {
     return (
       <div className="grid grid-cols-7 gap-1 text-xs">
         {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((h, i) => <div key={i} className="text-center text-muted-foreground">{h}</div>)}
-        {cells.map((c, i) => (
-          <div key={i} className={cn('min-h-[52px] rounded border p-1', !c && 'border-transparent', c === today && 'border-primary')}>
-            {c && <><div>{+c.slice(8)}</div>{entries.filter((e) => e.day === c).slice(0, 2).map((e, k) => <div key={k} className="truncate" title={e.title}>{e.icon} {e.title}</div>)}</>}
+        {cells.map((c, i) => !c ? <div key={i} /> : (
+          // Tap a day to add an appointment, test or event on it (Ben 2026-11-23); tap an item to edit it
+          <div key={i} role="button" tabIndex={0} aria-label={`Add on ${shortDate(c)}`}
+            onClick={() => setSheet({ ev: null, key: Date.now(), day: c })} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSheet({ ev: null, key: Date.now(), day: c }); } }}
+            className={cn('group min-h-[56px] cursor-pointer rounded-lg border p-1 transition-transform hover:bg-muted active:scale-95', c === today && 'border-transparent bg-gradient-to-br from-orange-100 via-rose-100 to-fuchsia-100 ring-2 ring-rose-400 dark:from-orange-950 dark:via-rose-950 dark:to-fuchsia-950', c < today && 'opacity-60')}>
+            <div className="flex items-center justify-between"><span className={cn(c === today && 'font-bold')}>{+c.slice(8)}</span><span aria-hidden className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100">＋</span></div>
+            {entries.filter((e) => e.day === c).slice(0, 2).map((e, k) => (
+              <button key={k} type="button" title={e.title} onClick={(ev) => { ev.stopPropagation(); if (e.event) setSheet({ ev: e.event, key: Date.now() }); else setSheet({ ev: null, key: Date.now(), day: c }); }}
+                className={cn('mt-0.5 block w-full truncate rounded bg-gradient-to-br px-0.5 text-left text-[10px] font-semibold', TONE[e.show === 'tests' ? 'rose' : e.show === 'appointments' ? 'sky' : e.show === 'log' ? 'violet' : 'emerald'])}>{e.icon} {e.title}</button>
+            ))}
           </div>
         ))}
       </div>
@@ -149,7 +157,7 @@ export function Schedule() {
         { id: 'calendar', label: 'Calendar', node: (
           <div className="space-y-4">
       <Card>
-        <CardHeader className="pb-2"><CardTitle help="schedule">Calendar</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle help="schedule">Calendar</CardTitle>{view === 'month' && <p className="text-xs text-muted-foreground">Tap a day to add an appointment, test or event.</p>}</CardHeader>
         <CardContent className="space-y-3">
           <Chips>{(['day', 'week', 'month', 'quarter'] as View[]).map((v) => <Chip key={v} on={view === v} onClick={() => setView(v)}>{v[0].toUpperCase() + v.slice(1)}</Chip>)}</Chips>
           <Chips>{SHOW.map((s) => <Chip key={s.id} on={show.includes(s.id)} onClick={() => setShow(show.includes(s.id) ? show.filter((x) => x !== s.id) : [...show, s.id])}>{s.label}</Chip>)}</Chips>
@@ -183,7 +191,7 @@ export function Schedule() {
       </Card>
         ) }
       ]} />
-      {sheet && <EventSheet key={sheet.key} open onOpenChange={(o) => !o && setSheet(null)} ev={sheet.ev} tz={tz} today={today} />}
+      {sheet && <EventSheet key={sheet.key} open onOpenChange={(o) => !o && setSheet(null)} ev={sheet.ev} tz={tz} today={today} startDay={sheet.day} />}
     </div>
   );
 }

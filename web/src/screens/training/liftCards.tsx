@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Chip, Chips } from '@/components/chips';
 import { BodyFigure, ScaleLegend, figureSex } from '@/components/BodyMap';
+import { FunTile } from '@/components/Fun';
 import { useExercises } from '@/components/ExercisePicker';
 import { useProfile, usePref } from '@/hooks/data';
 import { colorFor, levelName, muscleLabel, type MuscleKey } from '@/lib/muscles';
@@ -143,6 +144,17 @@ export function Volume({ sets, unit, ex }: { sets: LiftSet[]; unit: Unit; ex: st
             </div>
           </div>
           <ScaleLegend scale="volume" />
+          {(() => {
+            const keys = Object.keys(counts) as MuscleKey[], total = keys.reduce((t, k) => t + (counts[k] ?? 0), 0);
+            const inRange = keys.filter((k) => level(k) === 3).length, limit = keys.filter((k) => level(k) === 4).length;
+            return (
+              <div className="grid grid-cols-3 gap-2">
+                <FunTile tone="sky" icon="📊" top="Hard sets" big={Math.round(total)} sub="this week" className="p-2" />
+                <FunTile i={1} tone="emerald" icon="🎯" top="In range" big={inRange} sub="muscles at MAV" className="p-2" />
+                <FunTile i={2} tone={limit ? 'rose' : 'teal'} icon={limit ? '🚨' : '🛡️'} top="At limit" big={limit} sub="muscles at MRV" className="p-2" />
+              </div>
+            );
+          })()}
           {cur && (
             <div className="rounded-md border p-3 text-sm">
               <b>{muscleLabel(cur)}</b>: {counts[cur as MuscleKey] ?? 0} hard sets this week

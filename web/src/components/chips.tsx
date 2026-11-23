@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 export function Chip({ on, onClick, children, className }: { on?: boolean; onClick: () => void; children: ReactNode; className?: string }) {
   return (
     <button type="button" aria-pressed={!!on} onClick={onClick}
-      className={cn('rounded-full border px-3 py-1 text-sm transition-colors', on ? 'border-primary bg-primary text-primary-foreground' : 'bg-card hover:bg-muted', className)}>
+      className={cn('rounded-full border px-3 py-1 text-sm transition-colors', on ? 'border-transparent bg-gradient-to-br from-orange-400 via-rose-500 to-fuchsia-500 font-semibold text-white shadow-sm' : 'bg-card hover:bg-muted', className)}>
       {children}
     </button>
   );
