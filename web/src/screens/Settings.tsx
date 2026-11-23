@@ -155,13 +155,13 @@ export function Settings() {
           {profile.intervals_connected_at ? (
             <>
               <p>Connected as athlete <b>{profile.intervals_athlete_id}</b>.</p>
-              <Button variant="outline" className="w-full" onClick={() => navigate('/connect')}>Change API key</Button>
+              <Button variant="outline" className="w-full" onClick={() => navigate('/connect')}>Reconnect intervals.icu</Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild><Button variant="outline" className="w-full border-destructive text-destructive">Disconnect</Button></AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Disconnect intervals.icu?</AlertDialogTitle>
-                    <AlertDialogDescription>Syncing stops and your saved API key is deleted. Your past data stays until you delete your account.</AlertDialogDescription>
+                    <AlertDialogDescription>Syncing stops and Aevigor's access to intervals.icu is removed. Your past data stays until you delete your account.</AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>

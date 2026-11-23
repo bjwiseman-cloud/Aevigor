@@ -17,8 +17,8 @@ export function ConnectSteps() {
   return (
     <ol className="list-decimal space-y-1 pl-5 text-sm">
       <li>Make a free account at <a className="text-primary underline" href="https://intervals.icu" target="_blank" rel="noopener">intervals.icu</a> and link your watch (Garmin, Polar, Coros, Apple Health and others) there.</li>
-      <li>In intervals.icu, open <b>Settings</b>, scroll to <b>Developer Settings</b> and copy your <b>API key</b>.</li>
-      <li>Come back here, tap <b>Connect now</b> and paste it.</li>
+      <li>Come back here, tap <b>Connect now</b>, then <b>Connect with intervals.icu</b>.</li>
+      <li>Sign in on intervals.icu and tap <b>Allow</b>. That's it.</li>
     </ol>
   );
 }
