@@ -15,16 +15,18 @@ export function SportChips({ fixed, more = [], moreLabel, value, onChange, allLa
 }) {
   const allOn = !noAll && (value.length === 0 || (!!allIds && allIds.every((x) => value.includes(x)) && value.length === allIds.length));
   const extra = value.filter((v) => more.includes(v));
+  // More: a small drop-down; picking a sport from it adds that sport as its own chip (Ben 2026-11-24)
+  const moreSel = more.length > 0 && (
+    <select className="h-7 w-[4.25rem] shrink-0 appearance-none rounded-full border bg-card px-2.5 text-center text-xs font-semibold" value="" onChange={(e) => e.target.value && onChange([...(allOn ? [] : value), e.target.value])} aria-label="More sports">
+      <option value="">More ▾</option>{more.filter((k) => !value.includes(k)).map((k) => <option key={k} value={k}>{moreLabel?.(k) ?? k}</option>)}
+    </select>
+  );
   return (
     <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Sports">
-      {!noAll && <Chip on={allOn} onClick={() => onChange(allIds ?? [])}>{allLabel}</Chip>}
+      {noAll ? moreSel : <Chip on={allOn} onClick={() => onChange(allIds ?? [])}>{allLabel}</Chip>}
       {fixed.map((s) => <Chip key={s.id} on={!allOn && value.includes(s.id)} onClick={() => onChange(toggleSport(allOn ? [] : value, s.id, keepOne))}>{s.label}</Chip>)}
       {extra.map((k) => <Chip key={k} on onClick={() => onChange(toggleSport(value, k, keepOne))}>{moreLabel?.(k) ?? k} ✕</Chip>)}
-      {more.length > 0 && (
-        <select className="h-8 rounded-full border bg-card px-3 text-sm" value="" onChange={(e) => e.target.value && onChange([...(allOn ? [] : value), e.target.value])} aria-label="More sports">
-          <option value="">More ▾</option>{more.filter((k) => !value.includes(k)).map((k) => <option key={k} value={k}>{moreLabel?.(k) ?? k}</option>)}
-        </select>
-      )}
+      {!noAll && moreSel}
     </div>
   );
 }
