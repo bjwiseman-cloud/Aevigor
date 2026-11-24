@@ -23,17 +23,18 @@ import { ResultPromptCard } from '@/components/Results';
 import { cn } from '@/lib/utils';
 
 type View = 'day' | 'week' | 'month' | 'quarter';
-export type CalType = 'training' | 'tests' | 'races' | 'appointments';
+// Ben 2026-11-24: three types only. Events = races and tests (and intervals.icu events); Appointments = medical, lab, physio, other.
+export type CalType = 'training' | 'events' | 'appointments';
 type Entry = { day: string; time?: string; title: string; sub?: string; type: CalType; icon: string; event?: PlanEvent; done?: boolean };
 
 export const CAL_TYPES: { id: CalType; label: string; add: string; icon: string; dot: string; tile: string }[] = [
   { id: 'training', label: 'Training', add: 'Training', icon: '🚴', dot: '#22C55E', tile: 'from-emerald-400 to-teal-500' },
-  { id: 'tests', label: 'Tests', add: 'Test', icon: '⏱', dot: '#8B5CF6', tile: 'from-violet-500 to-sky-500' },
-  { id: 'races', label: 'Races', add: 'Race', icon: '🏁', dot: '#FF2E63', tile: 'from-[#FF6B00] to-[#FF2E63]' },
-  { id: 'appointments', label: 'Appointments & events', add: 'Appointment or event', icon: '📅', dot: '#00B8FF', tile: 'from-sky-400 to-blue-600' }
+  { id: 'events', label: 'Events', add: 'Event', icon: '🏁', dot: '#FF2E63', tile: 'from-[#FF6B00] to-[#FF2E63]' },
+  { id: 'appointments', label: 'Appointments', add: 'Appointment', icon: '📅', dot: '#00B8FF', tile: 'from-sky-400 to-blue-600' }
 ];
 const look = (t: CalType) => CAL_TYPES.find((x) => x.id === t)!;
-const typeOfKind = (k: EventKind): CalType => (k === 'training' ? 'training' : k === 'fitness_test' ? 'tests' : k === 'race' ? 'races' : 'appointments');
+const typeOfKind = (k: EventKind): CalType => (k === 'training' ? 'training' : k === 'fitness_test' || k === 'race' ? 'events' : 'appointments');
+const EVENT_SUB: { id: EventKind; label: string; icon: string }[] = [{ id: 'race', label: 'Race', icon: '🏁' }, { id: 'fitness_test', label: 'Test', icon: '⏱' }];
 const APPT_KINDS = EVENT_KINDS.filter((k) => ['medical', 'lab', 'physio', 'other'].includes(k.id));
 const SPORT: Record<string, [string, string]> = { ride: ['🚴', 'Ride'], run: ['🏃', 'Run'], WeightTraining: ['🏋️', 'Lifting'], Badminton: ['🏸', 'Badminton'], Swim: ['🏊', 'Swim'] };
 const sport = (k: string) => SPORT[k] ?? ['💪', k.replace(/([a-z])([A-Z])/g, '$1 $2')];
@@ -77,11 +78,11 @@ function useEntries(from: string, to: string) {
       const v = Math.round(past ? r.actual : r.planned);
       if (v > 0) out.push({ day: r.day, title: nm, sub: past ? `${v} load done` : `${v} load planned`, type: 'training', icon: ic, done: past });
     }
-    for (const t of tests.data ?? []) if (t.day >= from && t.day <= to) out.push({ day: t.day, title: t.name || t.kind, sub: t.kind, type: 'tests', icon: '⏱' });
+    for (const t of tests.data ?? []) if (t.day >= from && t.day <= to) out.push({ day: t.day, title: t.name || t.kind, sub: t.kind, type: 'events', icon: '⏱' });
     for (const c of cal.data ?? []) {
       if (c.day < from || c.day > to) continue;
-      if (/^Race/.test(c.kind)) out.push({ day: c.day, title: c.name || c.kind, sub: c.kind, type: 'races', icon: '🏁' });
-      else if (c.kind === 'Event') out.push({ day: c.day, title: c.name || 'Event', sub: 'intervals.icu', type: 'appointments', icon: '📌' });
+      if (/^Race/.test(c.kind)) out.push({ day: c.day, title: c.name || c.kind, sub: c.kind, type: 'events', icon: '🏁' });
+      else if (c.kind === 'Event') out.push({ day: c.day, title: c.name || 'Event', sub: 'intervals.icu', type: 'events', icon: '📌' });
     }
     for (const e of d.events.data ?? []) {
       const lp = localParts(e.starts_at, tz), k = EVENT_KINDS.find((x) => x.id === e.kind);
@@ -103,6 +104,7 @@ function EventSheet({ open, onOpenChange, ev, tz, today, startDay, startTime }: 
   const p = ev ? localParts(ev.starts_at, tz) : { day: startDay ?? today, time: startTime ?? '09:00' };
   const [type, setType] = useState<AddType>(ev ? typeOfKind(ev.kind) : 'appointments');
   const [appt, setAppt] = useState<EventKind>(ev && typeOfKind(ev.kind) === 'appointments' ? ev.kind : 'medical');
+  const [evk, setEvk] = useState<EventKind>(ev && typeOfKind(ev.kind) === 'events' ? ev.kind : 'race');
   const [title, setTitle] = useState(ev?.title ?? '');
   const [day, setDay] = useState(p.day);
   const [time, setTime] = useState(p.time);
@@ -113,7 +115,7 @@ function EventSheet({ open, onOpenChange, ev, tz, today, startDay, startTime }: 
   const [rrule, setRrule] = useState<string | null>(ev?.rrule ?? null);
   const [external, setExternal] = useState(ev?.on_external_calendars ?? false);
   const save = useSave('events', ['events']);
-  const kind: EventKind = type === 'training' ? 'training' : type === 'tests' ? 'fitness_test' : type === 'races' ? 'race' : appt;
+  const kind: EventKind = type === 'training' ? 'training' : type === 'events' ? evk : appt;
   const needsHealth = type === 'appointments' && !profile.health_consent_at;
   const submit = async () => {
     const row = { kind, title: title.trim(), starts_at: toInstant(day, time, tz), location: location || null, description: description || null, prep_notes: prep || null, remind_minutes: remind, rrule, on_external_calendars: external };
@@ -136,8 +138,9 @@ function EventSheet({ open, onOpenChange, ev, tz, today, startDay, startTime }: 
           ) : needsHealth ? (
             <div className="space-y-2"><p className="text-sm text-muted-foreground">Appointments are kept with your private health log, which needs its own opt-in first. Training, tests and races do not.</p><HealthConsent profile={profile} /></div>
           ) : (<>
+            {type === 'events' && <Field label="Kind"><Chips>{EVENT_SUB.map((k) => <Chip key={k.id} on={evk === k.id} onClick={() => setEvk(k.id)}>{k.icon} {k.label}</Chip>)}</Chips></Field>}
             {type === 'appointments' && <Field label="Kind"><Chips>{APPT_KINDS.map((k) => <Chip key={k.id} on={appt === k.id} onClick={() => setAppt(k.id)}>{k.icon} {k.label}</Chip>)}</Chips></Field>}
-            <Field label="Title"><Input value={title} maxLength={120} placeholder={type === 'training' ? 'e.g. Group ride' : type === 'tests' ? 'e.g. FTP test' : type === 'races' ? 'e.g. Gravel 90 km' : 'e.g. Blood work, Dr. Lee'} onChange={(e) => setTitle(e.target.value)} /></Field>
+            <Field label="Title"><Input value={title} maxLength={120} placeholder={type === 'training' ? 'e.g. Group ride' : type === 'events' ? (evk === 'race' ? 'e.g. Gravel 90 km' : 'e.g. FTP test') : 'e.g. Blood work, Dr. Lee'} onChange={(e) => setTitle(e.target.value)} /></Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Date"><Input type="date" value={day} onChange={(e) => setDay(e.target.value)} /></Field>
               <Field label="Time"><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field>
@@ -177,7 +180,7 @@ export function CalRow({ e, when, onClick }: { e: Pick<Entry, 'title' | 'sub' | 
 function CalendarCard({ onAdd, onEdit, onDay }: { onAdd: (day: string, time?: string) => void; onEdit: (e: PlanEvent) => void; onDay: (day: string) => void }) {
   const p = useProfile().data!;
   const [view, setView] = useState<View>('month');
-  const [show, setShow] = useState<CalType[]>(['training', 'tests', 'races', 'appointments']);
+  const [show, setShow] = useState<CalType[]>(['training', 'events', 'appointments']);
   const today = usePlanData(p).today;
   const [at, setAt] = useState(today);
   const range = useMemo((): [string, string] => {
@@ -209,7 +212,7 @@ function CalendarCard({ onAdd, onEdit, onDay }: { onAdd: (day: string, time?: st
         {cells.map((c, i) => {
           if (!c) return <div key={i} />;
           const es = onDayOf(c), isToday = c === today, types = [...new Set(es.map((e) => e.type))];
-          const hasTest = es.some((e) => e.type === 'tests' || e.type === 'races');
+          const hasTest = es.some((e) => e.type === 'events');
           return (
             <button key={i} type="button" aria-label={`${shortDate(c)}${es.length ? `, ${es.length} items` : ', add'}`} onClick={() => (mini ? onDay(c) : tapDay(c))}
               className={cn('relative flex flex-col items-center rounded-lg transition-transform active:scale-95', mini ? 'h-8 justify-center text-[10px]' : 'min-h-[54px] justify-start pt-1 text-xs',
@@ -310,7 +313,7 @@ function CalendarCard({ onAdd, onEdit, onDay }: { onAdd: (day: string, time?: st
         {view === 'day' && dayView()}
         {view === 'week' && weekView()}
         <Button className="w-full" onClick={() => onAdd(view === 'day' ? at : at >= today ? at : today)}><Plus /> Add to calendar</Button>
-        <p className="text-xs text-muted-foreground">Add training, a test, a race, an appointment or a My log item, or tap a day. Training, tests and races also come from your intervals.icu calendar.</p>
+        <p className="text-xs text-muted-foreground">Add training, an event (race or test), an appointment or a My log item, or tap a day. Training, tests and races also come from your intervals.icu calendar.</p>
       </CardContent>
     </Card>
   );
