@@ -242,7 +242,9 @@ alter table public.events drop constraint if exists events_kind_check;
 -- Appointment kinds (Ben 2026-11-24): health ones (medical, dental, lab, physio, other health) still need the
 -- health-data opt-in; everyday ones (bank, work, car, home, personal care, family, vet, legal, errand) do not.
 alter table public.events add constraint events_kind_check check (kind in ('medical', 'lab', 'fitness_test', 'race', 'physio', 'other', 'training', 'social',
-  'dental', 'finance', 'work', 'car', 'home', 'personal', 'family', 'pet', 'legal', 'errand'));
+  'dental', 'finance', 'work', 'car', 'home', 'personal', 'family', 'pet', 'legal', 'errand', 'travel'));
+-- Travel (Ben 2026-11-24) can span days: ends_at is the day you are back (null = one day)
+alter table public.events add column if not exists ends_at timestamptz;
 -- Training, tests and races are not health data, so they can be saved without the health-data opt-in.
 -- Training entries say which sport (ride, run, lift or any intervals.icu type the person uses)
 alter table public.events add column if not exists sport text check (char_length(sport) <= 40);

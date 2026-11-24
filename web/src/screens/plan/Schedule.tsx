@@ -32,16 +32,18 @@ const sportIcon = (s: string | null | undefined) => TRAIN_SPORTS.find((x) => x.i
 
 type View = 'day' | 'week' | 'month' | 'quarter';
 // Ben 2026-11-24: three types only. Events = races and tests (and intervals.icu events); Appointments = medical, lab, physio, other.
-export type CalType = 'training' | 'events' | 'appointments';
+export type CalType = 'training' | 'events' | 'appointments' | 'travel';
 type Entry = { day: string; time?: string; title: string; sub?: string; type: CalType; icon: string; event?: PlanEvent; done?: boolean };
 
 export const CAL_TYPES: { id: CalType; label: string; add: string; icon: string; dot: string; tile: string }[] = [
   { id: 'training', label: 'Training', add: 'Training', icon: '🚴', dot: '#22C55E', tile: 'from-emerald-400 to-teal-500' },
   { id: 'events', label: 'Events', add: 'Event', icon: '🏁', dot: '#FF2E63', tile: 'from-[#FF6B00] to-[#FF2E63]' },
-  { id: 'appointments', label: 'Appointments', add: 'Appointment', icon: '📅', dot: '#00B8FF', tile: 'from-sky-400 to-blue-600' }
+  { id: 'appointments', label: 'Appointments', add: 'Appointment', icon: '📅', dot: '#00B8FF', tile: 'from-sky-400 to-blue-600' },
+  // Travel (Ben 2026-11-24): trips usually mean short sleep and missed sessions, so they sit on the calendar too
+  { id: 'travel', label: 'Travel', add: 'Travel', icon: '✈️', dot: '#F59E0B', tile: 'from-amber-400 to-orange-500' }
 ];
 const look = (t: CalType) => CAL_TYPES.find((x) => x.id === t)!;
-const typeOfKind = (k: EventKind): CalType => (k === 'training' ? 'training' : k === 'fitness_test' || k === 'race' || k === 'social' ? 'events' : 'appointments');
+const typeOfKind = (k: EventKind): CalType => (k === 'training' ? 'training' : k === 'travel' ? 'travel' : k === 'fitness_test' || k === 'race' || k === 'social' ? 'events' : 'appointments');
 const EVENT_SUB: { id: EventKind; label: string; icon: string }[] = [{ id: 'race', label: 'Race', icon: '🏁' }, { id: 'fitness_test', label: 'Test', icon: '⏱' }, { id: 'social', label: 'Social', icon: '🎉' }];
 // Appointments (Ben 2026-11-24): everyday kinds first, then health ones (those need the health opt-in)
 const APPT_ORDER: EventKind[] = ['finance', 'work', 'car', 'home', 'personal', 'family', 'pet', 'legal', 'medical', 'dental', 'lab', 'physio', 'other', 'errand'];
@@ -97,7 +99,7 @@ function useEntries(from: string, to: string) {
     for (const e of d.events.data ?? []) {
       const lp = localParts(e.starts_at, tz), k = EVENT_KINDS.find((x) => x.id === e.kind);
       const days: string[] = [];
-      if (!e.rrule) days.push(lp.day);
+      if (!e.rrule) { const end = e.ends_at ? localParts(e.ends_at, tz).day : lp.day; for (let x = lp.day; x <= end && days.length < 60; x = addDaysIso(x, 1)) days.push(x); }
       else for (let x = from; x <= to; x = addDaysIso(x, 1)) if (occursOn(e.rrule, lp.day, x)) days.push(x);
       for (const day of days) if (day >= from && day <= to) out.push({ day, time: lp.time, title: e.title, sub: e.location ?? k?.label, type: typeOfKind(e.kind), icon: e.kind === 'training' ? sportIcon(e.sport) : k?.icon ?? '📌', event: e });
     }
@@ -120,6 +122,7 @@ function EventSheet({ open, onOpenChange, ev, tz, today, startDay, startTime }: 
   const [evk, setEvk] = useState<EventKind>(ev && typeOfKind(ev.kind) === 'events' ? ev.kind : 'race');
   const [title, setTitle] = useState(ev?.title ?? '');
   const [day, setDay] = useState(p.day);
+  const [back, setBack] = useState(ev?.ends_at ? localParts(ev.ends_at, tz).day : p.day);
   const [time, setTime] = useState(p.time);
   const [location, setLocation] = useState(ev?.location ?? '');
   const [description, setDescription] = useState(ev?.description ?? '');
@@ -128,10 +131,10 @@ function EventSheet({ open, onOpenChange, ev, tz, today, startDay, startTime }: 
   const [rrule, setRrule] = useState<string | null>(ev?.rrule ?? null);
   const [external, setExternal] = useState(ev?.on_external_calendars ?? false);
   const save = useSave('events', ['events']);
-  const kind: EventKind = type === 'training' ? 'training' : type === 'events' ? evk : appt;
+  const kind: EventKind = type === 'training' ? 'training' : type === 'travel' ? 'travel' : type === 'events' ? evk : appt;
   const needsHealth = type === 'appointments' && HEALTH_KINDS.includes(appt) && !profile.health_consent_at;
   const submit = async () => {
-    const row = { kind, sport: kind === 'training' ? sport : null, title: title.trim(), starts_at: toInstant(day, time, tz), location: location || null, description: description || null, prep_notes: prep || null, remind_minutes: remind, rrule, on_external_calendars: external };
+    const row = { kind, ends_at: kind === 'travel' && back > day ? toInstant(back, '12:00', tz) : null, sport: kind === 'training' ? sport : null, title: title.trim(), starts_at: toInstant(day, time, tz), location: location || null, description: description || null, prep_notes: prep || null, remind_minutes: remind, rrule, on_external_calendars: external };
     await save.mutateAsync(ev ? { op: 'update', id: ev.id, row } : { op: 'insert', row });
     onOpenChange(false);
   };
@@ -162,12 +165,13 @@ function EventSheet({ open, onOpenChange, ev, tz, today, startDay, startTime }: 
               )}
             </div></Field>}
             {type === 'events' && <Field label="Kind"><Chips>{EVENT_SUB.map((k) => <Chip key={k.id} on={evk === k.id} onClick={() => setEvk(k.id)}>{k.icon} {k.label}</Chip>)}</Chips></Field>}
-            <Field label="Title"><Input value={title} maxLength={120} placeholder={type === 'training' ? 'e.g. Group ride' : type === 'events' ? (evk === 'race' ? 'e.g. Gravel 90 km' : evk === 'social' ? 'e.g. Saturday group ride, family hike' : 'e.g. FTP test') : 'e.g. Mortgage meeting, Dr. Lee'} onChange={(e) => setTitle(e.target.value)} /></Field>
+            <Field label="Title"><Input value={title} maxLength={120} placeholder={type === 'training' ? 'e.g. Group ride' : type === 'events' ? (evk === 'race' ? 'e.g. Gravel 90 km' : evk === 'social' ? 'e.g. Saturday group ride, family hike' : 'e.g. FTP test') : type === 'travel' ? 'e.g. Flight to Vancouver, work trip' : 'e.g. Mortgage meeting, Dr. Lee'} onChange={(e) => setTitle(e.target.value)} /></Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Date"><Input type="date" value={day} onChange={(e) => setDay(e.target.value)} /></Field>
               <Field label="Time"><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field>
             </div>
-            <Field label="Where" hint="clinic, lab or route"><Input value={location} maxLength={200} onChange={(e) => setLocation(e.target.value)} /></Field>
+            {type === 'travel' && <Field label="Back on" hint="leave as the same day for a day trip"><Input type="date" min={day} value={back < day ? day : back} onChange={(e) => setBack(e.target.value)} /></Field>}
+            <Field label="Where" hint={type === 'travel' ? 'destination' : 'clinic, lab or route'}><Input value={location} maxLength={200} onChange={(e) => setLocation(e.target.value)} /></Field>
             <Field label="Description"><Textarea value={description} maxLength={2000} onChange={(e) => setDescription(e.target.value)} /></Field>
             <Field label="Prep notes" hint={type === 'appointments' ? 'e.g. fast from 20:00' : 'e.g. fresh legs, same route'}><Textarea value={prep} maxLength={1000} onChange={(e) => setPrep(e.target.value)} /></Field>
             <Field label="Remind me"><Chips>{REMIND.map((r) => <Chip key={r.m} on={remind.includes(r.m)} onClick={() => setRemind(remind.includes(r.m) ? remind.filter((x) => x !== r.m) : [...remind, r.m])}>{r.label}</Chip>)}</Chips></Field>
@@ -202,7 +206,7 @@ export function CalRow({ e, when, onClick }: { e: Pick<Entry, 'title' | 'sub' | 
 function CalendarCard({ onAdd, onEdit, onDay }: { onAdd: (day: string, time?: string) => void; onEdit: (e: PlanEvent) => void; onDay: (day: string) => void }) {
   const p = useProfile().data!;
   const [view, setView] = useState<View>('month');
-  const [show, setShow] = useState<CalType[]>(['training', 'events', 'appointments']);
+  const [show, setShow] = useState<CalType[]>(['training', 'events', 'appointments', 'travel']);
   const today = usePlanData(p).today;
   const [at, setAt] = useState(today);
   const range = useMemo((): [string, string] => {

@@ -22,12 +22,12 @@ export type LogItem = {
 export type LogGroup = { id: string; name: string; rrule: string; times: string[]; reminder: boolean };
 export type LogDose = { id: string; item_id: string; day: string; slot: string; status: 'taken' | 'skipped' };
 export type EventKind = 'medical' | 'lab' | 'fitness_test' | 'race' | 'physio' | 'other' | 'training' | 'social'
-  | 'dental' | 'finance' | 'work' | 'car' | 'home' | 'personal' | 'family' | 'pet' | 'legal' | 'errand';
+  | 'dental' | 'finance' | 'work' | 'car' | 'home' | 'personal' | 'family' | 'pet' | 'legal' | 'errand' | 'travel';
 /** Appointment kinds kept with the private health log (need the health opt-in). */
 export const HEALTH_KINDS: EventKind[] = ['medical', 'dental', 'lab', 'physio', 'other'];
 export type PlanEvent = {
   id: string; kind: EventKind; title: string; starts_at: string; location: string | null; description: string | null;
-  prep_notes: string | null; remind_minutes: number[]; rrule: string | null; on_external_calendars: boolean; sport?: string | null;
+  prep_notes: string | null; remind_minutes: number[]; rrule: string | null; on_external_calendars: boolean; sport?: string | null; ends_at?: string | null;
 };
 export const EVENT_KINDS: { id: EventKind; label: string; icon: string }[] = [
   { id: 'medical', label: 'Doctor / medical', icon: '🩺' },
@@ -46,6 +46,7 @@ export const EVENT_KINDS: { id: EventKind; label: string; icon: string }[] = [
   { id: 'pet', label: 'Vet / pet', icon: '🐾' },
   { id: 'legal', label: 'Legal / government', icon: '⚖️' },
   { id: 'errand', label: 'Other', icon: '🗓️' },
+  { id: 'travel', label: 'Travel', icon: '✈️' },
   { id: 'training', label: 'Training', icon: '🚴' },
   { id: 'social', label: 'Social', icon: '🎉' }
 ];
