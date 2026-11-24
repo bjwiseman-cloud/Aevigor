@@ -124,7 +124,6 @@ function Z2Card({ groups }: { groups: Group[] }) {
             ); })}
           </div>
         )}
-        <p className="text-[11px] text-muted-foreground">Zone 2 = power zone 2 when a session has power, else heart-rate zone 2, from intervals.icu. Only this number is shared, never health or check-in data.</p>
       </CardContent>
     </Card>
   );
