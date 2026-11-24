@@ -156,14 +156,14 @@ export function Today({ part = 'daily' }: { part?: 'daily' | 'weekly' }) {
     lines.push(Object.assign({ k: 'Form', range: null, sub: r.load?.alert ? 'load running over plan' : null, dot: (FZ[z.name] ?? 'none') as Dot,
       v: <>
         <span className="font-display text-2xl font-extrabold italic">{form.form > 0 ? '+' : ''}{Math.round(form.form)}</span> <span>{word[z.name]}</span>
-        <span className="mt-2 block rounded-lg bg-card/90 px-2 pb-1 pt-2">
+        <span className="mt-2 block rounded-lg !opacity-100 bg-[#0A1024]/85 px-2 pb-1 pt-2">
         <span className="relative flex h-3 overflow-hidden rounded-full">
           {[['#ef4444', 10 / 65], ['#22c55e', 20 / 65], ['#64748b', 15 / 65], ['#3b82f6', 15 / 65], ['#f59e0b', 5 / 65]].map(([c, w]) => <span key={c as string} style={{ background: c as string, width: `${(w as number) * 100}%` }} className="h-full opacity-90" />)}
         </span>
-        <span className="relative block h-4">
+        <span className="relative block h-3">
           <span className="absolute -top-[16px] h-5 w-5 -translate-x-1/2 rounded-full border-[3px] border-white bg-[#0A1024] shadow-[0_0_10px_rgba(255,255,255,0.9)] transition-[left] duration-1000 ease-out motion-safe:animate-pulse" style={{ left: `${pos}%` }} />
         </span>
-        <span className="flex justify-between text-[9px] font-semibold text-muted-foreground"><span>Tired</span><span>Building</span><span>Grey</span><span>Fresh</span><span>Very fresh</span></span>
+        <span className="flex justify-between mt-1 text-[10px] font-bold !text-white"><span>Tired</span><span>Building</span><span>Grey</span><span>Fresh</span><span>Very fresh</span></span>
         </span>
       </> }, { word: z.name }));
   }
