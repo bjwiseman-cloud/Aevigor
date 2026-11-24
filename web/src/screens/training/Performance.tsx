@@ -308,7 +308,7 @@ export function Performance({ part = 'achievements' }: { part?: Part }) {
   if (acts.isLoading) return <><SubTabs tabs={tabs} /><p className="text-muted-foreground">Loading…</p></>;
   const setSports = (v: string[]) => setParams({ sport: v.join(',') }, { replace: true });
   const chips = (list: { id: string; label: string }[], more: boolean) => (
-    <SportChips fixed={list} more={more ? others : []} moreLabel={typeLabel} value={sports} onChange={setSports} keepOne allIds={[...list.map((x) => x.id)]} />
+    <SportChips fixed={list} more={more ? others : []} moreLabel={typeLabel} value={sports} onChange={setSports} keepOne noAll />
   );
   const none = (t: string) => <Card><CardContent className="pt-6 text-sm text-muted-foreground">{t}</CardContent></Card>;
   const cards = (key: string, list: { id: string; label: string; node: React.ReactNode; off?: boolean }[]) => <Arrange key={key} page={key} cards={list} />;

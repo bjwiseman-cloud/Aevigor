@@ -9,15 +9,15 @@ export function toggleSport(list: string[], id: string, keepOne = false) {
   return [...list, id];
 }
 
-export function SportChips({ fixed, more = [], moreLabel, value, onChange, allLabel = 'All', keepOne = false, allIds }: {
+export function SportChips({ fixed, more = [], moreLabel, value, onChange, allLabel = 'All', keepOne = false, allIds, noAll = false }: {
   fixed: SportOpt[]; more?: string[]; moreLabel?: (id: string) => string; value: string[]; onChange: (v: string[]) => void;
-  allLabel?: string; keepOne?: boolean; allIds?: string[];   // allIds: what "All" selects when an empty pick is not allowed
+  allLabel?: string; keepOne?: boolean; allIds?: string[]; noAll?: boolean;   // allIds: what "All" selects when an empty pick is not allowed
 }) {
-  const allOn = value.length === 0 || (!!allIds && allIds.every((x) => value.includes(x)) && value.length === allIds.length);
+  const allOn = !noAll && (value.length === 0 || (!!allIds && allIds.every((x) => value.includes(x)) && value.length === allIds.length));
   const extra = value.filter((v) => more.includes(v));
   return (
     <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Sports">
-      <Chip on={allOn} onClick={() => onChange(allIds ?? [])}>{allLabel}</Chip>
+      {!noAll && <Chip on={allOn} onClick={() => onChange(allIds ?? [])}>{allLabel}</Chip>}
       {fixed.map((s) => <Chip key={s.id} on={!allOn && value.includes(s.id)} onClick={() => onChange(toggleSport(allOn ? [] : value, s.id, keepOne))}>{s.label}</Chip>)}
       {extra.map((k) => <Chip key={k} on onClick={() => onChange(toggleSport(value, k, keepOne))}>{moreLabel?.(k) ?? k} ✕</Chip>)}
       {more.length > 0 && (
