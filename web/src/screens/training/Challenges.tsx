@@ -74,8 +74,11 @@ function Z2Card({ groups }: { groups: Group[] }) {
   const p = useProfile().data!;
   const today = todayIn(p.time_zone);
   const [scope, setScope] = useState('friends');
-  const [last, setLast] = useState(false);
-  const week = last ? addDays(mondayOf(today), -7) : mondayOf(today);
+  // 0 = this week, 1 = last week, 2+ = Past weeks (Ben 2026-11-24: scroll back through every past week)
+  const [back, setBack] = useState(0);
+  const [past, setPast] = useState(false);
+  const week = addDays(mondayOf(today), -7 * back);
+  const PAST = Array.from({ length: 52 }, (_, k) => k + 2);
   const q = useQuery({
     queryKey: ['z2', scope, week],
     queryFn: () => rpc<{ user_id: string; display_name: string; z2_secs: number; me: boolean }[]>('challenge_z2', { scope, week_start: week })
@@ -90,8 +93,22 @@ function Z2Card({ groups }: { groups: Group[] }) {
           <Chip on={scope === 'friends'} onClick={() => setScope('friends')}>👥 Friends</Chip>
           {groups.map((g) => <Chip key={g.id} on={scope === g.id} onClick={() => setScope(g.id)}>{g.name}</Chip>)}
         </Chips>
-        <Chips><Chip className="text-xs" on={!last} onClick={() => setLast(false)}>This week</Chip><Chip className="text-xs" on={last} onClick={() => setLast(true)}>Last week</Chip></Chips>
-        {q.isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : rows.length <= 1 && scope === 'friends' ? (
+        <Chips>
+          <Chip className="text-xs" on={!past && back === 0} onClick={() => { setPast(false); setBack(0); }}>This week</Chip>
+          <Chip className="text-xs" on={!past && back === 1} onClick={() => { setPast(false); setBack(1); }}>Last week</Chip>
+          <Chip className="text-xs" on={past} onClick={() => { setPast(true); if (back < 2) setBack(2); }}>📅 Past weeks</Chip>
+        </Chips>
+        {past && (
+          <div className="-mx-1 flex snap-x gap-1.5 overflow-x-auto px-1 pb-1" aria-label="Past weeks">
+            {PAST.map((k) => { const w = addDays(mondayOf(today), -7 * k); return (
+              <button key={k} type="button" aria-pressed={back === k} onClick={() => setBack(k)}
+                className={cn('shrink-0 snap-start rounded-lg border px-2.5 py-1 text-center text-xs font-semibold', back === k ? 'border-transparent bg-gradient-to-r from-[#FF6B00] to-[#FF2E63] text-white' : 'bg-card')}>
+                {shortDate(w)}<span className="block text-[10px] font-normal opacity-75">{k} weeks ago</span>
+              </button>
+            ); })}
+          </div>
+        )}
+        {q.isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : rows.length <= 1 && scope === 'friends' && back === 0 ? (
           <p className="rounded-xl border border-dashed p-3 text-sm">Add a friend or join a group to start racing for Zone 2 hours. Your own time this week: <b>{rows[0] ? (Number(rows[0].z2_secs) / 3600).toFixed(1) : '0.0'} h</b>.</p>
         ) : (
           <div className="space-y-1.5">
