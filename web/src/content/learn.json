@@ -858,8 +858,8 @@
     {
       "id": "plan-reward",
       "field": "plan",
-      "title": "Following the plan",
-      "short": "A star for each day you trained the way the plan and your morning status said: hard when ready, easier when it said take care, and light on rest or Go easy days.",
+      "title": "Weekly targets",
+      "short": "Each week, Monday to Sunday, a star for each day you trained the way the plan and your morning status said: hard when ready, easier when it said take care, and light on rest or Go easy days.",
       "why": "Doing the right session on the right day, including the easy ones, is what builds fitness over months. Easy days count as much as hard ones.",
       "calc": [
         "Ready to train: the day counts when your load was 80 to 120% of the planned load. Train with care: up to 105% of plan. Go easy: 70% of plan or less, or a light day. Rest days count when they stay light.",

@@ -168,10 +168,10 @@ export function Today({ part = 'daily' }: { part?: 'daily' | 'weekly' }) {
       <ResultPromptCard />
       {part === 'weekly' ? <Arrange page="home-weekly" cards={[
         { id: 'weekly', label: 'Weekly check', node: <WeeklyCheckCard r={r} /> },
+        { id: 'targets', label: 'Weekly targets', node: <PlanRewardCard /> },
         { id: 'lastweek', label: 'Last week', node: <LastWeekCard /> }
       ]} /> : <Arrange page="home-daily" cards={[
         { id: 'status', label: 'Daily status', node: <StatusCard code={r.status} reasons={r.reasons} /> },
-        { id: 'plan', label: 'Daily plan stars', node: <PlanRewardCard /> },
         { id: 'goals', label: 'Goals', node: <GoalsCard /> },
         { id: 'signals', label: 'Signals', node: (
       <Card>
