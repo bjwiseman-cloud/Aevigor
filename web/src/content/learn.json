@@ -735,13 +735,13 @@
       "id": "achievements",
       "field": "load",
       "title": "Achievements",
-      "short": "Your all-time bests: 5-minute, 20-minute and sprint power, best FTP and its gain over the last year, best running pace, longest rides and runs by distance and time, and your heaviest squat, bench and deadlift.",
+      "short": "Your all-time bests: peak power (1 s), 30-second sprint, 5-minute and 20-minute power, best FTP and its gain over the last year, best run times from 100 m to the marathon, longest rides and runs, and your heaviest squat, bench and deadlift. Plus your weekly streak.",
       "why": "Seeing bests and how they move keeps the long view in sight. A New badge marks anything set in the last 14 days.",
       "calc": [
-        "Power bests come from your intervals.icu all-time power curve (or your synced rides). FTP is the higher of intervals.icu eFTP and your FTP tests (95% of the 20-minute test), and the gain compares the latest value with the first one in the last 12 months.",
-        "Running pace is your fastest 5 km from your pace curve (or the longest standard distance you have run). Lifts are the heaviest weight actually lifted for at least 1 rep, not an estimate.",
+        "Power bests come from your intervals.icu all-time power curve (or your synced rides). Peak power is your best 1-second power; the sprint tile is your best 30 seconds. FTP is the higher of intervals.icu eFTP and your FTP tests (95% of the 20-minute test), and the gain compares the latest value with the first one in the last 12 months. A new power best says how much it beat your old best by.",
+        "Run bests: your fastest time for 100 m, 400 m, 800 m, 1 km, 1 mile, 3 km, 5 km, 10 km, 20 km, half marathon and marathon, from your intervals.icu pace curve. Only distances you have run show. Lifts are the heaviest weight actually lifted for at least 1 rep, not an estimate.",
         "Firsts: a badge the first time you use each feature (check-in, Post Activity, manual activity, lifting log, import, reminders, phone alerts, supplement, medication or meal log, calendar item, health record, blood pressure, cycle log, connecting intervals.icu). Locked ones show a padlock.",
-        "Streaks count weeks in a row, Monday to Sunday. Weekly streak: at least one activity. Moderate compliance: the week's actual load is within ±30% of the planned load (70 to 130%). High compliance: within ±10% (90 to 110%). Weeks with nothing planned are skipped, and this week only counts once it reaches the mark, so an unfinished week never breaks a streak."
+        "Weekly streak: weeks in a row, Monday to Sunday, with at least one activity. This week only counts once you have trained, so an unfinished week never breaks it. Beating your longest streak is an achievement of its own. You can turn streaks and celebrations off in Settings."
       ],
       "refs": [],
       "coach": []
@@ -772,13 +772,13 @@
       "id": "power-profile",
       "field": "cycling",
       "title": "Power profile (Coggan)",
-      "short": "A spider chart of your best 5 s, 1 min, 5 min and threshold power per kilo, ranked on Coggan's table from Untrained to World class, with your rider type.",
+      "short": "A glowing radar of your best 5 s, 1 min, 5 min and 20 min power, placed on Coggan's table from 1 Untrained to 8 World class, scaled to your own level.",
       "why": "It shows your strong and weak points at a glance, so you can train the weak ones or play to the strong ones (for example sprint finishes vs long climbs). Comparing a recent range with all-time shows which parts are improving.",
       "calc": [
-        "Each spoke is your W/kg for that duration, placed on the table: 8 categories (Untrained, Fair, Moderate, Good, Very good, Excellent, Exceptional, World class), each 5 of the table's 40 equal steps.",
-        "FT (functional threshold) = 95% of your best 20 min power, or intervals.icu's eFTP if there is no 20 min effort.",
+        "Each corner shows your best for that duration, in watts or W/kg (tap W or W/kg). The inner ring is the start of your current level on that corner and the dashed orange ring is the start of the next level up, so the shape shows how far through your level you are.",
+        "Tap a level in the strip (1 Untrained to 8 World class) to draw where that level starts on each corner and how many watts you need to reach it.",
+        "Levels: 8 categories (Untrained, Fair, Moderate, Good, Very good, Excellent, Exceptional, World class), each 5 of the table's 40 equal steps. The 20-min corner uses Coggan's threshold column: 20-min power x 0.95.",
         "Weight is the weight saved on the ride in intervals.icu, else your Profile weight. Men's or women's table from your Profile.",
-        "Coggan has no 'climber' type. Climbing needs power per kilo at threshold, so it sits with time trialist.",
         "The table's top and bottom rows come from the book; the app spreads the steps evenly between them as Coggan describes, so a value can differ slightly from the printed table.",
         "Research mostly uses the Record Power Profile instead: your best power at many durations (about 1 s to 4 h) over a season. Coggan's 4-point chart is a coaching tool and was not tested in a study, but it is the only one with ranks for amateurs. Your Power curve card is the many-durations view."
       ],
@@ -839,6 +839,49 @@
           "url": "https://www.xertonline.com/"
         }
       ]
+    },
+    {
+      "id": "goals",
+      "field": "plan",
+      "title": "Goals",
+      "short": "Progress bars for the goals you set: a race or event (weeks to go), FTP, VO2max, or a lift's estimated 1RM or 10RM. Also shows where you are in the 5-week training block.",
+      "why": "A goal you can see moving is easier to stick with, and it keeps day-to-day training pointed at the thing you care about.",
+      "calc": [
+        "Race or event: weeks left until the date you picked from your Calendar. Training block: week of 5 (3 build weeks, a deload week, a test week), from your planned tests.",
+        "FTP: the higher of intervals.icu eFTP and your FTP tests. VO2max: estimated from your best 5-minute power per kilo (16.6 + 8.87 x W/kg). The bar runs from the value when you set the goal to your target.",
+        "Lifts: estimated 1RM from your best logged set (Epley: weight x (1 + reps / 30)); a 10RM estimate is that 1RM / 1.33. Squat, bench and deadlift are offered first; any lift you have logged can be picked.",
+        "No data yet shows as no data, never as going backwards."
+      ],
+      "refs": [],
+      "coach": []
+    },
+    {
+      "id": "plan-reward",
+      "field": "plan",
+      "title": "Weekly targets",
+      "short": "Each week, Monday to Sunday, a star for each day you trained the way the plan and your morning status said: hard when ready, easier when it said take care, and light on rest or Go easy days.",
+      "why": "Doing the right session on the right day, including the easy ones, is what builds fitness over months. Easy days count as much as hard ones.",
+      "calc": [
+        "Ready to train: the day counts when your load was 80 to 120% of the planned load. Train with care: up to 105% of plan. Go easy: 70% of plan or less, or a light day. Rest days count when they stay light.",
+        "Days without a status or a plan are left out; they never count against you."
+      ],
+      "refs": [],
+      "coach": []
+    },
+    {
+      "id": "challenges",
+      "field": "load",
+      "title": "Challenges",
+      "short": "Friendly weekly challenges with friends, family or a team. The first one: most hours in Zone 2 this week.",
+      "why": "Training with others, even at a distance, makes it easier to keep going.",
+      "calc": [
+        "Zone 2 hours: time in power zone 2 on sessions with power, or heart-rate zone 2 when there is no power, from intervals.icu, Monday to Sunday.",
+        "Only that number and your name are shared. Health, check-in, log and record data are never shared.",
+        "Friends: add people by their athlete ID (on your Profile and in Settings). People can only find you by name if you switch on Let people find me by name (off by default).",
+        "Groups: lead up to 3 and join as many as you like. Public groups can be found and people ask to join; private groups are invite only. The leader approves, invites and removes members."
+      ],
+      "refs": [],
+      "coach": []
     }
   ]
 }

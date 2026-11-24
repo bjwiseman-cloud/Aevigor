@@ -7,10 +7,10 @@ export default {
     container: { center: true, padding: '1rem' },
     extend: {
       fontFamily: {
-        serif: ['"Shippori Mincho"', '"Hiragino Mincho ProN"', '"Times New Roman"', 'Georgia', 'serif'],
-        sans: ['"Zen Kaku Gothic New"', '"Segoe UI"', 'system-ui', '-apple-system', 'Helvetica', 'Arial', 'sans-serif'],
-        // Sporty display face for statuses, card titles and big numbers (Ben 2026-11-23: livelier, cycling-app feel)
-        display: ['"Barlow Condensed"', '"Arial Narrow"', 'system-ui', 'sans-serif'],
+        // Race Day (Ben 2026-11-24): Saira for text, Saira Condensed (bold italic caps) for titles and big numbers
+        serif: ['"Saira Condensed"', '"Arial Narrow"', 'system-ui', 'sans-serif'],
+        sans: ['Saira', '"Segoe UI"', 'system-ui', '-apple-system', 'Helvetica', 'Arial', 'sans-serif'],
+        display: ['"Saira Condensed"', '"Arial Narrow"', 'system-ui', 'sans-serif'],
         mono: ['ui-monospace', '"SF Mono"', 'Menlo', 'Consolas', 'monospace']
       },
       colors: {
@@ -25,7 +25,9 @@ export default {
         muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
         accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
         popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
-        card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
+        card: { DEFAULT: 'hsl(var(--card))', to: 'hsl(var(--card-to))', foreground: 'hsl(var(--card-foreground))' },
+        heading: 'hsl(var(--heading))',
+        neon: 'hsl(var(--neon))',
         // Status colours, set per theme in index.css
         status: Object.fromEntries(['go', 'ok', 'caution', 'easy', 'none', 'deload', 'warn'].map((k) => [k, `hsl(var(--status-${k}) / <alpha-value>)`]))
       },
@@ -39,13 +41,16 @@ export default {
         breathe: { '0%, 100%': { opacity: '0.55', transform: 'scale(1)' }, '50%': { opacity: '0.9', transform: 'scale(1.08)' } },
         'spin-slow': { to: { transform: 'translate(-50%, -50%) rotate(360deg)' } },
         confetti: { '0%': { transform: 'translateY(0) rotate(0deg)', opacity: '1' }, '100%': { transform: 'translateY(115vh) rotate(720deg)', opacity: '0.7' } },
+        glowpulse: { '0%, 100%': { boxShadow: '0 0 0 0 rgba(255,107,0,0.6)' }, '50%': { boxShadow: '0 0 0 7px rgba(255,107,0,0)' } },
+        sweep: { to: { transform: 'rotate(360deg)' } },
         burst: { '0%': { opacity: '0', transform: 'scale(0.3) rotate(-8deg)' }, '60%': { opacity: '1', transform: 'scale(1.12) rotate(2deg)' }, '100%': { opacity: '1', transform: 'scale(1) rotate(0)' } }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out', 'accordion-up': 'accordion-up 0.2s ease-out',
         pop: 'pop 0.5s cubic-bezier(.2,.9,.3,1.2) both', float: 'float 3s ease-in-out infinite',
         shine: 'shine 3s linear infinite', breathe: 'breathe 3.5s ease-in-out infinite',
-        'spin-slow': 'spin-slow 24s linear infinite', confetti: 'confetti 3s linear infinite', burst: 'burst 0.7s cubic-bezier(.2,.9,.3,1.3) both'
+        'spin-slow': 'spin-slow 24s linear infinite', confetti: 'confetti 3s linear infinite', glowpulse: 'glowpulse 1.6s ease-in-out infinite', sweep: 'sweep 6s linear infinite',
+        burst: 'burst 0.7s cubic-bezier(.2,.9,.3,1.3) both'
       }
     }
   },

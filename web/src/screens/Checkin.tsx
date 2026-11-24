@@ -7,7 +7,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { callApi } from '@/lib/api';
 import { niceDay, todayIn } from '@/lib/time';
-import { useProfile, useTodayCheckin } from '@/hooks/data';
+import { useCheckins, useProfile, useTodayCheckin } from '@/hooks/data';
+import { CheckinReminderRow } from '@/components/ReminderSettings';
+import { addDays } from '@rules';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
@@ -101,6 +103,20 @@ export function CheckinPage() {
   useEffect(() => { setLibOn(!!profile.libido_log); }, [profile.libido_log]);
 
   const pick = (k: string) => (x: number | null) => setV({ ...v, [k]: x });
+  // Quick fill (Ben 2026-11-24): your most common answer to each question over the last 14 check-ins
+  const hist = useCheckins(profile);
+  const usual = (() => {
+    const r = (hist.data ?? []).filter((c) => c.day < day && c.day >= addDays(day, -28)).slice(-14);
+    if (r.length < 3) return null;
+    const out: V = {};
+    for (const q of QUESTIONS) {
+      const n: Record<number, number> = {};
+      r.forEach((c) => { const x = (c as Record<string, unknown>)[q.key]; if (typeof x === 'number') n[x] = (n[x] ?? 0) + 1; });
+      const best = Object.entries(n).sort((a, b) => b[1] - a[1])[0];
+      if (best) out[q.key] = Number(best[0]);
+    }
+    return out;
+  })();
   const answered = ['sleep_quality', 'fatigue', 'stress', 'mood'].filter((k) => v[k]).length + 1; // + soreness from the body map
 
   async function libido(on: boolean, deleteAll = false) {
@@ -135,6 +151,14 @@ export function CheckinPage() {
     <div className="space-y-3">
       <CheckinSeg on="morning" />
       <p className="text-center font-mono text-xs text-muted-foreground">{niceDay(day)}{existing.data ? ' · saved, you can change it' : ''} · saves to intervals.icu</p>
+      <CheckinReminderRow />
+      {usual && !existing.data && (
+        <button type="button" onClick={() => { setV({ ...v, ...usual }); setSick('No'); toast.success('Filled with your usual answers. Change anything that is different today.'); }}
+          className="flex w-full items-center gap-3 rounded-xl bg-gradient-to-r from-[#FF6B00] to-[#FF2E63] p-3 text-left text-white shadow-[0_0_16px_rgba(255,46,99,0.35)] active:scale-[0.99]">
+          <span className="text-2xl">⚡</span>
+          <span className="flex-1"><b className="block font-display text-lg uppercase italic leading-tight">Same as usual</b><span className="text-xs opacity-90">Fills sleep, fatigue, stress, mood and motivation with your most common answers. Then just change what is different.</span></span>
+        </button>
+      )}
 
       <Q icon="🤒" tone="rose" title="Feeling sick?" help="Mild = above the neck (stuffy nose, sore throat). Yes = below the neck (fever, chest, body aches, stomach). Sickness overrides the other signals: Yes = Go easy, Mild = one step lower.">
         <Opts cols={3} icons={['💪', '🤧', '🤒']} opts={['No', 'Mild · above the neck', 'Yes · below the neck']} value={['No', 'Mild', 'Yes'].indexOf(sick) + 1} onPick={(x) => setSick((['No', 'Mild', 'Yes'] as const)[(x ?? 1) - 1])} />
@@ -146,6 +170,10 @@ export function CheckinPage() {
 
       <PeriodQ day={day} />
 
+      <Accordion type="single" collapsible defaultValue={MORE.some((m) => existing.data?.[m.k] != null) || existing.data?.clarity != null || existing.data?.libido != null ? 'o' : undefined} className="rounded-lg border bg-card px-4">
+        <AccordionItem value="o" className="border-b-0">
+          <AccordionTrigger className="py-3 text-sm"><span><b>Mental clarity · libido</b> <span className="text-xs font-normal text-muted-foreground">· optional</span></span></AccordionTrigger>
+          <AccordionContent className="space-y-3">
       <Q icon="🧠" tone="sky" title="Mental clarity" help="How clear your thinking feels, 1 very foggy to 5 very sharp. A log only: it does not change the status.">
         <Opts cols={5} tones={[...SCALE[5]].reverse()} icons={['🌫️', '☁️', '🙂', '🔆', '✨']} opts={CLARITY} value={v.clarity} onPick={pick('clarity')} />
       </Q>
@@ -176,6 +204,10 @@ export function CheckinPage() {
           </>
         )}
       </Q>
+
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       <Accordion type="single" collapsible defaultValue={MORE.some((m) => existing.data?.[m.k] != null) ? 'm' : undefined} className="rounded-lg border bg-card px-4">
         <AccordionItem value="m" className="border-b-0">

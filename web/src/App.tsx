@@ -24,6 +24,7 @@ import { Inbox } from '@/screens/Inbox';
 import { Menu } from '@/screens/Menu';
 import { Performance } from '@/screens/training/Performance';
 import { Sessions } from '@/screens/training/Sessions';
+import { Challenges } from '@/screens/training/Challenges';
 
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
@@ -57,6 +58,7 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/today" element={<Today />} />
+        <Route path="/today/weekly" element={<Today part="weekly" />} />
         <Route path="/checkin" element={<CheckinPage />} />
         <Route path="/checkin/session" element={<SessionCheckin />} />
         <Route path="/training/load" element={<Load />} />
@@ -71,6 +73,7 @@ export default function App() {
         <Route path="/trends/performance" element={<Moved to="/performance" />} />
         <Route path="/training/performance" element={<Moved to="/performance" />} />
         <Route path="/training/sessions" element={<Sessions />} />
+        <Route path="/training/challenges" element={<Challenges />} />
         <Route path="/training/lifting" element={<Navigate to="/performance/profile?sport=lift" replace />} />
         <Route path="/training" element={<Navigate to="/training/load" replace />} />
         <Route path="/load" element={<Navigate to="/training/load" replace />} />

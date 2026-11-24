@@ -8,6 +8,7 @@ import { useMarkSlot, usePlanData } from '@/hooks/plan';
 import { amountText, niceTime, nowHHMM, slotsForDay, type Slot } from '@/lib/plan';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useNotifyPrefs } from '@/components/ReminderSettings';
 
 const SNOOZE_KEY = 'aev-snooze';
 function snoozed(): Record<string, number> {
@@ -61,7 +62,9 @@ export function SlotActions({ s, day, compact }: { s: Slot; day: string; compact
 // Pops up at the top of every page when a reminder is due and not yet logged
 export function ReminderBanner() {
   const { due, day } = useTodaySlots();
+  const np = useNotifyPrefs().data;
   const [, force] = useState(0);
+  if (np?.paused || np?.appt_push === false) return null;   // Settings › Reminders: pause all / appointments off
   const sn = snoozed();
   const s = due.find((x) => !(sn[`${day}:${x.key}`] > Date.now()));
   if (!s) return null;

@@ -5,7 +5,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { useAchievements, useFirsts, TONE } from '@/components/Achievements';
+import { useAchievements, useFirsts, useStreaks, TONE } from '@/components/Achievements';
+import { useFun } from '@/hooks/fun';
+import { shortDay } from '@/components/charts';
 import { usePref } from '@/hooks/data';
 import { addDays } from '@rules';
 import { cn } from '@/lib/utils';
@@ -19,6 +21,7 @@ type Item = { key: string; icon: string; label: string; value: string; sub?: str
 export function Celebrate() {
   const { list, today, loading } = useAchievements();
   const firsts = useFirsts();
+  const fun = useFun(), streak = useStreaks();
   const seen = usePref<string[]>(SEEN_KEY, []);
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
@@ -27,21 +30,23 @@ export function Celebrate() {
 
   const fresh = useMemo(() => {
     const from = addDays(today, -(RECENT_DAYS - 1)), done = new Set(seen.value ?? []);
-    const a: Item[] = list.filter((x) => x.day && x.day >= from).map((x) => ({ key: `a:${x.id}:${x.day}:${x.value}`, icon: x.icon, label: x.label, value: x.value, sub: x.sub, tone: x.tone }));
+    const a: Item[] = list.filter((x) => x.day && x.day >= from).map((x) => ({ key: `a:${x.id}:${x.day}:${x.value}`, icon: x.icon, label: x.label, value: x.value, sub: x.prev ?? [x.sub, `set ${shortDay(x.day!)}`].filter(Boolean).join(' · '), tone: x.tone }));
+    // A new best weekly streak (Ben 2026-11-24: beating your previous best is the achievement)
+    const s: Item[] = fun.streaks ? streak.filter((x) => x.now >= 3 && x.now >= x.best).map((x) => ({ key: `s:${x.id}:${x.now}`, icon: '🔥', label: 'New best streak', value: `${x.now} weeks`, sub: 'Your longest run of training weeks ever. Keep it going!', tone: 'orange' as const })) : [];
     const f: Item[] = (firsts.data ?? []).filter((x) => x.day && x.day >= from).map((x) => ({ key: `f:${x.id}`, icon: x.icon, label: 'Unlocked', value: x.label.replace(/^First /, 'First '), tone: 'violet' }));
-    return [...a, ...f].filter((x) => !done.has(x.key));
-  }, [list, firsts.data, seen.value, today]);
+    return [...a, ...s, ...f].filter((x) => !done.has(x.key));
+  }, [list, firsts.data, seen.value, today, streak, fun.streaks]);
 
   // Once per app open, after the data has loaded
   useEffect(() => {
-    if (loading || !seen.loaded || firsts.isLoading || open || items.length) return;
+    if (loading || !seen.loaded || !fun.loaded || !fun.celebrations || firsts.isLoading || open || items.length) return;
     let shown = false;
     try { shown = sessionStorage.getItem('aev_celebrated') === '1'; } catch { /* private mode */ }
     if (shown || !fresh.length) return;
     try { sessionStorage.setItem('aev_celebrated', '1'); } catch { /* ignore */ }
     setItems(fresh.slice(0, 6)); setI(0); setOpen(true);
     navigator.vibrate?.([20, 40, 20]);
-  }, [loading, seen.loaded, firsts.isLoading, fresh, open, items.length]);
+  }, [loading, seen.loaded, firsts.isLoading, fresh, open, items.length, fun.loaded, fun.celebrations]);
 
   const close = async () => {
     setOpen(false);

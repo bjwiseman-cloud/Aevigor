@@ -13,7 +13,7 @@ export type WellnessRow = {
 };
 export type CheckinRow = {
   day: string; sleep_quality: number | null; fatigue: number | null; soreness: number | null; stress: number | null; mood: number | null; sick: string | null;
-  clarity?: number | null; libido?: number | null; caffeine?: number | null; alcohol?: number | null; body_temp?: number | null;
+  motivation?: number | null; clarity?: number | null; libido?: number | null; caffeine?: number | null; alcohol?: number | null; body_temp?: number | null;
 };
 export type TestRow = { day: string; kind: string; name: string | null };
 

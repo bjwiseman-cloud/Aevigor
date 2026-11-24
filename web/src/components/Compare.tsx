@@ -13,6 +13,7 @@ import { CATEGORIES, COGGAN_LABEL, COGGAN_SECS, category, cogganProfile, cogganS
 import { cn } from '@/lib/utils';
 import { TONE } from '@/components/Achievements';
 import { FunTile } from '@/components/Fun';
+import { NeonRadar } from '@/components/PowerRadar';
 import { Chip, Chips } from '@/components/chips';
 
 export const SESSION_COLOURS = ['#0ea5e9', '#f43f5e', '#a855f7', '#f59e0b'];
@@ -274,14 +275,33 @@ function useRangeSets(rides: Activity[], curves: Curve[], today: string, days: n
 function RangeChips({ v, set }: { v: number; set: (n: number) => void }) {
   return <Chips>{RANGES.map((r) => <Chip key={r.id} on={v === r.id} className="text-xs" onClick={() => set(r.id)}>{r.label}</Chip>)}</Chips>;
 }
+// Power profile (Ben 2026-11-24): the Neon glow radar, scaled to your own level, with the rider type and power boxes
+// removed. Range chips pick the bests it uses (all time by default).
+const PROFILE_RANGES = [{ id: 30, label: '1M' }, { id: 90, label: '3M' }, { id: 365, label: '1Y' }, { id: 0, label: 'All' }];
 export function PowerProfileCard({ rides, curves, today, weight }: { rides: Activity[]; curves: Curve[]; today: string; weight: number | null }) {
   const p = useProfile().data!;
-  const [days, setDays] = useState(90);
-  const sets = useRangeSets(rides, curves, today, days);
+  const [days, setDays] = useState(0);
+  const set = useMemo(() => {
+    if (!days) return bestOf(rides, 'All time', curves.find((c) => c.sport === 'ride' && c.curve === 'all'));
+    const from = new Date(Date.parse(today + 'T12:00:00Z') - days * 864e5).toISOString().slice(0, 10);
+    return bestOf(rides.filter((a) => a.day >= from), 'Range');
+  }, [rides, curves, today, days]);
+  const label = days ? `Your bests, last ${PROFILE_RANGES.find((r) => r.id === days)!.label.replace('1M', 'month').replace('3M', '3 months').replace('1Y', 'year')}.` : 'Your bests, all time.';
   return (
-    <Card>
-      <CardHeader className="pb-2"><CardTitle help="power-profile"><span className="font-display text-xl font-extrabold italic tracking-wide">🕸️ Power profile</span></CardTitle><p className="text-xs text-muted-foreground">Coggan's rider types and categories</p></CardHeader>
-      <CardContent className="space-y-2"><RangeChips v={days} set={setDays} /><Key cmp={sets} /><CogganRadar cmp={sets} weight={weight} sex={p.sex} /></CardContent>
+    <Card className="border-[#22305C] from-[#141E40] to-[#0B1230] text-slate-100 shadow-[0_10px_30px_rgba(10,16,36,0.45)]">
+      <CardHeader className="pb-2"><CardTitle help="power-profile" className="text-[#7FE7FF]"><span className="text-2xl drop-shadow-[0_0_8px_rgba(127,231,255,0.6)]">Power profile</span></CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex gap-1.5">{PROFILE_RANGES.map((r) => (
+          <button key={r.id} type="button" aria-pressed={days === r.id} onClick={() => setDays(r.id)}
+            className={cn('-skew-x-[8deg] rounded-md px-3 py-1 font-display text-sm font-bold italic', days === r.id ? 'bg-gradient-to-r from-[#FF6B00] to-[#FF2E63] text-white' : 'bg-[#1E2B57] text-slate-300')}><span className="inline-block skew-x-[8deg]">{r.label}</span></button>
+        ))}</div>
+        <NeonRadar best={set.best} weight={weight} sex={p.sex} subtitle={`${label} Inner ring = start of your level. Orange ring = next level, faint ring = the one after.`} />
+        <div className="[&_*]:!text-slate-300"><HowToRead>
+          <p>Each corner is your best power for that length of effort, placed on Coggan's power profile table{p.sex === 'female' ? ' for women' : ' for men'} (Allen and Coggan). The radar is scaled to you: on every corner the inner ring is where your current level starts and the dashed outer ring is where the next level starts, so a point halfway out is halfway through its level. The 20-min corner uses 95% of your 20-min power, the same as an FTP test. Tap a level to see where it starts on each power and how many watts are left to reach it.</p>
+          <table className="mt-2 w-full text-[11px]"><thead><tr><th className="text-left">Starts at (W/kg)</th>{['5 s', '1 min', '5 min', '20 min'].map((k) => <th key={k} className="text-right">{k}</th>)}</tr></thead>
+            <tbody>{CATEGORIES.map((c, ci) => <tr key={c} className="border-t"><td>{ci + 1}. {c}</td>{(['5', '60', '300', 'ft'] as const).map((k) => <td key={k} className="text-right font-mono">{k === 'ft' ? (categoryFloor(k, ci, p.sex) / 0.95).toFixed(2) : categoryFloor(k, ci, p.sex)}</td>)}</tr>).reverse()}</tbody></table>
+        </HowToRead></div>
+      </CardContent>
     </Card>
   );
 }

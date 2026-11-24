@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Chip, Chips } from '@/components/chips';
+import { SportChips, loadSports, saveSports } from '@/components/SportChips';
 import { HowToRead, axis, shortDay, tooltipStyle } from '@/components/charts';
 import { useCalendar, useCheckins, useDailyLoad, usePlannedTests, useProfile, useWellness, LOAD_BACK } from '@/hooks/data';
 import { useActivities } from '@/hooks/perf';
@@ -111,7 +112,8 @@ export function Load({ charts = false }: { charts?: boolean } = {}) {
   const today = todayIn(p.time_zone);
   const load = useDailyLoad(p), tests = usePlannedTests(p), cal = useCalendar(p), acts = useActivities(p), wellness = useWellness(p), checkins = useCheckins(p), lifts = useSets();
   const [liftUnit] = useUnit();
-  const [pick, setPick] = useState<string | null>(null);
+  const [picks, setPicksS] = useState<string[]>(() => loadSports('load'));
+  const setPicks = (v: string[]) => { setPicksS(v); saveSports('load', v); };
   const [R, setR] = useState('t');
   const [cf, setCf] = useState(''), [ct, setCt] = useState('');
   const [pj, setPj] = useState(true);
@@ -129,8 +131,10 @@ export function Load({ charts = false }: { charts?: boolean } = {}) {
   }, [rows, today]);
   // Fixed chips: Cycling, Running, Lifting, Combined (opens first). Every other intervals.icu sport sits under More sports.
   const FIXED = ['ride', 'run', 'WeightTraining'];
-  const shown = avail.keys.filter(Boolean);
-  const sport = pick ?? 'mix';
+  // Multi-select (Ben 2026-11-24): one sport alone, or several added up as Combined; none picked = all sports
+  const pickedIn = picks.filter((k) => avail.keys.includes(k) || FIXED.includes(k));
+  const shown = pickedIn.length > 1 ? pickedIn : avail.keys.filter(Boolean);
+  const sport = pickedIn.length === 1 ? pickedIn[0] : 'mix';
   // Rides, runs and Combined get the endurance muscle load map (Ben 2026-11-23)
   const endo = sport === 'ride' || sport === 'run' || sport === 'mix' ? (sport as 'ride' | 'run' | 'mix') : null;
   const others = shown.filter((k) => !FIXED.includes(k));
@@ -198,14 +202,8 @@ export function Load({ charts = false }: { charts?: boolean } = {}) {
     <div className="space-y-4">
       <SubTabs tabs={charts ? ANALYSIS_TABS : TRAINING_TABS} />
       <div className="flex flex-wrap items-center gap-1.5">
-        {FIXED.map((k) => <Chip key={k} on={sport === k} onClick={() => setPick(k)}>{sportLabel(k)}</Chip>)}
-        <Chip on={sport === 'mix'} onClick={() => setPick('mix')}>Combined</Chip>
-        {others.length > 0 && (
-          <select className="h-8 rounded-full border bg-card px-3 text-sm" value={others.includes(sport) ? sport : ''} onChange={(e) => e.target.value && setPick(e.target.value)} aria-label="More sports">
-            <option value="">More sports ▾</option>{others.map((k) => <option key={k} value={k}>{sportLabel(k)}</option>)}
-          </select>
-        )}
-        <span className="ml-auto"><HelpQ text="Combined adds up all your sports. More sports lists every other sport in your intervals.icu history. Add more sports by creating them in intervals.icu > Settings > Sport Settings; they show up here after the next sync." /></span>
+        <SportChips fixed={FIXED.map((k) => ({ id: k, label: sportLabel(k) }))} more={others} moreLabel={sportLabel} value={pickedIn} onChange={setPicks} allLabel="All (combined)" />
+        <span className="ml-auto"><HelpQ text="Tap one sport, or several to add them up. All adds up every sport. More lists every other sport in your intervals.icu history. Add more sports by creating them in intervals.icu > Settings > Sport Settings; they show up here after the next sync." /></span>
       </div>
       {!charts && (<>
       {/* Every sport (Ben 2026-11-23): Training status first, then the body map. Lifting shows weekly volume by

@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Chip, Chips } from '@/components/chips';
+import { SportChips, loadSports, saveSports, typeLabel } from '@/components/SportChips';
 import { C, axis, shortDay, tooltipStyle } from '@/components/charts';
 import { useProfile } from '@/hooks/data';
 import { usePaceCurves } from '@/hooks/perf';
@@ -143,7 +144,7 @@ export function Sessions() {
   const acts = useActivities(p), paceCurves = usePaceCurves(p), lifts = useSets();
   const today = todayIn(p.time_zone);
   const [params, setParams] = useSearchParams();
-  const [filter, setFilter] = useState<Filter>('all');
+  const [sel, setSel] = useState<string[]>(() => loadSports('sessions'));   // multi-select sports; empty = all
   const [race, setRace] = useState(false);
   const [len, setLen] = useState<string | null>(null);
   const [kind, setKind] = useState<string | null>(null);
@@ -157,17 +158,16 @@ export function Sessions() {
   const open = openId ? all.find((a) => a.id === openId) ?? null : null;
   const setOpen = (a: Activity | null) => setParams(a ? { open: a.id } : {}, { replace: !a });
   const badges = useBadges(all, paceCurves.data ?? [], today);
-  const endurance = filter === 'ride' || filter === 'run';
+  const others = [...new Set(all.filter((a) => !isRide(a) && !isRun(a) && !isLift(a)).map((a) => a.type))];
+  const endurance = sel.length === 1 && (sel[0] === 'ride' || sel[0] === 'run');
+  const sportOk = (a: Activity) => !sel.length || sel.some((k) => (k === 'ride' ? isRide(a) : k === 'run' ? isRun(a) : k === 'lift' ? isLift(a) : a.type === k));
   const from30 = addDays(today, -29);
   const years = [...new Set(all.map((a) => a.day.slice(0, 4)))].sort().reverse();
   const months = range.y ? [...new Set(all.filter((a) => a.day.startsWith(range.y!)).map((a) => a.day.slice(5, 7)))].sort() : [];
   const list = all.filter((a) => {
     if (!range.all && !range.y && a.day < from30) return false;
     if (range.y && !a.day.startsWith(range.m ? `${range.y}-${range.m}` : range.y)) return false;
-    if (filter === 'ride' && !isRide(a)) return false;
-    if (filter === 'run' && !isRun(a)) return false;
-    if (filter === 'lift' && !isLift(a)) return false;
-    if (filter === 'other' && (isRide(a) || isRun(a) || isLift(a))) return false;
+    if (!sportOk(a)) return false;
     if (endurance && race && !isRace(a)) return false;
     if (endurance && len) { const L = LENGTHS.find((x) => x.id === len)!, m = (a.moving_time ?? 0) / 60; if (m < L.lo || m >= L.hi) return false; }
     if (endurance && kind && kindOf(a) !== kind) return false;
@@ -177,7 +177,7 @@ export function Sessions() {
   const toggle = (id: string) => setPicked(picked.includes(id) ? picked.filter((x) => x !== id) : picked.length >= 4 ? picked : [...picked, id]);
   // Similar sessions: same kind, within 20% of the length
   const similar = (a: Activity) => all.filter((b) => b.id !== a.id && isRide(b) === isRide(a) && isRun(b) === isRun(a) && Math.abs((b.moving_time ?? 0) - (a.moving_time ?? 0)) <= 0.2 * (a.moving_time ?? 0)).slice(0, 3);
-  const pickFilter = (f: Filter) => { setFilter(f); setRace(false); setLen(null); setKind(null); };
+  const pickSports = (v: string[]) => { setSel(v); saveSports('sessions', v); setRace(false); setLen(null); setKind(null); };
 
   return (
     <div className="space-y-4">
@@ -194,7 +194,7 @@ export function Sessions() {
             <Chip on={!!range.all} onClick={() => setRange({ y: null, m: null, all: true })}>All</Chip>
           </Chips>
           {range.y && months.length > 1 && <Chips>{months.map((m) => <Chip key={m} on={range.m === m} className="text-xs" onClick={() => setRange({ y: range.y, m: range.m === m ? null : m })}>{MONTHS[Number(m) - 1]}</Chip>)}</Chips>}
-          <Chips>{FILTERS.map((f) => <Chip key={f.id} on={filter === f.id} onClick={() => pickFilter(f.id)}>{f.label}</Chip>)}</Chips>
+          <SportChips fixed={FILTERS.filter((f) => f.id !== 'all' && f.id !== 'other')} more={others} moreLabel={typeLabel} value={sel} onChange={pickSports} />
           {endurance && (
             <div className="space-y-1.5 rounded-md border p-2">
               <Chips><Chip on={race} onClick={() => setRace(!race)} className="text-xs">Races</Chip>{LENGTHS.map((l) => <Chip key={l.id} on={len === l.id} onClick={() => setLen(len === l.id ? null : l.id)} className="text-xs">{l.label}</Chip>)}</Chips>

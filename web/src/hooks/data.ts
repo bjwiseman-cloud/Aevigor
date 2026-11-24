@@ -115,7 +115,7 @@ export function useCheckins(profile: Profile | null | undefined) {
   return useQuery({
     queryKey: ['checkins', profile?.user_id],
     enabled: !!profile,
-    queryFn: () => rows<CheckinRow>('checkins', 'day, sleep_quality, fatigue, soreness, stress, mood, sick, clarity, libido, caffeine, alcohol, body_temp',
+    queryFn: () => rows<CheckinRow>('checkins', 'day, sleep_quality, fatigue, soreness, stress, mood, motivation, sick, clarity, libido, caffeine, alcohol, body_temp',
       addDays(todayIn(profile!.time_zone), -TRENDS_BACK))
   });
 }
@@ -126,5 +126,14 @@ export function useSessionLogs(profile: Profile | null | undefined) {
     queryKey: ['session_logs', profile?.user_id],
     enabled: !!profile,
     queryFn: () => rows<SessionLog>('session_logs', 'activity_id, day, kind, rpe, note, data', addDays(todayIn(profile!.time_zone), -LOAD_BACK))
+  });
+}
+
+// Daily status for the last few weeks (for the "followed the plan" reward on Today)
+export function useStatusHistory(profile: Profile | null | undefined, days = 15) {
+  return useQuery({
+    queryKey: ['status_history', profile?.user_id, days],
+    enabled: !!profile,
+    queryFn: () => rows<{ day: string; status: string }>('daily_status', 'day, status', addDays(todayIn(profile!.time_zone), -days))
   });
 }

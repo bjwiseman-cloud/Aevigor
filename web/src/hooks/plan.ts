@@ -35,7 +35,8 @@ export function usePlanData(p: Profile | null | undefined) {
     queryFn: () => all<LogDose>('log_doses', (q) => q.gte('day', addDaysIso(today, -62)))
   });
   const events = useQuery({
-    queryKey: ['events', p?.user_id], enabled: on,
+    // Training, tests and races can be saved without the health opt-in (Ben 2026-11-24), so events always load
+    queryKey: ['events', p?.user_id], enabled: !!p,
     queryFn: () => all<PlanEvent>('events', (q) => q.gte('starts_at', addDaysIso(today, -400)).order('starts_at'))
   });
   return { on, today, items, groups, doses, events };

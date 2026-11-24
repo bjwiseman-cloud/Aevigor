@@ -1,5 +1,6 @@
+import { useSearchParams } from 'react-router-dom';
 import { Arrange } from '@/components/Arrange';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useProfile } from '@/hooks/data';
 import { usePlanData, useSave } from '@/hooks/plan';
@@ -202,6 +203,15 @@ export function MyLog() {
   const [groupSheet, setGroupSheet] = useState<{ g: LogGroup | null; key: number } | null>(null);
   const saveGroup = useSave('log_groups', ['log_groups']);
   const saveItem = useSave('log_items', ['log_items']);
+  // From the Calendar's add form (Ben 2026-11-24): ?add=1&day=YYYY-MM-DD&time=HH:MM opens "Add an item" pre-filled
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (!d.on || params.get('add') !== '1') return;
+    const draft = toDraft(null, params.get('day') || d.today);
+    if (/^\d\d:\d\d$/.test(params.get('time') ?? '')) draft.times = [params.get('time')!];
+    setSheet({ draft, key: Date.now() });
+    setParams({}, { replace: true });
+  }, [d.on, params]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!d.on) return <><CheckinSeg on="log" /><HealthConsent profile={profile} /></>;
   const items = d.items.data ?? [], groups = d.groups.data ?? [], doses = d.doses.data ?? [];
