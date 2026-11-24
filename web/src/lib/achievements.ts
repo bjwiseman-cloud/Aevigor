@@ -7,6 +7,7 @@ import { MAIN_LIFTS, fromKg, heaviest, mainLiftNames, type LiftSet, type Unit } 
 export type Achievement = {
   id: string; icon: string; label: string; value: string; sub?: string;
   day: string | null; activityId?: string | null;
+  prev?: string;   // the best before this one, for the celebration ("up 8 W on 304 W")
   tone: 'amber' | 'rose' | 'violet' | 'sky' | 'emerald' | 'orange' | 'fuchsia' | 'teal' | 'lime';
 };
 
@@ -38,11 +39,18 @@ export function achievements(i: {
   const out: Achievement[] = [];
   const rides = i.acts.filter(isRide), runs = i.acts.filter(isRun);
 
-  // Power: sprint, 5-minute (the VO2 test effort) and 20-minute
-  const p5 = bestPower(5, rides, i.curves), p300 = bestPower(300, rides, i.curves), p1200 = bestPower(1200, rides, i.curves);
-  if (p300) out.push({ id: 'p300', icon: '🔥', label: 'Best 5-min power', value: `${p300.watts} W`, sub: 'VO2 effort', day: p300.day, activityId: p300.id, tone: 'rose' });
-  if (p1200) out.push({ id: 'p1200', icon: '⚡', label: 'Best 20-min power', value: `${p1200.watts} W`, day: p1200.day, activityId: p1200.id, tone: 'amber' });
-  if (p5) out.push({ id: 'p5', icon: '💥', label: 'Peak sprint (5 s)', value: `${p5.watts} W`, day: p5.day, activityId: p5.id, tone: 'orange' });
+  // Power (Ben 2026-11-24): Peak Power (1 s, Pmax) next to the 30-s sprint, then 5-min (the VO2 test effort) and 20-min
+  const p1 = bestPower(1, rides, i.curves), p30 = bestPower(30, rides, i.curves), p300 = bestPower(300, rides, i.curves), p1200 = bestPower(1200, rides, i.curves);
+  // What the best was before the record day, so the celebration can say how much it went up
+  const before = (secs: number, b: { watts: number; day: string | null } | null) => {
+    if (!b?.day) return undefined;
+    const old = Math.max(0, ...rides.filter((r) => r.day < b.day!).map((r) => r.best?.[secs] ?? 0));
+    return old && old < b.watts ? `Up ${b.watts - old} W on your old best (${old} W)` : undefined;
+  };
+  if (p300) out.push({ id: 'p300', icon: '🔥', label: 'Best 5-min power', value: `${p300.watts} W`, sub: 'VO2 effort', day: p300.day, activityId: p300.id, prev: before(300, p300), tone: 'rose' });
+  if (p1200) out.push({ id: 'p1200', icon: '⚡', label: 'Best 20-min power', value: `${p1200.watts} W`, day: p1200.day, activityId: p1200.id, prev: before(1200, p1200), tone: 'amber' });
+  if (p1) out.push({ id: 'p1', icon: '🚀', label: 'Peak power (1 s)', value: `${p1.watts} W`, sub: 'Pmax', day: p1.day, activityId: p1.id, prev: before(1, p1), tone: 'fuchsia' });
+  if (p30) out.push({ id: 'p30', icon: '💥', label: 'Peak sprint (30 s)', value: `${p30.watts} W`, day: p30.day, activityId: p30.id, prev: before(30, p30), tone: 'orange' });
 
   // FTP: the highest FTP from a test (95% of 20 min) or intervals.icu eFTP, and the gain over the last 12 months
   const eftp = [...rides].sort((a, b) => a.day.localeCompare(b.day)).map((r) => ({ day: r.day, v: n(r, 'icu_pm_ftp', 'icu_eftp'), id: r.id })).filter((x): x is { day: string; v: number; id: string } => !!x.v);
@@ -56,10 +64,12 @@ export function achievements(i: {
     out.push({ id: 'ftp', icon: '📈', label: 'Best FTP', value: `${Math.round(top.v)} W`, sub: gain != null ? `${gain >= 0 ? '+' : ''}${gain} W in 12 months` : undefined, day: top.day, activityId: top.id, tone: 'violet' });
   }
 
-  // Best running pace: 5 km if there is one, else the longest standard distance run so far
+  // Best running efforts (Ben 2026-11-24): 100 m to the marathon, from the all-time pace curve (any part of any run)
   const rows = paceRows(i.paceCurves.find((c) => c.curve === 'all'));
-  const pr = rows.find((r) => r.meters === 5000) ?? rows.filter((r) => r.meters >= 1000).at(-1) ?? rows.at(-1);
-  if (pr) out.push({ id: 'pace', icon: '🏃', label: `Best ${pr.label} pace`, value: `${mmss(pr.paceSec)} /km`, sub: mmss(pr.secs), day: runs.find((r) => r.id === pr.activity)?.day ?? null, activityId: pr.activity, tone: 'sky' });
+  for (const r of rows) {
+    if (![100, 400, 800, 1000, 1609, 3000, 5000, 10000, 20000, 21097, 42195].includes(r.meters)) continue;
+    out.push({ id: `run-${r.meters}`, icon: r.meters <= 800 ? '⚡' : r.meters >= 21097 ? '🏅' : '🏃', label: `Best ${r.label}`, value: mmss(r.secs), sub: `${mmss(r.paceSec)} /km`, day: runs.find((x) => x.id === r.activity)?.day ?? null, activityId: r.activity, tone: r.meters <= 800 ? 'rose' : r.meters <= 5000 ? 'sky' : 'teal' });
+  }
 
   // Longest ride and run, by distance and by time
   const lr = longest(rides, 'distance'), lrt = longest(rides, 'moving_time'), ln = longest(runs, 'distance'), lnt = longest(runs, 'moving_time');
@@ -77,11 +87,8 @@ export function achievements(i: {
   return out;
 }
 
-// ---- Streaks (Ben 2026-11-23): weeks in a row, Monday to Sunday ----
-// Activity streak: at least one activity that week. Plan streaks: the week's actual load against its planned load,
-// Moderate compliance = within ±30% of plan (70-130%), high compliance = within ±10% (90-110%) (Ben 2026-11-23).
-// Weeks with nothing planned are skipped for the plan streaks (they neither add nor break). The current week only
-// counts once it already meets the mark, so an unfinished week never breaks a streak.
+// ---- Streaks: weeks in a row, Monday to Sunday. The current week only counts once it has an activity, so an
+// unfinished week never breaks a streak.
 export type Streak = { id: string; icon: string; label: string; now: number; best: number; tone: Achievement['tone']; sub: string };
 const mondayOf = (d: string) => { const x = new Date(d + 'T12:00:00Z'); return addDays(d, -((x.getUTCDay() + 6) % 7)); };
 
@@ -97,23 +104,15 @@ function run(weeks: (boolean | null)[]) {
   return { now, best };
 }
 
-export function streaks(i: { actDays: string[]; load: { day: string; actual: number | null; planned: number }[]; today: string }): Streak[] {
-  const first = [...i.actDays, ...i.load.filter((r) => (r.actual ?? 0) > 0).map((r) => r.day)].sort()[0];
+export function streaks(i: { actDays: string[]; load?: { day: string; actual: number | null; planned: number }[]; today: string }): Streak[] {
+  // Weekly streak only (Ben 2026-11-24): the plan-compliance streaks were removed. A week counts with at least one
+  // activity. Beating your previous best is an achievement; a broken streak is never shown as a loss.
+  const first = [...i.actDays].sort()[0];
   if (!first) return [];
   const mons: string[] = []; for (let m = mondayOf(first); m <= i.today; m = addDays(m, 7)) mons.push(m);
   const acts = new Set(i.actDays.map(mondayOf));
-  const sum = new Map<string, { a: number; p: number }>();
-  for (const r of i.load) { if (r.day > i.today) continue; const m = mondayOf(r.day), s = sum.get(m) ?? { a: 0, p: 0 }; s.a += r.actual ?? 0; s.p += r.planned; sum.set(m, s); }
-  const ratio = (m: string) => { const s = sum.get(m); return s && s.p > 0 ? s.a / s.p : null; };
   const a = run(mons.map((m) => acts.has(m)));
-  const p80 = run(mons.map((m) => { const r = ratio(m); return r == null ? null : r >= 0.7 && r <= 1.3; }));
-  const p100 = run(mons.map((m) => { const r = ratio(m); return r == null ? null : r >= 0.9 && r <= 1.1; }));
-  const out: Streak[] = [{ id: 'streak-act', icon: '🔥', label: 'Weekly streak', now: a.now, best: a.best, tone: 'orange', sub: 'weeks with at least 1 activity' }];
-  if (mons.some((m) => ratio(m) != null)) {
-    out.push({ id: 'streak-80', icon: '🎯', label: 'Moderate compliance', now: p80.now, best: p80.best, tone: 'sky', sub: 'weeks within ±30% of planned load' });
-    out.push({ id: 'streak-100', icon: '💯', label: 'High compliance', now: p100.now, best: p100.best, tone: 'violet', sub: 'weeks within ±10% of planned load' });
-  }
-  return out;
+  return [{ id: 'streak-act', icon: '🔥', label: 'Weekly streak', now: a.now, best: a.best, tone: 'orange', sub: 'weeks with at least 1 activity' }];
 }
 
 // ---- Firsts (Ben 2026-11-23): an achievement the first time you use each feature ----

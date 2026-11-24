@@ -3,7 +3,9 @@ import { Area, AreaChart, Bar, CartesianGrid, ComposedChart, Line, LineChart, Re
 import { addDays } from '@rules';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Chip, Chips } from '@/components/chips';
+import { SportChips, typeLabel } from '@/components/SportChips';
 import { Arrange } from '@/components/Arrange';
+import { GoalsCard } from '@/components/Goals';
 import { C, HowToRead, Legend, axis, shortDay, tooltipStyle } from '@/components/charts';
 import { usePlannedTests, usePref, useProfile, useWellness } from '@/hooks/data';
 import { MY_ZONES_KEY, type MyZones } from '@/lib/myzones';
@@ -265,7 +267,12 @@ function PaceCurveCard({ curves, acts, onOpen }: { curves: PaceCurve[]; acts: Ac
 }
 
 const FIXED = [{ id: 'ride', label: '🚴 Cycling' }, { id: 'run', label: '🏃 Running' }, { id: 'lift', label: '🏋️ Lifting' }];
-const typeLabel = (t: string) => t.replace(/([a-z])([A-Z])/g, '$1 $2');
+// One sport's block when several are picked, with a heading
+function SportBlock({ title, children }: { title: string | null; children: React.ReactNode }) {
+  if (!title) return <>{children}</>;
+  const l = FIXED.find((s) => s.id === title)?.label ?? typeLabel(title);
+  return <section className="space-y-4"><h2 className="-skew-x-6 border-l-4 border-[#FF6B00] pl-2 font-display text-xl font-extrabold uppercase italic text-heading">{l}</h2>{children}</section>;
+}
 
 // Performance by sport (Ben 2026-11-19): Cycling, Running and Lifting chips, every other sport under More sports.
 // Each sport has its own card list: press and hold to move cards, Choose cards to switch them on or off.
@@ -283,39 +290,33 @@ export function Performance({ part = 'achievements' }: { part?: Part }) {
     (p.athlete?.sports ?? []).forEach((s) => s.types.forEach((t) => { if (!/Ride|Run|WeightTraining/.test(t) && !(t in c) && s.types[0] === t) c[t] = 0; }));
     return Object.keys(c).sort((a, b) => c[b] - c[a]);
   }, [all, p.athlete]);
-  const want = params.get('sport') ?? 'ride';
-  const sport = ['ride', 'run', 'lift', ...others].includes(want) ? want : 'ride';
+  // Multi-select (Ben 2026-11-24): ?sport=ride,run shows each picked sport's cards in turn
+  const okIds = ['ride', 'run', 'lift', ...others];
+  const pickedAll = (params.get('sport') ?? 'ride').split(',').filter((x) => okIds.includes(x));
+  const sports = pickedAll.length ? pickedAll : ['ride'];
   const [ex, setEx] = useState<string | null>(null);
   const unit: Unit = (() => { try { return localStorage.getItem(UNIT_KEY) === 'lb' ? 'lb' : 'kg'; } catch { return 'kg'; } })();
   const today = todayIn(p.time_zone);
   const rides = useMemo(() => all.filter(isRide), [all]);
   const runs = useMemo(() => all.filter(isRun), [all]);
-  const mine = useMemo(() => all.filter(sportMatch(sport)), [all, sport]);
   const weight = latestWeight(rides) ?? p.athlete?.weight ?? null;
   const results = useMemo(() => testResults(tests.data ?? [], all), [tests.data, all]);
   const open = (id: string) => navigate(`/training/sessions?open=${encodeURIComponent(id)}`);
-  const st = settingsFor(p, my.value, sport);
-  const label = FIXED.find((s) => s.id === sport)?.label.slice(3) ?? typeLabel(sport);
   const well = wellness.data ?? [];
-  const sportQ = `?sport=${encodeURIComponent(sport)}`;
+  const sportQ = `?sport=${encodeURIComponent(sports.join(','))}`;
   const tabs = part === 'physiology' ? ANALYSIS_TABS : PERF_TABS.map((t) => ({ ...t, to: t.to + sportQ }));
   if (acts.isLoading) return <><SubTabs tabs={tabs} /><p className="text-muted-foreground">Loading…</p></>;
+  const setSports = (v: string[]) => setParams({ sport: v.join(',') }, { replace: true });
   const chips = (list: { id: string; label: string }[], more: boolean) => (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {list.map((s) => <Chip key={s.id} on={sport === s.id} onClick={() => setParams({ sport: s.id }, { replace: true })}>{s.label}</Chip>)}
-      {more && others.length > 0 && (
-        <select className="h-8 rounded-full border bg-card px-3 text-sm" value={others.includes(sport) ? sport : ''} onChange={(e) => e.target.value && setParams({ sport: e.target.value }, { replace: true })} aria-label="More sports">
-          <option value="">More sports ▾</option>{others.map((k) => <option key={k} value={k}>{typeLabel(k)}</option>)}
-        </select>
-      )}
-    </div>
+    <SportChips fixed={list} more={more ? others : []} moreLabel={typeLabel} value={sports} onChange={setSports} keepOne allIds={[...list.map((x) => x.id)]} />
   );
   const none = (t: string) => <Card><CardContent className="pt-6 text-sm text-muted-foreground">{t}</CardContent></Card>;
   const cards = (key: string, list: { id: string; label: string; node: React.ReactNode; off?: boolean }[]) => <Arrange key={key} page={key} cards={list} />;
   let content: React.ReactNode = null;
-  if (part === 'achievements') content = <AchievementsCard />;
+  if (part === 'achievements') content = <><GoalsCard /><AchievementsCard /></>;
   else if (part === 'physiology') {
-    content = <>{chips(FIXED.filter((f) => f.id !== 'lift'), false)}{sport === 'run'
+    const ps = sports.filter((x) => x === 'ride' || x === 'run');
+    const physio = (sport: string) => { const st = settingsFor(p, my.value, sport); return sport === 'run'
       ? cards('physio-run', [
         { id: 'lt', label: 'Lactate threshold', node: <ThresholdCard sport="run" acts={runs} settings={st} paceCurves={paceCurves.data ?? []} /> },
         { id: 'vo2', label: 'VO2max', node: <Vo2Card p={p} sport="run" acts={runs} wellness={well} paceCurves={paceCurves.data ?? []} settings={st} weight={weight} /> },
@@ -324,8 +325,13 @@ export function Performance({ part = 'achievements' }: { part?: Part }) {
         { id: 'lt', label: 'Lactate threshold', node: <ThresholdCard sport="ride" acts={rides} settings={st} paceCurves={[]} /> },
         { id: 'vo2', label: 'VO2max', node: <Vo2Card p={p} sport="ride" acts={rides} wellness={well} paceCurves={[]} settings={st} weight={weight} /> },
         { id: 'fitness', label: 'eFTP', node: <Fitness p={p} rides={rides} /> },
-        { id: 'ef', label: 'Efficiency and decoupling', node: <EfDecoupling p={p} rides={rides} /> }])}</>;
+        { id: 'ef', label: 'Efficiency and decoupling', node: <EfDecoupling p={p} rides={rides} /> }]); };
+    content = <>{chips(FIXED.filter((f) => f.id !== 'lift'), false)}{(ps.length ? ps : ['ride']).map((x) => <SportBlock key={x} title={ps.length > 1 ? x : null}>{physio(x)}</SportBlock>)}</>;
   } else {
+    const section = (sport: string) => {
+    const mine = all.filter(sportMatch(sport));
+    const st = settingsFor(p, my.value, sport);
+    const label = FIXED.find((s) => s.id === sport)?.label.slice(3) ?? typeLabel(sport);
     let c: React.ReactNode = null;
     if (part === 'profile') c = sport === 'ride' ? cards('perf-profile', [
       { id: 'profile', label: 'Power profile (Coggan)', node: <PowerProfileCard rides={rides} curves={curves.data ?? []} today={today} weight={weight} /> },
@@ -345,7 +351,8 @@ export function Performance({ part = 'achievements' }: { part?: Part }) {
         { id: 'meet', label: 'Mock meet', node: <MeetCard sets={lifts.data ?? []} unit={unit} meets={(tests.data ?? []).filter((t) => t.kind === 'Mock meet' && t.day <= today).map((t) => t.day)} /> },
         { id: 'best', label: 'Best lifts', node: <BestLifts sets={lifts.data ?? []} unit={unit} /> }])
       : none('Tests are for cycling, running and lifting.');
-    content = <>{chips(FIXED, true)}{c}</>;
+    return c; };
+    content = <>{chips(FIXED, true)}{sports.map((x) => <SportBlock key={x} title={sports.length > 1 ? x : null}>{section(x)}</SportBlock>)}</>;
   }
   return (
     <div className="space-y-4">

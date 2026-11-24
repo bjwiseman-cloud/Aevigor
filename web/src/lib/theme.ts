@@ -1,4 +1,4 @@
-// Appearance: Auto (follow the device), Light (Modern Eastern) or Dark (Refined Dark).
+// Appearance: Auto (follow the device), Light (Race Day ice blue) or Dark (Race Day night navy).
 // Same storage key as aevigor.com, so the website and the app share one choice.
 import { useSyncExternalStore } from 'react';
 
@@ -17,7 +17,7 @@ export function resolved(): 'light' | 'dark' {
 function apply() {
   const d = resolved() === 'dark';
   document.documentElement.classList.toggle('dark', d);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', d ? '#171513' : '#f3eee3');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', d ? '#0A1024' : '#EEF3FF');
   listeners.forEach((l) => l());
 }
 export function setMode(m: Mode) {

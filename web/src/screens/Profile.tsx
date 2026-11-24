@@ -216,7 +216,8 @@ export function Profile() {
     <div className="space-y-4">
       <h1 className="font-serif text-xl font-bold tracking-wide">Profile</h1>
       <Section title="You" open>
-        <p><b>{p.display_name || 'No name set'}</b><br /><span className="text-muted-foreground">{session?.user.email}</span></p>
+        <p><b>{p.display_name || 'No name set'}</b><br /><span className="text-muted-foreground">{session?.user.email}</span>
+          {(p as { athlete_code?: string | null }).athlete_code && <><br /><span className="text-xs text-muted-foreground">Athlete ID </span><span className="inline-block -skew-x-6 rounded bg-gradient-to-r from-[#FF6B00] to-[#FF2E63] px-1.5 font-display text-sm font-extrabold italic tracking-wider text-white">{(p as { athlete_code?: string }).athlete_code}</span></>}</p>
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 font-medium">Sex <HelpQ text="Sets the body figure on the body maps. Female also offers cycle tracking (you turn it on). Prefer not to say shows the male figure and every option." /></div>
           <Chips>{SEXES.map(([k, l]) => <Chip key={k} on={(p.sex ?? 'unspecified') === k} onClick={() => void saveSex(k)}>{l}</Chip>)}</Chips>

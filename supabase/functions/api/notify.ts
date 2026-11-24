@@ -57,7 +57,7 @@ export async function notifyDue(admin: SupabaseClient, keyFor: (userId: string) 
   let sent = 0;
   for (const pr of prefs as Prefs[]) {
     const p = (profs ?? []).find((x: Prof) => x.user_id === pr.user_id) as Prof | undefined;
-    if (!p?.consent_at) continue;
+    if (!p?.consent_at || (pr as Prefs & { paused?: boolean }).paused) continue;   // Settings › Reminders › Pause all
     const now = local(p.time_zone);
     try {
       if (pr.morning_email || pr.morning_push) {

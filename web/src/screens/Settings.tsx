@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { IcuConnectButton } from '@/components/IcuConnect';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -31,6 +31,8 @@ import { Chip, Chips } from '@/components/chips';
 import { ThemeChips } from '@/components/ThemeButton';
 import { Switch } from '@/components/ui/switch';
 import { useAnalysisOn } from '@/screens/Layout';
+import { useFun } from '@/hooks/fun';
+import { AthleteIdCard } from '@/screens/training/Challenges';
 
 // Analysis tab (Ben 2026-11-23): Trends, physiology (LT, VO2max, eFTP, efficiency) and load charts, made for a
 // computer screen. Off by default; switching it on adds an Analysis tab to the bottom bar.
@@ -130,7 +132,7 @@ export function Settings() {
 
       <Section title="Appearance">
           <ThemeChips />
-          <p className="text-muted-foreground">Auto matches your phone or computer. Light is rice paper and ink; Dark is charcoal and gold. Same choice as aevigor.com.</p>
+          <p className="text-muted-foreground">Auto matches your phone or computer. Race Day look: Light is ice blue, Dark is night navy with neon. Same light or dark choice as aevigor.com.</p>
       </Section>
 
       <Section title="Units">
@@ -198,6 +200,13 @@ export function Settings() {
 
       <Section title="Reminders"><Reminders email={profile.email ?? null} /></Section>
 
+      <Section title="Streaks and celebrations"><EngagementSettings /></Section>
+
+      <Section title="Friends and challenges">
+          <AthleteIdCard />
+          <Button asChild variant="outline" className="w-full"><Link to="/training/challenges">Add friends and groups</Link></Button>
+      </Section>
+
       <Section title="Health log">
           <p className="text-muted-foreground">{healthOn ? 'On. My log, Schedule and Records keep what you enter, only for you.' : 'Off. Turn it on from Plan.'}</p>
           {healthOn && <PhoneAlerts />}
@@ -255,6 +264,23 @@ export function Settings() {
         </AlertDialogContent>
       </AlertDialog>
       <Button variant="outline" className="w-full" onClick={() => supabase.auth.signOut()}>Sign out</Button>
+    </div>
+  );
+}
+
+// Engagement switches (Ben 2026-11-24). Reminders are in their own section above.
+function EngagementSettings() {
+  const f = useFun();
+  const row = (label: string, sub: string, on: boolean, set: (v: boolean) => void) => (
+    <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+      <span>{label}<span className="block text-xs text-muted-foreground">{sub}</span></span>
+      <Switch checked={on} onCheckedChange={set} aria-label={label} />
+    </label>
+  );
+  return (
+    <div className="space-y-2">
+      {row('Weekly streak', 'Weeks in a row with training, and your best streak', f.streaks, (v) => f.save({ streaks: v }))}
+      {row('Celebrations', 'The pop-up when you open the app after a new best', f.celebrations, (v) => f.save({ celebrations: v }))}
     </div>
   );
 }

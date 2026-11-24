@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { shortDay } from '@/components/charts';
-import { useDailyLoad, usePlannedTests, useProfile } from '@/hooks/data';
+import { usePlannedTests, useProfile } from '@/hooks/data';
 import { useActivities, useCurves, usePaceCurves } from '@/hooks/perf';
 import { useSets, useUnit } from '@/hooks/lifting';
 import { testResults } from '@/lib/perf';
@@ -14,6 +14,7 @@ import { achievements, isNew, streaks, FIRSTS, NEW_DAYS, type Achievement, type 
 import { todayIn } from '@/lib/time';
 import { addDays } from '@rules';
 import { cn } from '@/lib/utils';
+import { useFun } from '@/hooks/fun';
 
 export const TONE: Record<Achievement['tone'], string> = {
   amber: 'from-amber-300 via-yellow-400 to-orange-400 text-amber-950',
@@ -101,19 +102,22 @@ export function useFirsts() {
 }
 export function useStreaks() {
   const p = useProfile().data!;
-  const acts = useActivities(p), load = useDailyLoad(p);
+  const acts = useActivities(p);
   const today = todayIn(p.time_zone);
-  return useMemo(() => streaks({ actDays: (acts.data ?? []).map((a) => a.day), load: load.data ?? [], today }), [acts.data, load.data, today]);
+  return useMemo(() => streaks({ actDays: (acts.data ?? []).map((a) => a.day), today }), [acts.data, today]);
 }
 
 function StreakTile({ s, i }: { s: Streak; i: number }) {
+  // Beating your best is the achievement (Ben 2026-11-24). A broken streak is never a loss: "your best was N, start a new one".
+  const record = s.now > 0 && s.now >= s.best && s.best >= 2;
   return (
     <div style={{ animationDelay: `${i * 70}ms` }} className={cn('relative overflow-hidden rounded-xl bg-gradient-to-br p-3 shadow-md animate-pop motion-reduce:animate-none', TONE[s.tone])}>
       <span aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,0.35)_50%,transparent_70%)] bg-[length:200%_100%] animate-shine motion-reduce:hidden" />
       <div className={cn('relative text-2xl leading-none motion-reduce:animate-none', s.now > 0 ? 'animate-breathe' : 'grayscale')}>{s.icon}</div>
       <div className="relative mt-1.5 text-[11px] font-semibold uppercase tracking-wide opacity-90">{s.label}</div>
+      {record && <span className="absolute right-2 top-2 rounded-full bg-white px-1.5 py-px text-[10px] font-extrabold uppercase tracking-wider text-rose-600 shadow animate-pulse">Record</span>}
       <div className="relative font-display text-2xl font-extrabold italic leading-tight">{s.now} wk{s.now === 1 ? '' : 's'}</div>
-      <div className="relative text-[11px] opacity-85">best {s.best} · {s.sub}</div>
+      <div className="relative text-[11px] opacity-85">{record ? 'Your best ever, keep it going' : s.now === 0 && s.best > 0 ? `Your best was ${s.best} weeks. Start a new one this week.` : `Best ${s.best} · ${s.sub}`}</div>
     </div>
   );
 }
@@ -135,7 +139,8 @@ export function AchievementsCard() {
   const open = (id: string) => navigate(`/training/sessions?open=${encodeURIComponent(id)}`);
   const sorted = [...list].sort((a, b) => Number(isNew(b, today)) - Number(isNew(a, today)));
   const fresh = list.filter((a) => isNew(a, today)).length;
-  const streak = useStreaks(), firsts = useFirsts();
+  const allStreaks = useStreaks(), firsts = useFirsts(), fun = useFun();
+  const streak = fun.streaks ? allStreaks : [];
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-2">
@@ -151,7 +156,7 @@ export function AchievementsCard() {
         {streak.length > 0 && (
           <div className="mt-4">
             <div className="mb-2 text-sm font-semibold">🔥 Streaks</div>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">{streak.map((x, i) => <StreakTile key={x.id} s={x} i={i} />)}</div>
+            <div className="grid grid-cols-2 gap-2.5">{streak.map((x, i) => <StreakTile key={x.id} s={x} i={i} />)}</div>
           </div>
         )}
         {firsts.data && (

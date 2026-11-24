@@ -43,8 +43,8 @@ export function mmss(sec: number) {
 // ---------- Running pace curves ----------
 export type PaceCurve = { curve: string; label: string | null; meters: number[]; secs: number[]; activity_ids: (string | null)[] | null; critical_speed: number | null; d_prime: number | null };
 export const RUN_DIST: { m: number; label: string }[] = [
-  { m: 400, label: '400 m' }, { m: 800, label: '800 m' }, { m: 1000, label: '1 km' }, { m: 1609, label: '1 mile' },
-  { m: 3000, label: '3 km' }, { m: 5000, label: '5 km' }, { m: 10000, label: '10 km' }, { m: 15000, label: '15 km' },
+  { m: 100, label: '100 m' }, { m: 400, label: '400 m' }, { m: 800, label: '800 m' }, { m: 1000, label: '1 km' }, { m: 1609, label: '1 mile' },
+  { m: 3000, label: '3 km' }, { m: 5000, label: '5 km' }, { m: 10000, label: '10 km' }, { m: 15000, label: '15 km' }, { m: 20000, label: '20 km' },
   { m: 21097, label: 'Half' }, { m: 42195, label: 'Marathon' }
 ];
 

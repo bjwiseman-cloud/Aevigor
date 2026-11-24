@@ -9,7 +9,7 @@ const WINDOW_MIN = 20;   // a reminder still goes out if the 5-minute job runs u
 
 type Item = { id: string; user_id: string; name: string; amount: number | null; unit: string | null; strength: string | null; rrule: string; times: string[]; start_date: string; end_date: string | null; reminder: boolean; group_id: string | null; active: boolean };
 type Group = { id: string; user_id: string; name: string; rrule: string; times: string[]; reminder: boolean };
-type Ev = { id: string; user_id: string; title: string; starts_at: string; prep_notes: string | null; remind_minutes: number[]; rrule: string | null };
+type Ev = { id: string; user_id: string; kind: string; title: string; starts_at: string; prep_notes: string | null; remind_minutes: number[]; rrule: string | null };
 
 const utc = (d: string) => new Date(d + 'T00:00:00Z');
 const dayDiff = (a: string, b: string) => Math.round((utc(b).getTime() - utc(a).getTime()) / 864e5);
@@ -76,18 +76,24 @@ export async function pushDue(admin: SupabaseClient) {
   const { data: subs } = await admin.from('push_subscriptions').select('user_id');
   const users = [...new Set((subs ?? []).map((s) => s.user_id as string))];
   if (!users.length) return { users: 0, sent: 0 };
-  const [{ data: profs }, { data: items }, { data: groups }, { data: events }] = await Promise.all([
+  const [{ data: profs }, { data: items }, { data: groups }, { data: events }, { data: prefs }] = await Promise.all([
     admin.from('profiles').select('user_id, time_zone, health_consent_at').in('user_id', users),
     admin.from('log_items').select('*').in('user_id', users).eq('active', true).eq('reminder', true),
     admin.from('log_groups').select('*').in('user_id', users),
-    admin.from('events').select('*').in('user_id', users).gte('starts_at', new Date(Date.now() - 864e5).toISOString()).lte('starts_at', new Date(Date.now() + 8 * 864e5).toISOString())
+    admin.from('events').select('*').in('user_id', users).gte('starts_at', new Date(Date.now() - 864e5).toISOString()).lte('starts_at', new Date(Date.now() + 8 * 864e5).toISOString()),
+    admin.from('notify_prefs').select('user_id, paused, training_push, appt_push').in('user_id', users)
   ]);
+  const TRAINING = ['training', 'fitness_test', 'race'];
   let sent = 0;
   for (const p of profs ?? []) {
-    if (!p.health_consent_at) continue;
+    // Settings › Reminders (Ben 2026-11-24): pause everything, or switch training and appointment reminders separately
+    const np = (prefs ?? []).find((x: { user_id: string }) => x.user_id === p.user_id) as { paused?: boolean; training_push?: boolean; appt_push?: boolean } | undefined;
+    if (np?.paused) continue;
+    const trainOn = np?.training_push !== false, apptOn = np?.appt_push !== false;
     const now = local(p.time_zone);
     const due: { key: string; title: string; body: string; url: string }[] = [];
-    const mine = (items ?? []).filter((i: Item) => i.user_id === p.user_id && i.rrule !== 'AS_NEEDED');
+    // My log reminders are health items: only with the health opt-in and appointment reminders on
+    const mine = p.health_consent_at && apptOn ? (items ?? []).filter((i: Item) => i.user_id === p.user_id && i.rrule !== 'AS_NEEDED') : [];
     const gs = (groups ?? []).filter((g: Group) => g.user_id === p.user_id);
     const inWindow = (t: string) => { const d = now.mins - toMins(t); return d >= 0 && d < WINDOW_MIN; };
     for (const g of gs) {
@@ -100,11 +106,11 @@ export async function pushDue(admin: SupabaseClient) {
       if (!occursOn(i.rrule, i.start_date, now.day, i.end_date)) continue;
       for (const t of i.times) if (inWindow(t)) due.push({ key: `i:${i.id}:${now.day}:${t}`, title: '🔔 Reminder', body: amount(i), url: '/beta/#/inbox' });
     }
-    for (const e of (events ?? []).filter((x: Ev) => x.user_id === p.user_id)) {
+    for (const e of (events ?? []).filter((x: Ev) => x.user_id === p.user_id && (TRAINING.includes(x.kind) ? trainOn : apptOn && !!p.health_consent_at))) {
       const start = new Date(e.starts_at).getTime();
       for (const m of e.remind_minutes ?? []) {
         const d = (Date.now() - (start - m * 60000)) / 60000;
-        if (d >= 0 && d < WINDOW_MIN) due.push({ key: `e:${e.id}:${m}`, title: `📅 ${e.title}`, body: e.prep_notes ? `Prep: ${e.prep_notes}` : new Date(e.starts_at).toLocaleString('en-CA', { timeZone: p.time_zone, dateStyle: 'medium', timeStyle: 'short' }), url: '/beta/#/plan/schedule' });
+        if (d >= 0 && d < WINDOW_MIN) due.push({ key: `e:${e.id}:${m}`, title: `📅 ${e.title}`, body: e.prep_notes ? `Prep: ${e.prep_notes}` : new Date(e.starts_at).toLocaleString('en-CA', { timeZone: p.time_zone, dateStyle: 'medium', timeStyle: 'short' }), url: '/beta/#/calendar' });
       }
     }
     for (const d of due) {

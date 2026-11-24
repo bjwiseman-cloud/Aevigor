@@ -12,6 +12,9 @@ import { cn } from '@/lib/utils';
 import { CycleCard } from '@/components/Cycle';
 import { RangeBar, RangeKey, scale, type Range } from '@/components/RangeBar';
 import { Arrange } from '@/components/Arrange';
+import { PlanRewardCard } from '@/components/PlanReward';
+import { GoalsCard } from '@/components/Goals';
+import { ResultPromptCard } from '@/components/Results';
 
 export function SyncLine({ profile }: { profile: Profile }) {
   const t = profile.last_sync
@@ -82,11 +85,13 @@ function StatusCard({ code, reasons }: { code: string; reasons: string[] }) {
   return (
     <Card className="overflow-hidden border-0 shadow-lg">
       <div className={cn('relative overflow-hidden bg-gradient-to-br px-5 pb-5 pt-6 text-center', h.bg)}>
+        {/* Race Day: diagonal speed stripes across the status panel */}
+        <span aria-hidden className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(115deg,transparent_0_22px,rgba(255,255,255,0.10)_22px_30px)]" />
         <span aria-hidden className={cn('pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full opacity-40 blur-2xl animate-breathe motion-reduce:animate-none', h.glow)} />
         <span aria-hidden className={cn('pointer-events-none absolute -bottom-12 -left-8 h-36 w-36 rounded-full opacity-30 blur-2xl animate-breathe motion-reduce:animate-none [animation-delay:1.2s]', h.glow)} />
         <div className="absolute right-3 top-3 rounded-full bg-white/80 p-1 text-slate-700"><HelpButton topic="daily-status" /></div>
         <div className="relative mx-auto grid h-16 w-16 place-items-center rounded-full bg-white/25 text-4xl shadow-inner ring-4 ring-white/30 animate-float motion-reduce:animate-none">{h.icon}</div>
-        <div className="relative mt-3 font-display text-4xl font-extrabold uppercase italic leading-none tracking-wide drop-shadow-sm animate-pop motion-reduce:animate-none">{st.head}</div>
+        <div className="relative mt-3 font-display text-5xl font-extrabold uppercase italic leading-none tracking-wide drop-shadow-[0_0_18px_rgba(255,255,255,0.45)] animate-pop motion-reduce:animate-none">{st.head}</div>
         <div className="relative mt-3 flex flex-wrap justify-center gap-1.5">
           {why.map((x) => <span key={x} className="rounded-full bg-white/25 px-2.5 py-0.5 text-xs font-medium backdrop-blur-sm">{x}</span>)}
         </div>
@@ -156,8 +161,11 @@ export function Today() {
         {niceDay(r.day)}{r.day !== day && <> · <b className="text-status-caution">latest available</b></>}
       </p>
 
+      <ResultPromptCard />
       <Arrange page="today-v2" cards={[
         { id: 'status', label: 'Daily status', node: <StatusCard code={r.status} reasons={r.reasons} /> },
+        { id: 'plan', label: 'Daily plan stars', node: <PlanRewardCard /> },
+        { id: 'goals', label: 'Goals', node: <GoalsCard /> },
         { id: 'weekly', label: 'Weekly check', node: <WeeklyCheckCard r={r} /> },
         { id: 'lastweek', label: 'Last week', node: <LastWeekCard /> },
         { id: 'signals', label: 'Signals', node: (
