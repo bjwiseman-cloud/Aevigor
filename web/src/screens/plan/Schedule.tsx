@@ -44,7 +44,7 @@ const look = (t: CalType) => CAL_TYPES.find((x) => x.id === t)!;
 const typeOfKind = (k: EventKind): CalType => (k === 'training' ? 'training' : k === 'fitness_test' || k === 'race' || k === 'social' ? 'events' : 'appointments');
 const EVENT_SUB: { id: EventKind; label: string; icon: string }[] = [{ id: 'race', label: 'Race', icon: '🏁' }, { id: 'fitness_test', label: 'Test', icon: '⏱' }, { id: 'social', label: 'Social', icon: '🎉' }];
 // Appointments (Ben 2026-11-24): everyday kinds first, then health ones (those need the health opt-in)
-const APPT_ORDER: EventKind[] = ['finance', 'work', 'car', 'home', 'personal', 'family', 'pet', 'legal', 'errand', 'medical', 'dental', 'lab', 'physio', 'other'];
+const APPT_ORDER: EventKind[] = ['finance', 'work', 'car', 'home', 'personal', 'family', 'pet', 'legal', 'medical', 'dental', 'lab', 'physio', 'other', 'errand'];
 const APPT_KINDS = APPT_ORDER.map((id) => EVENT_KINDS.find((k) => k.id === id)!);
 const SPORT: Record<string, [string, string]> = { ride: ['🚴', 'Ride'], run: ['🏃', 'Run'], WeightTraining: ['🏋️', 'Lifting'], Badminton: ['🏸', 'Badminton'], Swim: ['🏊', 'Swim'] };
 const sport = (k: string) => SPORT[k] ?? ['💪', k.replace(/([a-z])([A-Z])/g, '$1 $2')];
