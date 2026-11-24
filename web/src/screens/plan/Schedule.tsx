@@ -33,8 +33,8 @@ export const CAL_TYPES: { id: CalType; label: string; add: string; icon: string;
   { id: 'appointments', label: 'Appointments', add: 'Appointment', icon: '📅', dot: '#00B8FF', tile: 'from-sky-400 to-blue-600' }
 ];
 const look = (t: CalType) => CAL_TYPES.find((x) => x.id === t)!;
-const typeOfKind = (k: EventKind): CalType => (k === 'training' ? 'training' : k === 'fitness_test' || k === 'race' ? 'events' : 'appointments');
-const EVENT_SUB: { id: EventKind; label: string; icon: string }[] = [{ id: 'race', label: 'Race', icon: '🏁' }, { id: 'fitness_test', label: 'Test', icon: '⏱' }];
+const typeOfKind = (k: EventKind): CalType => (k === 'training' ? 'training' : k === 'fitness_test' || k === 'race' || k === 'social' ? 'events' : 'appointments');
+const EVENT_SUB: { id: EventKind; label: string; icon: string }[] = [{ id: 'race', label: 'Race', icon: '🏁' }, { id: 'fitness_test', label: 'Test', icon: '⏱' }, { id: 'social', label: 'Social', icon: '🎉' }];
 const APPT_KINDS = EVENT_KINDS.filter((k) => ['medical', 'lab', 'physio', 'other'].includes(k.id));
 const SPORT: Record<string, [string, string]> = { ride: ['🚴', 'Ride'], run: ['🏃', 'Run'], WeightTraining: ['🏋️', 'Lifting'], Badminton: ['🏸', 'Badminton'], Swim: ['🏊', 'Swim'] };
 const sport = (k: string) => SPORT[k] ?? ['💪', k.replace(/([a-z])([A-Z])/g, '$1 $2')];
@@ -140,7 +140,7 @@ function EventSheet({ open, onOpenChange, ev, tz, today, startDay, startTime }: 
           ) : (<>
             {type === 'events' && <Field label="Kind"><Chips>{EVENT_SUB.map((k) => <Chip key={k.id} on={evk === k.id} onClick={() => setEvk(k.id)}>{k.icon} {k.label}</Chip>)}</Chips></Field>}
             {type === 'appointments' && <Field label="Kind"><Chips>{APPT_KINDS.map((k) => <Chip key={k.id} on={appt === k.id} onClick={() => setAppt(k.id)}>{k.icon} {k.label}</Chip>)}</Chips></Field>}
-            <Field label="Title"><Input value={title} maxLength={120} placeholder={type === 'training' ? 'e.g. Group ride' : type === 'events' ? (evk === 'race' ? 'e.g. Gravel 90 km' : 'e.g. FTP test') : 'e.g. Blood work, Dr. Lee'} onChange={(e) => setTitle(e.target.value)} /></Field>
+            <Field label="Title"><Input value={title} maxLength={120} placeholder={type === 'training' ? 'e.g. Group ride' : type === 'events' ? (evk === 'race' ? 'e.g. Gravel 90 km' : evk === 'social' ? 'e.g. Saturday group ride, family hike' : 'e.g. FTP test') : 'e.g. Blood work, Dr. Lee'} onChange={(e) => setTitle(e.target.value)} /></Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Date"><Input type="date" value={day} onChange={(e) => setDay(e.target.value)} /></Field>
               <Field label="Time"><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field>
@@ -313,7 +313,7 @@ function CalendarCard({ onAdd, onEdit, onDay }: { onAdd: (day: string, time?: st
         {view === 'day' && dayView()}
         {view === 'week' && weekView()}
         <Button className="w-full" onClick={() => onAdd(view === 'day' ? at : at >= today ? at : today)}><Plus /> Add to calendar</Button>
-        <p className="text-xs text-muted-foreground">Add training, an event (race or test), an appointment or a My log item, or tap a day. Training, tests and races also come from your intervals.icu calendar.</p>
+        <p className="text-xs text-muted-foreground">Add training, an event (race, test or social), an appointment or a My log item, or tap a day. Training, tests and races also come from your intervals.icu calendar.</p>
       </CardContent>
     </Card>
   );

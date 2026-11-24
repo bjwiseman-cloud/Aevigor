@@ -83,7 +83,7 @@ export async function pushDue(admin: SupabaseClient) {
     admin.from('events').select('*').in('user_id', users).gte('starts_at', new Date(Date.now() - 864e5).toISOString()).lte('starts_at', new Date(Date.now() + 8 * 864e5).toISOString()),
     admin.from('notify_prefs').select('user_id, paused, training_push, appt_push').in('user_id', users)
   ]);
-  const TRAINING = ['training', 'fitness_test', 'race'];
+  const TRAINING = ['training', 'fitness_test', 'race', 'social'];
   let sent = 0;
   for (const p of profs ?? []) {
     // Settings › Reminders (Ben 2026-11-24): pause everything, or switch training and appointment reminders separately

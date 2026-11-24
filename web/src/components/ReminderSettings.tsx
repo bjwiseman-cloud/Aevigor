@@ -88,7 +88,7 @@ export function Reminders({ email }: { email: string | null }) {
       <Row label="Phone alert" checked={p.post_push} onChange={(v) => save({ post_push: v })} />
       <b className="block pt-1">Calendar reminders</b>
       <p className="text-xs text-muted-foreground">Phone alerts before things on your Calendar. Training and appointments are separate, so you can keep one and turn off the other.</p>
-      <Row label="Training, tests and races" checked={p.training_push} onChange={(v) => save({ training_push: v })} />
+      <Row label="Training, tests, races and social" checked={p.training_push} onChange={(v) => save({ training_push: v })} />
       <Row label="Appointments and other events" sub="Includes My log reminders (needs the health log turned on)" checked={p.appt_push} onChange={(v) => save({ appt_push: v })} />
       </div>
       {(p.morning_email || p.post_email) && <Button variant="outline" size="sm" onClick={() => callApi<{ to: string }>('notify-test').then((r) => toast.success(`Test email sent to ${r.to}`)).catch((e) => toast.error(e.message))}>Send me a test email</Button>}

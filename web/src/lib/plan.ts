@@ -21,7 +21,7 @@ export type LogItem = {
 };
 export type LogGroup = { id: string; name: string; rrule: string; times: string[]; reminder: boolean };
 export type LogDose = { id: string; item_id: string; day: string; slot: string; status: 'taken' | 'skipped' };
-export type EventKind = 'medical' | 'lab' | 'fitness_test' | 'race' | 'physio' | 'other' | 'training';
+export type EventKind = 'medical' | 'lab' | 'fitness_test' | 'race' | 'physio' | 'other' | 'training' | 'social';
 export type PlanEvent = {
   id: string; kind: EventKind; title: string; starts_at: string; location: string | null; description: string | null;
   prep_notes: string | null; remind_minutes: number[]; rrule: string | null; on_external_calendars: boolean;
@@ -33,7 +33,8 @@ export const EVENT_KINDS: { id: EventKind; label: string; icon: string }[] = [
   { id: 'race', label: 'Race or event', icon: '🏁' },
   { id: 'physio', label: 'Physio / massage', icon: '🤲' },
   { id: 'other', label: 'Other', icon: '📌' },
-  { id: 'training', label: 'Training', icon: '🚴' }
+  { id: 'training', label: 'Training', icon: '🚴' },
+  { id: 'social', label: 'Social', icon: '🎉' }
 ];
 
 // ---------- Repeat model used by the chips ----------

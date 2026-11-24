@@ -239,11 +239,11 @@ end $$;
 
 -- ---------- Calendar: Training entries, and Tests and Races without the health opt-in ----------
 alter table public.events drop constraint if exists events_kind_check;
-alter table public.events add constraint events_kind_check check (kind in ('medical', 'lab', 'fitness_test', 'race', 'physio', 'other', 'training'));
+alter table public.events add constraint events_kind_check check (kind in ('medical', 'lab', 'fitness_test', 'race', 'physio', 'other', 'training', 'social'));
 -- Training, tests and races are not health data, so they can be saved without the health-data opt-in.
 drop policy if exists "own rows write" on public.events;
 create policy "own rows write" on public.events for all using (auth.uid() = user_id)
-  with check (auth.uid() = user_id and (kind in ('training', 'fitness_test', 'race') or public.has_health_consent()));
+  with check (auth.uid() = user_id and (kind in ('training', 'fitness_test', 'race', 'social') or public.has_health_consent()));
 
 -- ---------- Reminders: pause all, and training vs appointment reminders separately ----------
 alter table public.notify_prefs add column if not exists paused boolean not null default false;
