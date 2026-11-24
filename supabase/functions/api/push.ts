@@ -84,6 +84,7 @@ export async function pushDue(admin: SupabaseClient) {
     admin.from('notify_prefs').select('user_id, paused, training_push, appt_push').in('user_id', users)
   ]);
   const TRAINING = ['training', 'fitness_test', 'race', 'social'];
+  const HEALTH = ['medical', 'lab', 'physio', 'other', 'dental'];   // health appointments: only with the health opt-in
   let sent = 0;
   for (const p of profs ?? []) {
     // Settings › Reminders (Ben 2026-11-24): pause everything, or switch training and appointment reminders separately
@@ -106,7 +107,7 @@ export async function pushDue(admin: SupabaseClient) {
       if (!occursOn(i.rrule, i.start_date, now.day, i.end_date)) continue;
       for (const t of i.times) if (inWindow(t)) due.push({ key: `i:${i.id}:${now.day}:${t}`, title: '🔔 Reminder', body: amount(i), url: '/beta/#/inbox' });
     }
-    for (const e of (events ?? []).filter((x: Ev) => x.user_id === p.user_id && (TRAINING.includes(x.kind) ? trainOn : apptOn && !!p.health_consent_at))) {
+    for (const e of (events ?? []).filter((x: Ev) => x.user_id === p.user_id && (TRAINING.includes(x.kind) ? trainOn : apptOn && (!HEALTH.includes(x.kind) || !!p.health_consent_at)))) {
       const start = new Date(e.starts_at).getTime();
       for (const m of e.remind_minutes ?? []) {
         const d = (Date.now() - (start - m * 60000)) / 60000;

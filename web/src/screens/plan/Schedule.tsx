@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Arrange } from '@/components/Arrange';
 import { useCalendar, useDailyLoad, usePlannedTests, useProfile } from '@/hooks/data';
 import { usePlanData, useSave } from '@/hooks/plan';
-import { addDaysIso, EVENT_KINDS, occursOn, shortDate, type EventKind, type PlanEvent } from '@/lib/plan';
+import { addDaysIso, EVENT_KINDS, HEALTH_KINDS, occursOn, shortDate, type EventKind, type PlanEvent } from '@/lib/plan';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,14 @@ import { HealthConsent } from '@/components/health';
 import { NextTestCard, daysAway, weekOf } from '@/screens/Load';
 import { ResultPromptCard } from '@/components/Results';
 import { cn } from '@/lib/utils';
+import { useActivities } from '@/hooks/perf';
+import { isRide, isRun } from '@/lib/perf';
+const isLift = (a: { type: string }) => /weight|strength/i.test(a.type);
+import { typeLabel } from '@/components/SportChips';
+
+// Training sport (Ben 2026-11-24): Cycling, Running, Lifting, plus a drop-down of the other sports this person does
+const TRAIN_SPORTS = [{ id: 'ride', label: 'Cycling', icon: '🚴' }, { id: 'run', label: 'Running', icon: '🏃' }, { id: 'lift', label: 'Lifting', icon: '🏋️' }];
+const sportIcon = (s: string | null | undefined) => TRAIN_SPORTS.find((x) => x.id === s)?.icon ?? (s ? '🏅' : '🚴');
 
 type View = 'day' | 'week' | 'month' | 'quarter';
 // Ben 2026-11-24: three types only. Events = races and tests (and intervals.icu events); Appointments = medical, lab, physio, other.
@@ -35,7 +43,9 @@ export const CAL_TYPES: { id: CalType; label: string; add: string; icon: string;
 const look = (t: CalType) => CAL_TYPES.find((x) => x.id === t)!;
 const typeOfKind = (k: EventKind): CalType => (k === 'training' ? 'training' : k === 'fitness_test' || k === 'race' || k === 'social' ? 'events' : 'appointments');
 const EVENT_SUB: { id: EventKind; label: string; icon: string }[] = [{ id: 'race', label: 'Race', icon: '🏁' }, { id: 'fitness_test', label: 'Test', icon: '⏱' }, { id: 'social', label: 'Social', icon: '🎉' }];
-const APPT_KINDS = EVENT_KINDS.filter((k) => ['medical', 'lab', 'physio', 'other'].includes(k.id));
+// Appointments (Ben 2026-11-24): everyday kinds first, then health ones (those need the health opt-in)
+const APPT_ORDER: EventKind[] = ['finance', 'work', 'car', 'home', 'personal', 'family', 'pet', 'legal', 'errand', 'medical', 'dental', 'lab', 'physio', 'other'];
+const APPT_KINDS = APPT_ORDER.map((id) => EVENT_KINDS.find((k) => k.id === id)!);
 const SPORT: Record<string, [string, string]> = { ride: ['🚴', 'Ride'], run: ['🏃', 'Run'], WeightTraining: ['🏋️', 'Lifting'], Badminton: ['🏸', 'Badminton'], Swim: ['🏊', 'Swim'] };
 const sport = (k: string) => SPORT[k] ?? ['💪', k.replace(/([a-z])([A-Z])/g, '$1 $2')];
 
@@ -89,7 +99,7 @@ function useEntries(from: string, to: string) {
       const days: string[] = [];
       if (!e.rrule) days.push(lp.day);
       else for (let x = from; x <= to; x = addDaysIso(x, 1)) if (occursOn(e.rrule, lp.day, x)) days.push(x);
-      for (const day of days) if (day >= from && day <= to) out.push({ day, time: lp.time, title: e.title, sub: e.location ?? k?.label, type: typeOfKind(e.kind), icon: k?.icon ?? '📌', event: e });
+      for (const day of days) if (day >= from && day <= to) out.push({ day, time: lp.time, title: e.title, sub: e.location ?? k?.label, type: typeOfKind(e.kind), icon: e.kind === 'training' ? sportIcon(e.sport) : k?.icon ?? '📌', event: e });
     }
     return out.sort((a, b) => (a.day + (a.time ?? '')).localeCompare(b.day + (b.time ?? '')));
   }, [load.data, tests.data, cal.data, d.events.data, from, to, today, tz]);
@@ -103,7 +113,10 @@ function EventSheet({ open, onOpenChange, ev, tz, today, startDay, startTime }: 
   const nav = useNavigate();
   const p = ev ? localParts(ev.starts_at, tz) : { day: startDay ?? today, time: startTime ?? '09:00' };
   const [type, setType] = useState<AddType>(ev ? typeOfKind(ev.kind) : 'appointments');
-  const [appt, setAppt] = useState<EventKind>(ev && typeOfKind(ev.kind) === 'appointments' ? ev.kind : 'medical');
+  const [appt, setAppt] = useState<EventKind>(ev && typeOfKind(ev.kind) === 'appointments' ? ev.kind : 'finance');
+  const [sport, setSport] = useState<string>(ev?.sport ?? 'ride');
+  const acts = useActivities(profile);
+  const otherSports = useMemo(() => [...new Set((acts.data ?? []).filter((a) => !isRide(a) && !isRun(a) && !isLift(a)).map((a) => a.type))].sort(), [acts.data]);
   const [evk, setEvk] = useState<EventKind>(ev && typeOfKind(ev.kind) === 'events' ? ev.kind : 'race');
   const [title, setTitle] = useState(ev?.title ?? '');
   const [day, setDay] = useState(p.day);
@@ -116,9 +129,9 @@ function EventSheet({ open, onOpenChange, ev, tz, today, startDay, startTime }: 
   const [external, setExternal] = useState(ev?.on_external_calendars ?? false);
   const save = useSave('events', ['events']);
   const kind: EventKind = type === 'training' ? 'training' : type === 'events' ? evk : appt;
-  const needsHealth = type === 'appointments' && !profile.health_consent_at;
+  const needsHealth = type === 'appointments' && HEALTH_KINDS.includes(appt) && !profile.health_consent_at;
   const submit = async () => {
-    const row = { kind, title: title.trim(), starts_at: toInstant(day, time, tz), location: location || null, description: description || null, prep_notes: prep || null, remind_minutes: remind, rrule, on_external_calendars: external };
+    const row = { kind, sport: kind === 'training' ? sport : null, title: title.trim(), starts_at: toInstant(day, time, tz), location: location || null, description: description || null, prep_notes: prep || null, remind_minutes: remind, rrule, on_external_calendars: external };
     await save.mutateAsync(ev ? { op: 'update', id: ev.id, row } : { op: 'insert', row });
     onOpenChange(false);
   };
@@ -130,17 +143,26 @@ function EventSheet({ open, onOpenChange, ev, tz, today, startDay, startTime }: 
           <SheetDescription>{shortDate(day)}{time ? ` · ${time}` : ''}. Reminders show your title and prep notes.</SheetDescription></SheetHeader>
         <div className="space-y-4">
           <Field label="Type"><Chips>{types.filter((t) => !ev || t.id !== 'log').map((t) => <Chip key={t.id} on={type === t.id} onClick={() => setType(t.id)}>{t.icon} {t.label}</Chip>)}</Chips></Field>
+          {type === 'appointments' && <Field label="Kind"><Chips>{APPT_KINDS.map((k) => <Chip key={k.id} className={HEALTH_KINDS.includes(k.id) ? 'border-dashed' : ''} on={appt === k.id} onClick={() => setAppt(k.id)}>{k.icon} {k.label}</Chip>)}</Chips></Field>}
           {type === 'log' ? (
             <div className="space-y-2 rounded-lg border p-3 text-sm">
               <p>My log items (supplements, medications, meals) have their own form with repeats and reminders.</p>
               <Button className="w-full" onClick={() => { onOpenChange(false); nav(`/checkin/log?add=1&day=${day}&time=${time}`); }}>Open My log · Add an item</Button>
             </div>
           ) : needsHealth ? (
-            <div className="space-y-2"><p className="text-sm text-muted-foreground">Appointments are kept with your private health log, which needs its own opt-in first. Training, tests and races do not.</p><HealthConsent profile={profile} /></div>
+            <div className="space-y-2"><p className="text-sm text-muted-foreground">Health appointments are kept with your private health log, which needs its own opt-in first. Everyday appointments, training and events do not.</p><HealthConsent profile={profile} /></div>
           ) : (<>
+            {type === 'training' && <Field label="Sport"><div className="flex flex-wrap items-center gap-1.5">
+              {TRAIN_SPORTS.map((x) => <Chip key={x.id} on={sport === x.id} onClick={() => setSport(x.id)}>{x.icon} {x.label}</Chip>)}
+              {!TRAIN_SPORTS.some((x) => x.id === sport) && <Chip on onClick={() => setSport('ride')}>🏅 {typeLabel(sport)} ✕</Chip>}
+              {otherSports.length > 0 && (
+                <select className="h-7 w-[4.25rem] appearance-none rounded-full border bg-card px-2.5 text-center text-xs font-semibold" value="" onChange={(e) => e.target.value && setSport(e.target.value)} aria-label="Other sports">
+                  <option value="">More ▾</option>{otherSports.filter((k) => k !== sport).map((k) => <option key={k} value={k}>{typeLabel(k)}</option>)}
+                </select>
+              )}
+            </div></Field>}
             {type === 'events' && <Field label="Kind"><Chips>{EVENT_SUB.map((k) => <Chip key={k.id} on={evk === k.id} onClick={() => setEvk(k.id)}>{k.icon} {k.label}</Chip>)}</Chips></Field>}
-            {type === 'appointments' && <Field label="Kind"><Chips>{APPT_KINDS.map((k) => <Chip key={k.id} on={appt === k.id} onClick={() => setAppt(k.id)}>{k.icon} {k.label}</Chip>)}</Chips></Field>}
-            <Field label="Title"><Input value={title} maxLength={120} placeholder={type === 'training' ? 'e.g. Group ride' : type === 'events' ? (evk === 'race' ? 'e.g. Gravel 90 km' : evk === 'social' ? 'e.g. Saturday group ride, family hike' : 'e.g. FTP test') : 'e.g. Blood work, Dr. Lee'} onChange={(e) => setTitle(e.target.value)} /></Field>
+            <Field label="Title"><Input value={title} maxLength={120} placeholder={type === 'training' ? 'e.g. Group ride' : type === 'events' ? (evk === 'race' ? 'e.g. Gravel 90 km' : evk === 'social' ? 'e.g. Saturday group ride, family hike' : 'e.g. FTP test') : 'e.g. Mortgage meeting, Dr. Lee'} onChange={(e) => setTitle(e.target.value)} /></Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Date"><Input type="date" value={day} onChange={(e) => setDay(e.target.value)} /></Field>
               <Field label="Time"><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field>
