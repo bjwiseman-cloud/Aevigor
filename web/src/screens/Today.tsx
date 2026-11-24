@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HelpButton } from '@/components/Help';
 import { cn } from '@/lib/utils';
+import { HOME_TABS, SubTabs } from '@/screens/Layout';
 import { CycleCard } from '@/components/Cycle';
 import { RangeBar, RangeKey, scale, type Range } from '@/components/RangeBar';
 import { Arrange } from '@/components/Arrange';
@@ -108,7 +109,9 @@ function StatusCard({ code, reasons }: { code: string; reasons: string[] }) {
   );
 }
 
-export function Today() {
+// Home (Ben 2026-11-24): the centre tab is Home, with Daily (status, plan stars, goals, signals) and Weekly
+// (weekly check, last week) sub-tabs.
+export function Today({ part = 'daily' }: { part?: 'daily' | 'weekly' }) {
   const profile = useProfile().data!;
   const status = useLatestStatus(profile);
   const checkin = useTodayCheckin(profile);
@@ -157,17 +160,19 @@ export function Today() {
 
   return (
     <div className="space-y-4">
+      <SubTabs tabs={HOME_TABS} />
       <p className="text-center text-sm text-muted-foreground">
         {niceDay(r.day)}{r.day !== day && <> · <b className="text-status-caution">latest available</b></>}
       </p>
 
       <ResultPromptCard />
-      <Arrange page="today-v2" cards={[
+      {part === 'weekly' ? <Arrange page="home-weekly" cards={[
+        { id: 'weekly', label: 'Weekly check', node: <WeeklyCheckCard r={r} /> },
+        { id: 'lastweek', label: 'Last week', node: <LastWeekCard /> }
+      ]} /> : <Arrange page="home-daily" cards={[
         { id: 'status', label: 'Daily status', node: <StatusCard code={r.status} reasons={r.reasons} /> },
         { id: 'plan', label: 'Daily plan stars', node: <PlanRewardCard /> },
         { id: 'goals', label: 'Goals', node: <GoalsCard /> },
-        { id: 'weekly', label: 'Weekly check', node: <WeeklyCheckCard r={r} /> },
-        { id: 'lastweek', label: 'Last week', node: <LastWeekCard /> },
         { id: 'signals', label: 'Signals', node: (
       <Card>
         <CardHeader className="pb-2"><CardTitle help="signals"><span className="font-display text-xl font-extrabold italic tracking-wide">📡 Signals</span></CardTitle></CardHeader>
@@ -191,7 +196,7 @@ export function Today() {
       </Card>
         ) },
         { id: 'cycle', label: 'Cycle (if turned on)', node: <CycleCard /> }
-      ]} />
+      ]} />}
 
       {!checkin.data && !checkin.isLoading && (
         <Button asChild className="w-full"><Link to="/checkin">Do today&apos;s check-in</Link></Button>

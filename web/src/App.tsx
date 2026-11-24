@@ -58,6 +58,7 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/today" element={<Today />} />
+        <Route path="/today/weekly" element={<Today part="weekly" />} />
         <Route path="/checkin" element={<CheckinPage />} />
         <Route path="/checkin/session" element={<SessionCheckin />} />
         <Route path="/training/load" element={<Load />} />

@@ -29,7 +29,7 @@ export function Brand() {
 const TABS = [
   { to: '/checkin', label: 'Check-in', icon: ClipboardCheck, match: ['/checkin'] },
   { to: '/training/load', label: 'Training', icon: TrendingUp, match: ['/training'] },
-  { to: '/today', label: 'Today', icon: Home, match: ['/today'], centre: true },
+  { to: '/today', label: 'Home', icon: Home, match: ['/today'], centre: true },
   { to: '/performance', label: 'Performance', icon: Award, match: ['/performance'] },
   { to: '/calendar', label: 'Calendar', icon: CalendarDays, match: ['/calendar'] }
 ];
@@ -53,6 +53,7 @@ export function SubTabs({ tabs }: { tabs: { to: string; label: string; end?: boo
     </div>
   );
 }
+export const HOME_TABS = [{ to: '/today', label: 'Daily', end: true }, { to: '/today/weekly', label: 'Weekly' }];
 export const TRAINING_TABS = [{ to: '/training/load', label: 'Load' }, { to: '/training/sessions', label: 'Activities' }, { to: '/training/challenges', label: 'Challenges' }];
 export const PERF_TABS = [
   { to: '/performance', label: 'Achievements', end: true }, { to: '/performance/profile', label: 'Profile' }, { to: '/performance/curves', label: 'Curves' },
