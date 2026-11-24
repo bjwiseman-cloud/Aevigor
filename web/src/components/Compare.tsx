@@ -295,7 +295,7 @@ export function PowerProfileCard({ rides, curves, today, weight }: { rides: Acti
           <button key={r.id} type="button" aria-pressed={days === r.id} onClick={() => setDays(r.id)}
             className={cn('-skew-x-[8deg] rounded-md px-3 py-1 font-display text-sm font-bold italic', days === r.id ? 'bg-gradient-to-r from-[#FF6B00] to-[#FF2E63] text-white' : 'bg-[#1E2B57] text-slate-300')}><span className="inline-block skew-x-[8deg]">{r.label}</span></button>
         ))}</div>
-        <NeonRadar best={set.best} weight={weight} sex={p.sex} subtitle={`${label} Inner ring = start of your level. Outer ring = your next level.`} />
+        <NeonRadar best={set.best} weight={weight} sex={p.sex} subtitle={`${label} Inner ring = start of your level. Orange ring = next level, faint ring = the one after.`} />
         <div className="[&_*]:!text-slate-300"><HowToRead>
           <p>Each corner is your best power for that length of effort, placed on Coggan's power profile table{p.sex === 'female' ? ' for women' : ' for men'} (Allen and Coggan). The radar is scaled to you: on every corner the inner ring is where your current level starts and the dashed outer ring is where the next level starts, so a point halfway out is halfway through its level. The 20-min corner uses 95% of your 20-min power, the same as an FTP test. Tap a level to see where it starts on each power and how many watts are left to reach it.</p>
           <table className="mt-2 w-full text-[11px]"><thead><tr><th className="text-left">Starts at (W/kg)</th>{['5 s', '1 min', '5 min', '20 min'].map((k) => <th key={k} className="text-right">{k}</th>)}</tr></thead>

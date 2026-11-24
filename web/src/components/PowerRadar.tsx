@@ -50,8 +50,9 @@ export function NeonRadar({ best, weight, sex, subtitle }: { best: Record<string
   const show = (w: number) => (wkg ? `${(w / weight).toFixed(1)}` : `${Math.round(w)}`);
   const unit = wkg ? 'W/kg' : 'W';
   const lvlR = (i: number) => (tap == null ? null : Math.max(0.12, 1 + (tap - prof[i].cat)));
-  const data = prof.map((p, i) => ({ axis: p.label, me: 1 + p.frac, inner: 1, next: 2, lvl: lvlR(i), i }));
-  const domain = Math.max(2.9, ...data.map((d) => (d.lvl ?? 0) + 0.9));
+  // next2 (Ben 2026-11-24): a faint outline of the level after next as well
+  const data = prof.map((p, i) => ({ axis: p.label, me: 1 + p.frac, inner: 1, next: 2, next2: 3, lvl: lvlR(i), i }));
+  const domain = Math.max(3.5, ...data.map((d) => (d.lvl ?? 0) + 0.9));
   // Closest to levelling up: the corner furthest through its level
   const near = prof.map((p, i) => ({ p, i })).filter((x) => x.p.cat < 7).sort((a, b) => b.p.frac - a.p.frac)[0];
   const need = (i: number, cat: number) => levelWatts(i, cat, weight, sex) - prof[i].watts;
@@ -82,7 +83,7 @@ export function NeonRadar({ best, weight, sex, subtitle }: { best: Record<string
   return (
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm text-slate-300">{tap != null ? <>Showing where <b className="text-white">{CATEGORIES[tap]}</b> starts on each power, against your bests.</> : subtitle ?? 'Inner ring = start of your level. Outer ring = your next level.'}</p>
+        <p className="text-sm text-slate-300">{tap != null ? <>Showing where <b className="text-white">{CATEGORIES[tap]}</b> starts on each power, against your bests.</> : subtitle ?? 'Inner ring = start of your level. Orange ring = your next level, faint ring = the level after.'}</p>
         <div className="flex shrink-0 rounded-full bg-[#1E2B57] p-1" role="group" aria-label="Units">
           {[false, true].map((k) => (
             <button key={String(k)} type="button" aria-pressed={wkg === k} onClick={() => setWkg(k)}
@@ -96,7 +97,7 @@ export function NeonRadar({ best, weight, sex, subtitle }: { best: Record<string
           <div className="h-full w-full animate-sweep rounded-full" style={{ background: 'conic-gradient(from 0deg, rgba(0,184,255,0.28), transparent 70deg, transparent 360deg)' }} />
         </div>
         <ResponsiveContainer>
-          <RadarChart data={data} outerRadius="74%" startAngle={90} endAngle={-270}>
+          <RadarChart data={data} outerRadius="84%" startAngle={90} endAngle={-270}>
             <defs>
               <linearGradient id="neonFill" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#00B8FF" stopOpacity={0.55} /><stop offset="55%" stopColor="#A855F7" stopOpacity={0.45} /><stop offset="100%" stopColor={PINK} stopOpacity={0.6} /></linearGradient>
               <linearGradient id="neonStroke" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#3B82F6" /><stop offset="50%" stopColor="#A855F7" /><stop offset="100%" stopColor="#EC4899" /></linearGradient>
@@ -105,6 +106,7 @@ export function NeonRadar({ best, weight, sex, subtitle }: { best: Record<string
             <PolarAngleAxis dataKey="axis" tick={false} tickLine={false} axisLine={false} />
             <PolarRadiusAxis domain={[0, domain]} tick={false} axisLine={false} />
             <Radar dataKey="inner" stroke="#3B4A7A" strokeWidth={1.5} fill="#0F1733" fillOpacity={0.6} isAnimationActive={false} />
+            {top < 6 && <Radar dataKey="next2" stroke="#FF6B00" strokeOpacity={0.4} strokeWidth={1.5} strokeDasharray="3 6" fill="none" isAnimationActive={false} />}
             <Radar dataKey="next" stroke={ORANGE} strokeWidth={2.5} strokeDasharray="7 6" fill="none" className="motion-safe:animate-pulse" style={{ filter: 'url(#neonGlow)' }} isAnimationActive={false} />
             {tap != null && <Radar dataKey="lvl" stroke={LIME} strokeWidth={3} strokeDasharray="2 5" strokeLinecap="round" fill={LIME} fillOpacity={0.14} style={{ filter: 'url(#neonGlow)' }} dot={{ r: 5, fill: LIME, stroke: LIME }} animationDuration={500} />}
             <Radar dataKey="me" stroke="url(#neonStroke)" strokeWidth={3.5} fill="url(#neonFill)" fillOpacity={1} style={{ filter: 'url(#neonGlow)' }} dot={Dot as never} animationDuration={1000} />
@@ -114,7 +116,7 @@ export function NeonRadar({ best, weight, sex, subtitle }: { best: Record<string
         {(['left-1/2 top-0 -translate-x-1/2', 'right-0 top-1/2 -translate-y-[160%]', 'bottom-0 left-1/2 -translate-x-1/2', 'left-0 top-1/2 -translate-y-[160%]'] as const).map((pos, i) => (
           <span key={i} aria-hidden className={cn('pointer-events-none absolute font-display text-[17px] font-extrabold italic text-[#7FE7FF] [text-shadow:0_0_8px_rgba(0,216,255,0.6)]', pos)}>{RADAR_AXES[i].label}</span>
         ))}
-        {next != null && tap == null && <span className="pointer-events-none absolute right-2 top-6 rotate-45 font-display text-xs font-extrabold uppercase italic text-[#FF8A3D]">Next level</span>}
+        {next != null && tap == null && <span className="pointer-events-none absolute right-2 top-6 rotate-45 font-display text-xs font-extrabold uppercase italic text-[#FF8A3D]">Next level{top < 6 && <span className="block text-[10px] opacity-60">faint: the one after</span>}</span>}
       </div>
       <div className="grid grid-cols-4 gap-1.5">
         {CATEGORIES.map((c, ci) => {
