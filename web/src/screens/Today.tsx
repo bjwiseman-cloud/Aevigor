@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom';
 import { IcuConnectButton } from '@/components/IcuConnect';
-import { useLatestStatus, useProfile, useTodayCheckin } from '@/hooks/data';
+import { useDailyLoad, useLatestStatus, useProfile, useTodayCheckin } from '@/hooks/data';
+import { formZone, pmc } from '@/lib/metrics';
+import { useMemo } from 'react';
+import { addDays } from '@rules';
 import { STATUS, type Dot } from '@/lib/status';
 import { LastWeekCard, WeeklyCheckCard } from '@/components/WeekCards';
 import { fmt, niceDay, todayIn } from '@/lib/time';
@@ -72,7 +75,7 @@ const SIG_LOOK: Record<string, { bg: string; word: string }> = {
   bad: { bg: 'from-rose-400 via-pink-500 to-red-500 text-white', word: 'needs care' },
   none: { bg: 'from-slate-300 via-slate-400 to-zinc-400 text-slate-950', word: 'no data' }
 };
-const SIG_ICON: Record<string, string> = { Feel: '🙂', 'HRV 7-day': '💓', Sleep: '😴', 'Resting HR': '❤️', 'Load vs plan': '📊' };
+const SIG_ICON: Record<string, string> = { Feel: '🙂', 'HRV 7-day': '💓', Sleep: '😴', 'Resting HR': '❤️', 'Load vs plan': '📊', Form: '🔋' };
 const DAW = [
   { k: 'do', label: 'Do', icon: '✅', cls: 'border-emerald-300 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-500/10', pill: 'bg-emerald-500' },
   { k: 'avoid', label: 'Avoid', icon: '⛔', cls: 'border-rose-300 bg-rose-50 dark:border-rose-500/40 dark:bg-rose-500/10', pill: 'bg-rose-500' },
@@ -116,6 +119,8 @@ export function Today({ part = 'daily' }: { part?: 'daily' | 'weekly' }) {
   const status = useLatestStatus(profile);
   const checkin = useTodayCheckin(profile);
   const day = todayIn(profile.time_zone);
+  const load = useDailyLoad(profile);
+  const form = useMemo(() => { const rows = load.data ?? []; if (!rows.some((x) => x.actual > 0)) return null; return pmc(rows, 'all', addDays(day, -365), day, day).find((x) => x.day === day) ?? null; }, [load.data, day]);
 
   if (status.isLoading) return <p className="text-muted-foreground">Loading today…</p>;
   const r = status.data;
@@ -142,20 +147,25 @@ export function Today({ part = 'daily' }: { part?: 'daily' | 'weekly' }) {
   const s = r.signals;
   const lines = signalLines(s, !!checkin.data);
   if (s.sick) lines.push({ k: 'Sickness', range: null, sub: null, dot: s.sick === 'Yes' ? 'bad' : 'warn', v: s.sick === 'Yes' ? 'Below the neck' : 'Mild, above the neck' });
-  if (r.load && r.load.plan > 0) {
-    // A fill bar (Ben 2026-11-23): how much of the last 7 days' planned load is done. The scale runs to 150% of plan,
-    // with marks at the plan (100%) and at the alert line (120%).
-    const pct = Math.round((100 * r.load.act) / r.load.plan), w = (v: number) => `${Math.min(100, (v / 150) * 100)}%`;
-    lines.push({ k: 'Load vs plan', range: null, sub: 'last 7 days', dot: r.load.alert ? 'bad' : 'good',
+  // Form today (Ben 2026-11-24) instead of Load vs plan, which the Load tab and Last week already show.
+  // Form = Fitness minus Fatigue across all sports, the same zones as intervals.icu. A marker glides along the zones.
+  if (form) {
+    const z = formZone(form.form), pos = Math.max(0, Math.min(100, ((form.form + 40) / 65) * 100));
+    const FZ: Record<string, string> = { 'High risk': 'bad', Optimal: 'good', 'Grey zone': 'warn', Fresh: 'good', Transition: 'warn' };
+    const word: Record<string, string> = { 'High risk': 'Deep fatigue: recovery needed', Optimal: 'Building fitness', 'Grey zone': 'Maintaining', Fresh: 'Fresh, ready to perform', Transition: 'Very fresh, fitness slipping' };
+    lines.push(Object.assign({ k: 'Form', range: null, sub: r.load?.alert ? 'load running over plan' : null, dot: (FZ[z.name] ?? 'none') as Dot,
       v: <>
-        <span className="font-display text-2xl font-extrabold italic">{pct}%</span> <span>{r.load.act} of {r.load.plan} planned</span>
-        <span className="relative mt-2 block h-4 overflow-hidden rounded-full bg-card/90">
-          <span className={cn('absolute inset-y-0 left-0 rounded-full bg-gradient-to-r transition-all duration-700', r.load.alert ? 'from-orange-400 to-red-600' : 'from-sky-400 via-emerald-400 to-green-600')} style={{ width: w(pct) }} />
-          <span className="absolute inset-y-0 w-0.5 bg-foreground/70" style={{ left: w(100) }} title="Plan" />
-          <span className="absolute inset-y-0 w-0.5 bg-red-600/70" style={{ left: w(120) }} title="Alert line" />
+        <span className="font-display text-2xl font-extrabold italic">{form.form > 0 ? '+' : ''}{Math.round(form.form)}</span> <span>{word[z.name]}</span>
+        <span className="mt-2 block rounded-lg bg-card/90 px-2 pb-1 pt-2">
+        <span className="relative flex h-3 overflow-hidden rounded-full">
+          {[['#ef4444', 10 / 65], ['#22c55e', 20 / 65], ['#64748b', 15 / 65], ['#3b82f6', 15 / 65], ['#f59e0b', 5 / 65]].map(([c, w]) => <span key={c as string} style={{ background: c as string, width: `${(w as number) * 100}%` }} className="h-full opacity-90" />)}
         </span>
-        <span className="relative mt-0.5 block h-3 text-[10px] font-normal"><span className="absolute -translate-x-1/2" style={{ left: w(100) }}>plan</span><span className="absolute -translate-x-1/2" style={{ left: w(120) }}>+20%</span></span>
-      </> });
+        <span className="relative block h-4">
+          <span className="absolute -top-[16px] h-5 w-5 -translate-x-1/2 rounded-full border-[3px] border-white bg-[#0A1024] shadow-[0_0_10px_rgba(255,255,255,0.9)] transition-[left] duration-1000 ease-out motion-safe:animate-pulse" style={{ left: `${pos}%` }} />
+        </span>
+        <span className="flex justify-between text-[9px] font-semibold text-muted-foreground"><span>Tired</span><span>Building</span><span>Grey</span><span>Fresh</span><span>Very fresh</span></span>
+        </span>
+      </> }, { word: z.name }));
   }
 
   return (
@@ -183,7 +193,7 @@ export function Today({ part = 'daily' }: { part?: 'daily' | 'weekly' }) {
               <div className="relative flex items-center gap-3">
                 <span className="text-2xl leading-none animate-float motion-reduce:animate-none" style={{ animationDelay: `${i * 230}ms` }}>{SIG_ICON[l.k] ?? '•'}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide opacity-90">{l.k} · {look.word}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide opacity-90">{l.k} · {(l as { word?: string }).word ?? look.word}</div>
                   {l.range ? <div className="font-display text-2xl font-extrabold italic leading-tight">{l.range.label}</div> : <div className="text-base font-bold leading-tight [&_span]:font-normal [&_span]:text-inherit [&_span]:opacity-80">{l.v}</div>}
                 </div>
                 {l.sub && <span className="max-w-[45%] text-right text-[11px] opacity-90">{l.sub}</span>}
